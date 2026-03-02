@@ -260,16 +260,16 @@ export default function AirlinePage() {
 
   const handleActionSuccess = useCallback(() => {
     handleCloseActionModal();
-    queryClient.invalidateQueries({ queryKey: ['airline-actions'] });
-    queryClient.invalidateQueries({ queryKey: ['airline-callsigns'] });
+    queryClient.invalidateQueries({ queryKey: ['airline-actions'], exact: false });
+    queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
     queryClient.invalidateQueries({ queryKey: ['airline-action-stats'], exact: false });
   }, [handleCloseActionModal, queryClient]);
 
   const handleActionDetailSuccess = useCallback(() => {
     setIsActionDetailModalOpen(false);
     setActionPage(1);
-    queryClient.invalidateQueries({ queryKey: ['airline-actions'] });
-    queryClient.invalidateQueries({ queryKey: ['airline-callsigns'] });
+    queryClient.invalidateQueries({ queryKey: ['airline-actions'], exact: false });
+    queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
     queryClient.invalidateQueries({ queryKey: ['airline-action-stats'], exact: false });
   }, [queryClient]);
 
