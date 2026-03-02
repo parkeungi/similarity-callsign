@@ -49,8 +49,6 @@ const isTokenExpired = (payload: RefreshTokenPayload | null): boolean => {
 };
 
 export function middleware(request: NextRequest) {
-  // 🔴 임시 비활성화: 모든 요청 허용
-  return NextResponse.next();
   const { pathname } = request.nextUrl;
 
   // refreshToken 쿠키만 확인 (단순화)

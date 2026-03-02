@@ -10,14 +10,15 @@
 
 import { authStore } from '@/store/authStore';
 
-/** 동시 refresh 요청 방지를 위한 싱글 Promise 플래그 */
-let refreshingPromise: Promise<string | null> | null = null;
+/** 동시 refresh 요청 방지를 위한 싱글 Promise 플래그 (모듈 레벨에서 공유) */
+export let refreshingPromise: Promise<string | null> | null = null;
 
 /**
  * /api/auth/refresh 호출 후 새 accessToken 반환
  * 실패하면 null 반환
+ * (authStore.checkTokenExpiry()와 apiFetch에서 공유)
  */
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   try {
     const response = await fetch('/api/auth/refresh', {
       method: 'POST',
@@ -42,8 +43,9 @@ async function refreshAccessToken(): Promise<string | null> {
 
 /**
  * 토큰 갱신 중복 호출 방지: 동시에 여러 요청이 401 받아도 refresh는 1회만
+ * (authStore.checkTokenExpiry()와 apiFetch에서 공유되는 뮤텍스)
  */
-async function getRefreshedToken(): Promise<string | null> {
+export async function getRefreshedToken(): Promise<string | null> {
   if (!refreshingPromise) {
     refreshingPromise = refreshAccessToken().finally(() => {
       refreshingPromise = null;
