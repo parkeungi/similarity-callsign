@@ -1,3 +1,6 @@
+import { Airline } from './airline';
+import { User } from './user';
+
 /**
  * 파일 업로드 인터페이스 (file_uploads 테이블)
  * 엑셀 파일 업로드 이력 및 처리 결과 추적
