@@ -471,83 +471,107 @@ export default function AirlinePage() {
       {/* 호출부호 상세 모달 */}
       {isCallsignDetailModalOpen && selectedCallsignForDetail && callsignDetailMeta && (
         <div
-          className="fixed inset-0 bg-black/35 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/35 flex items-center justify-center z-50 overflow-y-auto"
           onClick={() => setIsCallsignDetailModalOpen(false)}
         >
           <div
-            className="w-[800px] max-w-[95vw] bg-white rounded-xl shadow-2xl p-6"
+            className="w-[900px] max-w-[95vw] bg-white rounded-xl shadow-2xl p-8 my-8"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 헤더 */}
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">
+                <h2 className="text-2xl font-black text-gray-900">
                   {selectedCallsignForDetail.callsign_pair}
                 </h2>
-                <p className="text-sm text-gray-500 mt-1">발생내역 상세정보</p>
+                <p className="text-sm text-gray-500 mt-2">발생내역 상세정보</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCallsignDetailModalOpen(false)}
-                className="text-xl text-gray-400 hover:text-gray-600"
+                className="text-2xl text-gray-400 hover:text-gray-600 transition"
               >
                 ×
               </button>
             </div>
 
             {/* 상세정보 그리드 */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <p className="text-xs font-semibold text-gray-500 mb-2">발생건수</p>
-                <p className="text-xl font-bold text-orange-600">{callsignDetailMeta.occurrenceCount}건</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+              <div className="p-4 border border-gray-200 rounded-lg bg-white">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">발생건수</p>
+                <p className="text-2xl font-black text-orange-600">{callsignDetailMeta.occurrenceCount}건</p>
               </div>
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <p className="text-xs font-semibold text-gray-500 mb-2">최초 발생일</p>
-                <p className="text-base font-bold text-gray-900">{formatDisplayDate(callsignDetailMeta.firstOccurredAt)}</p>
+              <div className="p-4 border border-gray-200 rounded-lg bg-white">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">최초 발생일</p>
+                <p className="text-sm font-bold text-gray-900">{formatDisplayDate(callsignDetailMeta.firstOccurredAt)}</p>
               </div>
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <p className="text-xs font-semibold text-gray-500 mb-2">최근 발생일</p>
-                <p className="text-base font-bold text-gray-900">{formatDisplayDate(callsignDetailMeta.lastOccurredAt)}</p>
+              <div className="p-4 border border-gray-200 rounded-lg bg-white">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">최근 발생일</p>
+                <p className="text-sm font-bold text-gray-900">{formatDisplayDate(callsignDetailMeta.lastOccurredAt)}</p>
               </div>
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <p className="text-xs font-semibold text-gray-500 mb-2">유사성</p>
-                <p className="text-base font-bold text-gray-900">{callsignDetailMeta.similarity}</p>
+              <div className="p-4 border border-gray-200 rounded-lg bg-white">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">유사성</p>
+                <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.similarity}</p>
               </div>
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <p className="text-xs font-semibold text-gray-500 mb-2">오류가능성</p>
-                <p className="text-base font-bold text-gray-900">{callsignDetailMeta.riskLevel}</p>
+              <div className="p-4 border border-gray-200 rounded-lg bg-white">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">오류가능성</p>
+                <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.riskLevel}</p>
               </div>
             </div>
 
-            {/* 추가정보 */}
-            <div className="mt-5 p-4 bg-gray-50 rounded-lg">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-gray-500">자사 호출부호: </span>
-                  <span className="font-semibold text-gray-900">{callsignDetailMeta.myCallsign}</span>
+            {/* 호출부호 정보 */}
+            <div className="mb-6">
+              <h3 className="text-sm font-black text-gray-700 uppercase tracking-widest mb-3">호출부호 정보</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 border border-gray-200 rounded-lg bg-blue-50">
+                  <p className="text-xs font-semibold text-gray-500 mb-1">자사 호출부호</p>
+                  <p className="text-base font-black text-blue-700">{callsignDetailMeta.myCallsign}</p>
                 </div>
-                <div>
-                  <span className="text-gray-500">타사 호출부호: </span>
-                  <span className="font-semibold text-gray-900">{callsignDetailMeta.otherCallsign}</span>
+                <div className="p-3 border border-gray-200 rounded-lg bg-red-50">
+                  <p className="text-xs font-semibold text-gray-500 mb-1">타사 호출부호</p>
+                  <p className="text-base font-black text-red-700">{callsignDetailMeta.otherCallsign}</p>
                 </div>
-                <div>
-                  <span className="text-gray-500">오류 유형: </span>
-                  <span className="font-semibold text-gray-900">{callsignDetailMeta.errorType}</span>
+                <div className="p-3 border border-gray-200 rounded-lg">
+                  <p className="text-xs font-semibold text-gray-500 mb-1">오류 유형</p>
+                  <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.errorType}</p>
                 </div>
-                <div>
-                  <span className="text-gray-500">세부 오류: </span>
-                  <span className="font-semibold text-gray-900">{callsignDetailMeta.subError}</span>
+                <div className="p-3 border border-gray-200 rounded-lg">
+                  <p className="text-xs font-semibold text-gray-500 mb-1">세부 오류</p>
+                  <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.subError}</p>
                 </div>
               </div>
+            </div>
+
+            {/* 대상 항공사 정보 */}
+            <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+              <h3 className="text-sm font-black text-gray-700 uppercase tracking-widest mb-2">대상 항공사</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 font-semibold">타사 항공사 코드</p>
+                  <p className="text-lg font-black text-indigo-700 mt-1">{selectedCallsignForDetail.other_airline_code || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-semibold">조치 대상</p>
+                  <p className="text-sm text-gray-900 font-bold mt-1">양사 조치 필요 (조치상태 확인 필수)</p>
+                </div>
+              </div>
+            </div>
+
+            {/* ATC 관제사 의견 */}
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h3 className="text-sm font-black text-gray-700 uppercase tracking-widest mb-2">🎯 ATC 관제사 의견</h3>
+              <p className="text-sm font-semibold text-gray-900">
+                {selectedCallsignForDetail.atc_recommendation || '별도 의견 없음'}
+              </p>
             </div>
 
             {/* 닫기 버튼 */}
-            <div className="mt-5 text-right">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setIsCallsignDetailModalOpen(false)}
-                className="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition"
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition"
               >
-                닫기
+                확인
               </button>
             </div>
           </div>
