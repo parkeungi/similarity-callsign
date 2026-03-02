@@ -114,10 +114,8 @@ export interface AirlineDetailStats {
   airline_code: string;
   airline_name_ko: string;
   total_callsigns: number;
-  pending_actions: number;
   in_progress_actions: number;
   completed_actions: number;
-  total_actions: number;
   completion_rate: number;
 }
 

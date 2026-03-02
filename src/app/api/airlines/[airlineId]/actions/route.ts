@@ -380,10 +380,17 @@ export async function POST(
 
     // 호출부호 존재 및 항공사 코드 일치 확인 + 상세 정보 조회
     // (내 항공사이거나 상대 항공사인 경우 모두 허용)
+    console.log('[POST /api/airlines/[airlineId]/actions] 호출부호 조회:', {
+      callsignId,
+      airlineCode,
+    });
+
     const callsignCheck = await query(
       'SELECT id, airline_code, other_airline_code, my_action_status, other_action_status FROM callsigns WHERE id = ? AND (airline_code = ? OR other_airline_code = ?)',
       [callsignId, airlineCode, airlineCode]
     );
+
+    console.log('[POST /api/airlines/[airlineId]/actions] 호출부호 조회 결과:', callsignCheck.rows.length);
 
     if (callsignCheck.rows.length === 0) {
       return NextResponse.json(
@@ -434,16 +441,26 @@ export async function POST(
       [airlineId, callsignId]
     );
 
+    let existingActionId: string;
+
+    // action이 없으면 새로 생성, 있으면 기존 ID 사용
     if (existingActionResult.rows.length === 0) {
-      return NextResponse.json(
-        { error: '등록할 조치를 찾을 수 없습니다. (호출부호가 등록되지 않았습니다.)' },
-        { status: 404 }
+      // 📌 NEW: action이 없으면 INSERT (호출부호만 있는 경우)
+      const nowIso = new Date().toISOString();
+      const createResult = await query(
+        `INSERT INTO actions
+          (airline_id, callsign_id, action_type, status, registered_by, registered_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [airlineId, callsignId, actionType || '조치등록', actionStatus, payload.userId, nowIso, nowIso]
       );
+      existingActionId = createResult.lastInsertRowid as string;
+      console.log('[POST /api/airlines/[airlineId]/actions] NEW action created:', existingActionId);
+    } else {
+      existingActionId = existingActionResult.rows[0].id;
+      console.log('[POST /api/airlines/[airlineId]/actions] Existing action found:', existingActionId);
     }
 
-    const existingActionId = existingActionResult.rows[0].id;
-
-    // Step 2: 기존 action UPDATE (취소된 행도 복원 가능)
+    // Step 2: action UPDATE (취소된 행도 복현 가능)
     await transaction(async (trx) => {
       // 1. action 업데이트 (상태, 조치 정보, 취소 플래그 복원)
       const nowIso = new Date().toISOString();

@@ -76,6 +76,14 @@ export function ActionModal({
     }
 
     try {
+      // 📌 DEBUG: airlineId 확인
+      console.log('[ActionModal] 조치 등록 시작');
+      console.log('[ActionModal] airlineId:', airlineId);
+      console.log('[ActionModal] airlineId type:', typeof airlineId);
+      console.log('[ActionModal] airlineId length:', airlineId.length);
+      console.log('[ActionModal] callsignId:', callsignId);
+      console.log('[ActionModal] actionType:', actionType);
+
       // manager_name: 담당자 필드는 비즈니스 요구사항에 따라 제거됨
       // (관리자가 시스템에서 자동으로 할당하도록 변경)
       if (actionId) {
@@ -89,6 +97,7 @@ export function ActionModal({
         });
       } else {
         // 신규 등록 모드: 항상 'completed' 상태로 자동 저장
+        console.log('[ActionModal] API 호출: POST /api/airlines/' + airlineId + '/actions');
         await createMutation.mutateAsync({
           airlineId,
           callsign_id: callsignId,

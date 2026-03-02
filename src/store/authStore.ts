@@ -1,12 +1,42 @@
 /**
- * 인증 상태 관리 (Zustand) - 서버 중심 패턴
- * - accessToken: 메모리에만 저장
- * - refreshToken: httpOnly 쿠키에만 저장
- * - user: 서버에서만 가져옴 (쿠키 저장 없음)
+ * 인증 상태 관리 (Zustand) - 하이브리드 패턴
+ * - accessToken: localStorage + 메모리에 저장 (새로고침 시 자동 복원)
+ * - refreshToken: httpOnly 쿠키에만 저장 (서버 자동 포함)
+ * - user: 메모리에만 저장 (accessToken 로드 후 복원)
  */
 
 import { create } from 'zustand';
 import { User } from '@/types/user';
+
+const STORAGE_KEY = 'auth_token';
+
+// localStorage 헬퍼 함수
+const getTokenFromStorage = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const saveTokenToStorage = (token: string): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY, token);
+  } catch {
+    console.warn('[AuthStore] localStorage 저장 실패');
+  }
+};
+
+const removeTokenFromStorage = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    console.warn('[AuthStore] localStorage 삭제 실패');
+  }
+};
 
 interface AuthStore {
   user: User | null;
@@ -38,15 +68,19 @@ export const authStore = create<AuthStore>((set, get) => ({
   isInitialized: false,
 
   setAuth: (user, accessToken) => {
-    // 메모리에만 저장, 쿠키 저장 제거
+    // accessToken을 메모리 + localStorage에 저장
     set({ user, accessToken, isLoading: false });
+    saveTokenToStorage(accessToken);
   },
 
-  setAccessToken: (token) =>
-    set({ accessToken: token }),
+  setAccessToken: (token) => {
+    // accessToken을 메모리 + localStorage에 저장
+    set({ accessToken: token });
+    saveTokenToStorage(token);
+  },
 
   setUser: (user) => {
-    // 메모리에만 저장, 쿠키 저장 제거
+    // 메모리에만 저장
     set({ user });
   },
 
@@ -56,7 +90,7 @@ export const authStore = create<AuthStore>((set, get) => ({
   setInitialized: (value) =>
     set({ isInitialized: value }),
 
-  // 페이지 로드 시 초기화: refreshToken이 있으면 accessToken 자동 갱신
+  // 페이지 로드 시 초기화: localStorage 토큰 복원 또는 refreshToken으로 갱신
   initializeAuth: async () => {
     try {
       const state = get();
@@ -68,7 +102,21 @@ export const authStore = create<AuthStore>((set, get) => ({
 
       set({ isLoading: true });
 
-      // refreshToken 쿠키가 있는지 확인 (refresh API 호출로 확인)
+      // 1️⃣ localStorage에서 accessToken 복원 시도 (빠른 복원)
+      const storedToken = getTokenFromStorage();
+      if (storedToken) {
+        set({
+          accessToken: storedToken,
+          isInitialized: true,
+          isLoading: false,
+        });
+        console.log('[AuthStore] 초기화 완료: localStorage에서 accessToken 복원');
+
+        // 백그라운드에서 토큰 유효성 검증 (API 요청 시 자동 갱신됨)
+        return;
+      }
+
+      // 2️⃣ localStorage 토큰이 없으면 refreshToken으로 갱신
       const refreshResponse = await fetch('/api/auth/refresh', {
         method: 'POST',
         credentials: 'include', // 쿠키 포함
@@ -82,7 +130,8 @@ export const authStore = create<AuthStore>((set, get) => ({
           isInitialized: true,
           isLoading: false,
         });
-        console.log('[AuthStore] 초기화 완료: refreshToken으로 토큰 갱신됨');
+        saveTokenToStorage(data.accessToken);
+        console.log('[AuthStore] 초기화 완료: refreshToken으로 토큰 갱신');
       } else {
         // refreshToken이 유효하지 않으면 로그아웃
         await get().logout();
@@ -133,8 +182,9 @@ export const authStore = create<AuthStore>((set, get) => ({
       console.error('로그아웃 API 호출 실패:', error);
     }
 
-    // 메모리 상태만 초기화
+    // 메모리 + localStorage에서 정리
     set({ user: null, accessToken: null, isLoading: false });
+    removeTokenFromStorage();
   },
 
   isAuthenticated: () => {

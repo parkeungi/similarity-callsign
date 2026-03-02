@@ -330,88 +330,59 @@ export async function POST(request: NextRequest) {
               ]
             );
           } else {
-            // 삽입 (Callsign + Actions 트랜잭션으로 통합)
+            // 삽입 (Callsign + Actions 직접 처리 - better-sqlite3는 동기 DB)
             isNewCallsign = true;
 
             try {
-              const { transaction } = await import('@/lib/db');
+              // 1. Callsign INSERT (file_upload_id는 NULL로 처리)
+              const insertResult = await query(
+                `INSERT INTO callsigns
+                  (airline_id, airline_code, callsign_pair, my_callsign, other_callsign,
+                   other_airline_code, sector, departure_airport1, arrival_airport1,
+                   departure_airport2, arrival_airport2, same_airline_code, same_callsign_length,
+                   same_number_position, same_number_count, same_number_ratio, similarity,
+                   max_concurrent_traffic, coexistence_minutes, error_probability, atc_recommendation,
+                   error_type, sub_error, risk_level, file_upload_id, uploaded_at, status,
+                   my_action_status, other_action_status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, CURRENT_TIMESTAMP, 'in_progress', 'in_progress', 'in_progress')`,
+                [
+                  airlineId,
+                  rowData.airline_code,
+                  rowData.callsign_pair,
+                  rowData.my_callsign,
+                  rowData.other_callsign,
+                  rowData.other_airline_code,
+                  rowData.sector,
+                  rowData.departure_airport1,
+                  rowData.arrival_airport1,
+                  rowData.departure_airport2,
+                  rowData.arrival_airport2,
+                  rowData.same_airline_code,
+                  rowData.same_callsign_length,
+                  rowData.same_number_position,
+                  rowData.same_number_count,
+                  rowData.same_number_ratio,
+                  rowData.similarity,
+                  rowData.max_concurrent_traffic,
+                  rowData.coexistence_minutes,
+                  rowData.error_probability,
+                  rowData.atc_recommendation,
+                  rowData.error_type,
+                  rowData.sub_error,
+                  rowData.risk_level,
+                ]
+              );
 
-              // Callsign INSERT + Actions 자동 생성을 트랜잭션으로 처리
-              await transaction(async (trx) => {
-                // 1. Callsign INSERT
-                const insertResult = await trx(
-                  `INSERT INTO callsigns
-                    (airline_id, airline_code, callsign_pair, my_callsign, other_callsign,
-                     other_airline_code, sector, departure_airport1, arrival_airport1,
-                     departure_airport2, arrival_airport2, same_airline_code, same_callsign_length,
-                     same_number_position, same_number_count, same_number_ratio, similarity,
-                     max_concurrent_traffic, coexistence_minutes, error_probability, atc_recommendation,
-                     error_type, sub_error, risk_level, file_upload_id, uploaded_at, status,
-                     my_action_status, other_action_status)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'in_progress', 'in_progress', 'in_progress')`,
-                  [
-                    airlineId,
-                    rowData.airline_code,
-                    rowData.callsign_pair,
-                    rowData.my_callsign,
-                    rowData.other_callsign,
-                    rowData.other_airline_code,
-                    rowData.sector,
-                    rowData.departure_airport1,
-                    rowData.arrival_airport1,
-                    rowData.departure_airport2,
-                    rowData.arrival_airport2,
-                    rowData.same_airline_code,
-                    rowData.same_callsign_length,
-                    rowData.same_number_position,
-                    rowData.same_number_count,
-                    rowData.same_number_ratio,
-                    rowData.similarity,
-                    rowData.max_concurrent_traffic,
-                    rowData.coexistence_minutes,
-                    rowData.error_probability,
-                    rowData.atc_recommendation,
-                    rowData.error_type,
-                    rowData.sub_error,
-                    rowData.risk_level,
-                    uploadId,
-                  ]
-                );
+              // 2. 새로 삽입된 ID 가져오기
+              const idResult = await query(
+                `SELECT id FROM callsigns WHERE airline_code = ? AND callsign_pair = ? ORDER BY uploaded_at DESC LIMIT 1`,
+                [rowData.airline_code, rowData.callsign_pair]
+              );
 
-                // 2. 새로 삽입된 ID 가져오기
-                const idResult = await trx(
-                  `SELECT id FROM callsigns WHERE airline_code = ? AND callsign_pair = ? ORDER BY uploaded_at DESC LIMIT 1`,
-                  [rowData.airline_code, rowData.callsign_pair]
-                );
+              callsignId = idResult.rows[0].id;
 
-                callsignId = idResult.rows[0].id;
-
-                // 3. 자사 항공사의 action 생성
-                const nowIso = new Date().toISOString();
-                await trx(
-                  `INSERT INTO actions
-                    (airline_id, callsign_id, action_type, status, registered_by, registered_at, updated_at)
-                   VALUES (?, ?, '자동생성', 'in_progress', ?, ?, ?)`,
-                  [airlineId, callsignId, payload.userId, nowIso, nowIso]
-                );
-
-                // 4. 상대 항공사의 action 생성 (상대 항공사가 국내 항공사인 경우)
-                if (rowData.other_airline_code) {
-                  const otherAirlineResult = await trx(
-                    'SELECT id FROM airlines WHERE code = ?',
-                    [rowData.other_airline_code]
-                  );
-                  if (otherAirlineResult.rows.length > 0) {
-                    const otherAirlineId = otherAirlineResult.rows[0].id;
-                    await trx(
-                      `INSERT INTO actions
-                        (airline_id, callsign_id, action_type, status, registered_by, registered_at, updated_at)
-                       VALUES (?, ?, '자동생성', 'in_progress', ?, ?, ?)`,
-                      [otherAirlineId, callsignId, payload.userId, nowIso, nowIso]
-                    );
-                  }
-                }
-              });
+              // 📌 IMPORTANT: Actions은 나중에 항공사가 조치등록할 때 생성됨
+              // (관리자의 호출부호 업로드에서는 callsigns만 생성)
             } catch (txError) {
               errors.push(`행 ${i + 2}: Callsign 또는 Actions 생성 실패 - ${txError instanceof Error ? txError.message : String(txError)}`);
               continue;

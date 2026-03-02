@@ -90,8 +90,11 @@ export default function AirlinePage() {
     let name = user.airline?.name_ko || '';
     let id = user.airline?.id || '';
 
-    // 📌 DEBUG: user.airline 정보 확인
-    console.log('[AirlinePage] user.airline:', user.airline, 'id:', id, 'id.length:', id.length);
+    // 📌 DEBUG: user.airline 정보 확인 (JSON 문자열로 변환)
+    console.log('[AirlinePage] user.airline (전체):', JSON.stringify(user.airline, null, 2));
+    console.log('[AirlinePage] airline.id:', id);
+    console.log('[AirlinePage] airline.id length:', id.length);
+    console.log('[AirlinePage] airline.id type:', typeof id);
 
     if (!code) {
       code = 'KAL';
@@ -107,6 +110,7 @@ export default function AirlinePage() {
 
     if (id) {
       setAirlineId(id);
+      console.log('[AirlinePage] setAirlineId called with:', id);
     }
   }, [user, router]);
 

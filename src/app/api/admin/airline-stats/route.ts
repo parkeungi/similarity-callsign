@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 3️⃣ 항공사별 집계 통계 조회
+    // 조치율 = 완료 건수 / (진행중 + 완료) 건수 × 100%
     const result = await query(
       `
       SELECT
@@ -86,20 +87,21 @@ export async function GET(request: NextRequest) {
         al.code as airline_code,
         al.name_ko as airline_name_ko,
         COUNT(DISTINCT cs.id) as total_callsigns,
-        SUM(CASE WHEN a.status = 'pending' AND COALESCE(a.is_cancelled, 0) = 0 THEN 1 ELSE 0 END) as pending_actions,
         SUM(CASE WHEN a.status = 'in_progress' AND COALESCE(a.is_cancelled, 0) = 0 THEN 1 ELSE 0 END) as in_progress_actions,
         SUM(CASE WHEN a.status = 'completed' AND COALESCE(a.is_cancelled, 0) = 0 THEN 1 ELSE 0 END) as completed_actions,
-        COUNT(CASE WHEN COALESCE(a.is_cancelled, 0) = 0 THEN 1 END) as total_actions,
         ROUND(
           SUM(CASE WHEN a.status = 'completed' AND COALESCE(a.is_cancelled, 0) = 0 THEN 1 ELSE 0 END) * 100.0 /
-          NULLIF(COUNT(CASE WHEN COALESCE(a.is_cancelled, 0) = 0 THEN 1 END), 0),
+          NULLIF(
+            SUM(CASE WHEN a.status IN ('in_progress', 'completed') AND COALESCE(a.is_cancelled, 0) = 0 THEN 1 ELSE 0 END),
+            0
+          ),
           1
         ) as completion_rate
       FROM airlines al
       LEFT JOIN callsigns cs ON cs.airline_id = al.id
       LEFT JOIN actions a ON a.airline_id = al.id AND (${whereClause})
       GROUP BY al.id, al.code, al.name_ko
-      ORDER BY total_actions DESC
+      ORDER BY completed_actions DESC, in_progress_actions DESC
       `,
       params
     );
@@ -110,10 +112,8 @@ export async function GET(request: NextRequest) {
         airline_code: row.airline_code,
         airline_name_ko: row.airline_name_ko,
         total_callsigns: parseInt(row.total_callsigns, 10),
-        pending_actions: parseInt(row.pending_actions, 10) || 0,
         in_progress_actions: parseInt(row.in_progress_actions, 10) || 0,
         completed_actions: parseInt(row.completed_actions, 10) || 0,
-        total_actions: parseInt(row.total_actions, 10) || 0,
         completion_rate: parseFloat(row.completion_rate) || 0,
       })),
     });
