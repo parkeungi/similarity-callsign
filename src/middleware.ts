@@ -51,9 +51,9 @@ const isTokenExpired = (payload: RefreshTokenPayload | null): boolean => {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // refreshToken 쿠키만 확인 (단순화)
+  // ✅ Option A: refreshToken 쿠키만 확인 (단순화)
+  // sessionStorage 복구는 클라이언트(authStore)에서 처리
   const refreshToken = request.cookies.get('refreshToken')?.value;
-  const userCookie = request.cookies.get('user')?.value;
 
   // 토큰 유효성/만료 여부 체크
   let tokenPayload: RefreshTokenPayload | null = null;
@@ -75,24 +75,10 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // refreshToken만으로 인증 여부 판단
   const isLoggedIn = !!refreshToken && isValidFormat && !!tokenPayload;
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
-
-  let userRole: string | null = null;
-  let needsPasswordChange = false;
-  if (userCookie) {
-    try {
-      const parsed = JSON.parse(decodeURIComponent(userCookie));
-      userRole = parsed?.role || null;
-      // 📌 passwordChangeRequired 플래그 확인
-      needsPasswordChange = parsed?.passwordChangeRequired === true;
-    } catch (error) {
-      // 쿠키 파싱 실패: 로그인 상태로 간주하지 않음
-    }
-  }
-
-  const defaultRedirect = userRole === 'admin' ? '/admin' : '/airline';
 
   const finalizeResponse = (response: NextResponse) => {
     if (shouldDeleteRefreshToken) {
@@ -101,30 +87,20 @@ export function middleware(request: NextRequest) {
     return response;
   };
 
-  // 📌 강제 비밀번호 변경 필요 여부 체크
-  // - 로그인 상태 AND 비밀번호 변경 필요 AND 보호 라우트 AND change-password 경로 제외
-  const isChangePasswordRoute = pathname === '/change-password' || pathname.startsWith('/api/auth/change-password') || pathname.startsWith('/api/auth/logout') || pathname.startsWith('/api/auth/me');
-  const needsForcedPasswordChange = isLoggedIn && needsPasswordChange && isProtectedRoute && !isChangePasswordRoute;
-
-  // 0. 강제 비밀번호 변경 → /change-password로 리다이렉트 (우회 불가)
-  if (needsForcedPasswordChange) {
-    return finalizeResponse(NextResponse.redirect(new URL('/change-password?forced=true', request.url)));
-  }
-
-  // 1. 로그인 안 된 상태 + 보호 라우트 → /으로 리다이렉트
+  // ✅ Option A: 단순화된 미들웨어 로직
+  // 1. 로그인 안 된 상태 + 보호 라우트 → /login으로 리다이렉트
   if (!isLoggedIn && isProtectedRoute) {
-    return finalizeResponse(NextResponse.redirect(new URL('/', request.url)));
+    return finalizeResponse(NextResponse.redirect(new URL('/login', request.url)));
   }
 
-  // 2. 로그인 상태 + 인증 라우트 → 역할별 기본 페이지로 리다이렉트
-  // (비밀번호 변경 필요한 경우는 제외)
-  if (isLoggedIn && isAuthRoute && !needsPasswordChange) {
-    return finalizeResponse(NextResponse.redirect(new URL(defaultRedirect, request.url)));
+  // 2. 로그인 상태 + 인증 라우트 → 보호 라우트로 리다이렉트
+  if (isLoggedIn && isAuthRoute) {
+    return finalizeResponse(NextResponse.redirect(new URL('/airline', request.url)));
   }
 
-  // 3. 로그인 상태 + 홈(/) 접속 → 역할별 기본 페이지로 리다이렉트
+  // 3. 로그인 상태 + 홈(/) 접속 → /airline로 리다이렉트
   if (isLoggedIn && pathname === '/') {
-    return finalizeResponse(NextResponse.redirect(new URL(defaultRedirect, request.url)));
+    return finalizeResponse(NextResponse.redirect(new URL('/airline', request.url)));
   }
 
   return finalizeResponse(NextResponse.next());
