@@ -64,17 +64,17 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
 
-    // SQL WHERE 절 동적 구성
+    // SQL WHERE 절 동적 구성 (서브쿼리에서 사용하므로 테이블 별칭 없음)
     let whereClause = '1=1';
     const params: (string | null)[] = [];
 
     if (dateFrom) {
-      whereClause += ' AND DATE(a.registered_at) >= DATE(?)';
+      whereClause += ' AND DATE(registered_at) >= DATE(?)';
       params.push(dateFrom);
     }
 
     if (dateTo) {
-      whereClause += ' AND DATE(a.registered_at) <= DATE(?)';
+      whereClause += ' AND DATE(registered_at) <= DATE(?)';
       params.push(dateTo);
     }
 
