@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useCallsignsWithActions } from '@/hooks/useActions';
 import { useAirlines } from '@/hooks/useAirlines';
 import { useAuthStore } from '@/store/authStore';
 import { StatCard } from './StatCard';
+import { Callsign } from '@/types/action';
 
 interface StatsResponse {
   total: number;
@@ -36,6 +37,10 @@ export function OverviewTab() {
   const [limit, setLimit] = useState(10);
   const pageSizeOptions = [10, 30, 50, 100];
   const accessToken = useAuthStore((s) => s.accessToken);
+
+  // 모달 상태
+  const [selectedCallsignForDetail, setSelectedCallsignForDetail] = useState<Callsign | null>(null);
+  const [isCallsignDetailModalOpen, setIsCallsignDetailModalOpen] = useState(false);
 
   const airlinesQuery = useAirlines();
   const callsignsQuery = useCallsignsWithActions({
@@ -139,6 +144,29 @@ export function OverviewTab() {
         };
     }
   };
+
+  const formatDisplayDate = useCallback((value?: string | null) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  }, []);
+
+  // 호출부호 상세정보 메타데이터 계산
+  const callsignDetailMeta = useMemo(() => {
+    if (!selectedCallsignForDetail) return null;
+    return {
+      occurrenceCount: selectedCallsignForDetail.occurrence_count ?? 0,
+      firstOccurredAt: selectedCallsignForDetail.first_occurred_at ?? null,
+      lastOccurredAt: selectedCallsignForDetail.last_occurred_at ?? null,
+      similarity: selectedCallsignForDetail.similarity ?? '-',
+      riskLevel: selectedCallsignForDetail.risk_level ?? '-',
+      myCallsign: selectedCallsignForDetail.my_callsign ?? '-',
+      otherCallsign: selectedCallsignForDetail.other_callsign ?? '-',
+      errorType: selectedCallsignForDetail.error_type ?? '-',
+      subError: selectedCallsignForDetail.sub_error ?? '-',
+    };
+  }, [selectedCallsignForDetail]);
 
   const handleReset = () => {
     setSelectedRiskLevel('');
@@ -424,7 +452,14 @@ export function OverviewTab() {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {rows.map((callsign) => (
-                  <tr key={callsign.id} className="group hover:bg-slate-50/50 transition-colors">
+                  <tr
+                    key={callsign.id}
+                    className="group hover:bg-slate-50/50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setSelectedCallsignForDetail(callsign);
+                      setIsCallsignDetailModalOpen(true);
+                    }}
+                  >
                     {/* 호출부호 */}
                     <td className="px-6 py-5 font-bold text-slate-800 whitespace-nowrap text-[15px]">{callsign.callsign_pair}</td>
 
@@ -602,6 +637,84 @@ export function OverviewTab() {
           </div>
         )}
       </div>
+
+      {/* 호출부호 상세 모달 */}
+      {isCallsignDetailModalOpen && selectedCallsignForDetail && callsignDetailMeta && (
+        <div
+          className="fixed inset-0 bg-black/35 flex items-center justify-center z-50 overflow-y-auto"
+          onClick={() => setIsCallsignDetailModalOpen(false)}
+        >
+          <div
+            className="w-[900px] max-w-[95vw] bg-white rounded-xl shadow-2xl p-8 my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 헤더 */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-black text-gray-900">
+                  {selectedCallsignForDetail.callsign_pair}
+                </h2>
+                <p className="text-sm text-gray-500 mt-2">발생내역 상세정보</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCallsignDetailModalOpen(false)}
+                className="text-2xl text-gray-400 hover:text-gray-600 transition"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* 상세정보 그리드 */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+              <div className="p-4 border border-gray-200 rounded-lg bg-white">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">발생건수</p>
+                <p className="text-2xl font-black text-orange-600">{callsignDetailMeta.occurrenceCount}건</p>
+              </div>
+              <div className="p-4 border border-gray-200 rounded-lg bg-white">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">최초 발생일</p>
+                <p className="text-sm font-bold text-gray-900">{formatDisplayDate(callsignDetailMeta.firstOccurredAt)}</p>
+              </div>
+              <div className="p-4 border border-gray-200 rounded-lg bg-white">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">최근 발생일</p>
+                <p className="text-sm font-bold text-gray-900">{formatDisplayDate(callsignDetailMeta.lastOccurredAt)}</p>
+              </div>
+              <div className="p-4 border border-gray-200 rounded-lg bg-white">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">유사성</p>
+                <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.similarity}</p>
+              </div>
+              <div className="p-4 border border-gray-200 rounded-lg bg-white">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">오류가능성</p>
+                <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.riskLevel}</p>
+              </div>
+            </div>
+
+            {/* 호출부호 정보 */}
+            <div className="grid grid-cols-2 gap-6 mb-6 p-4 bg-slate-50 rounded-lg">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">자사 호출부호</p>
+                <p className="text-lg font-bold text-gray-900">{callsignDetailMeta.myCallsign}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">타사 호출부호</p>
+                <p className="text-lg font-bold text-gray-900">{callsignDetailMeta.otherCallsign}</p>
+              </div>
+            </div>
+
+            {/* 오류 정보 */}
+            <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-lg">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">오류 유형</p>
+                <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.errorType}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">세부 오류</p>
+                <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.subError}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
