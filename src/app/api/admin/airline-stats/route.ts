@@ -115,15 +115,32 @@ export async function GET(request: NextRequest) {
     );
 
     return NextResponse.json({
-      data: result.rows.map((row: any) => ({
-        airline_id: row.airline_id,
-        airline_code: row.airline_code,
-        airline_name_ko: row.airline_name_ko,
-        total_callsigns: parseInt(row.total_callsigns, 10),
-        in_progress_actions: parseInt(row.in_progress_actions, 10) || 0,
-        completed_actions: parseInt(row.completed_actions, 10) || 0,
-        completion_rate: parseFloat(row.completion_rate) || 0,
-      })),
+      data: result.rows.map((row: any) => {
+        const totalCallsigns = parseInt(row.total_callsigns, 10);
+        const inProgressActions = parseInt(row.in_progress_actions, 10) || 0;
+        const completedActions = parseInt(row.completed_actions, 10) || 0;
+        const totalActions = inProgressActions + completedActions;
+
+        // 완료율 = 완료 / (진행중 + 완료) × 100%
+        const completionRate = totalActions > 0
+          ? Math.round((completedActions / totalActions) * 100 * 10) / 10
+          : 0;
+
+        // 미조치 = 전체호출부호 - (진행중 + 완료)
+        const pendingCallsigns = Math.max(0, totalCallsigns - totalActions);
+
+        return {
+          airline_id: row.airline_id,
+          airline_code: row.airline_code,
+          airline_name_ko: row.airline_name_ko,
+          total_callsigns: totalCallsigns,
+          pending_callsigns: pendingCallsigns,  // 미조치 호출부호
+          in_progress_actions: inProgressActions,  // 진행중
+          completed_actions: completedActions,  // 완료
+          action_rate: parseFloat(row.completion_rate) || 0,  // 조치율 = (진행중+완료)/전체
+          completion_rate: completionRate,  // 완료율 = 완료/(진행중+완료)
+        };
+      }),
     });
   } catch (error) {
     console.error('[API] /api/admin/airline-stats error:', error);

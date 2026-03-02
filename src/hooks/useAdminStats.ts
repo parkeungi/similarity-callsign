@@ -114,9 +114,11 @@ export interface AirlineDetailStats {
   airline_code: string;
   airline_name_ko: string;
   total_callsigns: number;
-  in_progress_actions: number;
-  completed_actions: number;
-  completion_rate: number;
+  pending_callsigns: number;  // 미조치 호출부호
+  in_progress_actions: number;  // 진행중 (pending + in_progress 통합)
+  completed_actions: number;  // 완료
+  action_rate: number;  // 조치율 = (진행중+완료)/전체 × 100%
+  completion_rate: number;  // 완료율 = 완료/(진행중+완료) × 100%
 }
 
 export function useAirlineDetailStats(dateRange?: DateRange) {
