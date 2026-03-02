@@ -95,23 +95,26 @@ export async function GET(
     queryParams.push(limit, offset);
 
     const callsignsResult = await query(
-      `SELECT id, airline_id, airline_code, callsign_pair, my_callsign, other_callsign,
-              other_airline_code, error_type, sub_error, risk_level, similarity,
-              file_upload_id, uploaded_at, occurrence_count, first_occurred_at, last_occurred_at,
-              status, created_at, updated_at
-       FROM callsigns
-       WHERE airline_code = ?
-         AND status = 'in_progress'
+      `SELECT
+         c.id, c.airline_id, c.airline_code, c.callsign_pair, c.my_callsign, c.other_callsign,
+         c.other_airline_code, c.error_type, c.sub_error, c.risk_level, c.similarity,
+         c.file_upload_id, c.uploaded_at, c.status, c.created_at, c.updated_at,
+         COALESCE(c.occurrence_count, 0) as occurrence_count,
+         c.first_occurred_at,
+         c.last_occurred_at
+       FROM callsigns c
+       WHERE c.airline_code = ?
+         AND c.status = 'in_progress'
          ${riskLevelCondition}
        ORDER BY
          CASE
-           WHEN risk_level = '매우높음' THEN 3
-           WHEN risk_level = '높음' THEN 2
-           WHEN risk_level = '낮음' THEN 1
+           WHEN c.risk_level = '매우높음' THEN 3
+           WHEN c.risk_level = '높음' THEN 2
+           WHEN c.risk_level = '낮음' THEN 1
            ELSE 0
          END DESC,
-         occurrence_count DESC,
-         last_occurred_at DESC
+         COALESCE(c.occurrence_count, 0) DESC,
+         c.last_occurred_at DESC
        LIMIT ? OFFSET ?`,
       queryParams
     );
@@ -139,19 +142,19 @@ export async function GET(
       }
     }
 
-    // 전체 개수 조회
+    // 전체 개수 조회 (GROUP BY된 결과의 전체 개수)
     const countParams: (string | number)[] = [airlineCode];
     let countRiskCondition = '';
     if (filteredRiskLevel) {
       countParams.push(filteredRiskLevel);
-      countRiskCondition = `AND risk_level = ?`;
+      countRiskCondition = `AND c.risk_level = ?`;
     }
 
     const countResult = await query(
-      `SELECT COUNT(*) as total
-       FROM callsigns
-       WHERE airline_code = ?
-         AND status = 'in_progress'
+      `SELECT COUNT(DISTINCT c.id) as total
+       FROM callsigns c
+       WHERE c.airline_code = ?
+         AND c.status = 'in_progress'
          ${countRiskCondition}`,
       countParams
     );

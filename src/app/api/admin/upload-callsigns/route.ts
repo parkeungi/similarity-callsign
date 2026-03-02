@@ -87,15 +87,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 파일 업로드 기록 생성 (W-1 FIX: lastInsertRowid 직접 사용으로 경쟁상황 제거)
+    // 파일 업로드 기록 생성
     const uploadRecord = await query(
       `INSERT INTO file_uploads (file_name, file_size, uploaded_by, status)
        VALUES (?, ?, ?, 'processing')`,
       [file.name, file.size, payload.userId]
     );
 
-    // lastInsertRowid 사용으로 SELECT 쿼리 제거 (동시 업로드 시 경쟁상황 해결)
-    const uploadId = uploadRecord.lastInsertRowid;
+    // 실제 저장된 ID를 조회 (file_uploads.id는 TEXT UUID이므로)
+    const idResult = await query(
+      `SELECT id FROM file_uploads WHERE uploaded_by = ? AND file_name = ? ORDER BY uploaded_at DESC LIMIT 1`,
+      [payload.userId, file.name]
+    );
+
+    if (idResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: '파일 업로드 기록 조회 실패' },
+        { status: 500 }
+      );
+    }
+
+    const uploadId = idResult.rows[0].id;
 
     try {
       // 파일 데이터 읽기
@@ -164,6 +176,8 @@ export async function POST(request: NextRequest) {
           const atcRecommendation = row[22] ? String(row[22]).trim() : undefined;
           const errorType = row[23] ? String(row[23]).trim() : undefined;
           const subError = row[24] ? String(row[24]).trim() : undefined;
+          // 발생건수 추출 (컬럼 25로 가정, 없으면 0)
+          const occurrenceCount = row[25] !== undefined ? Number(row[25]) : 0;
 
           // 항공사 코드가 우리 시스템의 항공사 코드에 매핑되는지 확인
           // 우리 시스템에서 관리하는 국내 항공사만 필터링
@@ -248,7 +262,7 @@ export async function POST(request: NextRequest) {
             error_type: errorType,
             sub_error: subError,
             risk_level: similarity, // 유사도를 risk_level로도 사용
-            occurrence_count: 0,
+            occurrence_count: occurrenceCount,
           };
 
           // 필수 필드 검증
@@ -304,6 +318,8 @@ export async function POST(request: NextRequest) {
                 error_type = ?,
                 sub_error = ?,
                 risk_level = ?,
+                occurrence_count = ?,
+                file_upload_id = ?,
                 updated_at = CURRENT_TIMESTAMP,
                 status = 'in_progress'
                WHERE id = ?`,
@@ -326,6 +342,8 @@ export async function POST(request: NextRequest) {
                 rowData.error_type,
                 rowData.sub_error,
                 rowData.risk_level,
+                rowData.occurrence_count,
+                uploadId,
                 callsignId,
               ]
             );
@@ -342,9 +360,9 @@ export async function POST(request: NextRequest) {
                    departure_airport2, arrival_airport2, same_airline_code, same_callsign_length,
                    same_number_position, same_number_count, same_number_ratio, similarity,
                    max_concurrent_traffic, coexistence_minutes, error_probability, atc_recommendation,
-                   error_type, sub_error, risk_level, file_upload_id, uploaded_at, status,
+                   error_type, sub_error, risk_level, occurrence_count, file_upload_id, uploaded_at, status,
                    my_action_status, other_action_status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, CURRENT_TIMESTAMP, 'in_progress', 'in_progress', 'in_progress')`,
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'in_progress', 'in_progress', 'in_progress')`,
                 [
                   airlineId,
                   rowData.airline_code,
@@ -370,6 +388,8 @@ export async function POST(request: NextRequest) {
                   rowData.error_type,
                   rowData.sub_error,
                   rowData.risk_level,
+                  rowData.occurrence_count,
+                  uploadId,
                 ]
               );
 
@@ -472,16 +492,17 @@ export async function POST(request: NextRequest) {
         );
 
         const dateResult = await query(
-          `SELECT MAX(occurred_date) as max_date FROM callsign_occurrences WHERE callsign_id = ?`,
+          `SELECT MIN(occurred_date) as min_date, MAX(occurred_date) as max_date FROM callsign_occurrences WHERE callsign_id = ?`,
           [callsign.id]
         );
 
         const count = parseInt(countResult.rows[0].count, 10) || 0;
+        const minDate = dateResult.rows[0].min_date;
         const maxDate = dateResult.rows[0].max_date;
 
         await query(
-          `UPDATE callsigns SET occurrence_count = ?, last_occurred_at = ? WHERE id = ?`,
-          [count, maxDate || null, callsign.id]
+          `UPDATE callsigns SET occurrence_count = ?, first_occurred_at = ?, last_occurred_at = ? WHERE id = ?`,
+          [count, minDate || null, maxDate || null, callsign.id]
         );
       }
 

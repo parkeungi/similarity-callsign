@@ -21,7 +21,7 @@ interface ActionsTabProps {
   onSearchSubmit: () => void;
   onStatusFilterChange: (status: 'all' | ActionStatus) => void;
   onActionClick: (action: Action) => void;
-  onCallsignDoubleClick: (callsign: Callsign) => void;
+  onCallsignClick: (callsign: Callsign) => void;
   onCreateAction: (callsignId?: string) => void;
 }
 
@@ -40,7 +40,7 @@ export function ActionsTab({
   onSearchSubmit,
   onStatusFilterChange,
   onActionClick,
-  onCallsignDoubleClick,
+  onCallsignClick,
   onCreateAction,
 }: ActionsTabProps) {
   const handleKeyDown = useCallback(
@@ -213,7 +213,10 @@ export function ActionsTab({
                     <tr
                       key={action.id}
                       className="group hover:bg-primary/[0.02] transition-colors cursor-pointer"
-                      onDoubleClick={() => {
+                      onClick={(e) => {
+                        // 편집/등록 버튼 클릭은 무시
+                        if ((e.target as HTMLElement).closest('button')) return;
+
                         const targetId =
                           action.callsign_id || action.callsignId || action.callsign?.id;
                         const detailFromCallsigns = callsignsData.find(
@@ -221,7 +224,7 @@ export function ActionsTab({
                         );
                         const detailPayload = detailFromCallsigns || action.callsign;
                         if (detailPayload) {
-                          onCallsignDoubleClick(detailPayload);
+                          onCallsignClick(detailPayload);
                         }
                       }}
                     >

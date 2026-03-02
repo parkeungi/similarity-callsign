@@ -126,6 +126,7 @@ export async function GET(
         cs.sub_error,
         cs.similarity,
         cs.created_at as callsign_created_at,
+        cs.first_occurred_at,
         cs.last_occurred_at,
         0 as is_virtual
       FROM actions a
@@ -195,6 +196,7 @@ export async function GET(
           cs.sub_error,
           cs.similarity,
           cs.created_at as callsign_created_at,
+          cs.first_occurred_at,
           cs.last_occurred_at,
           1 as is_virtual
         FROM callsigns cs
@@ -246,6 +248,7 @@ export async function GET(
             sub_error: row.sub_error,
             similarity: row.similarity,
             created_at: row.callsign_created_at,
+            first_occurred_at: row.first_occurred_at,
             last_occurred_at: row.last_occurred_at,
           } : null,
         action_type: row.action_type,
