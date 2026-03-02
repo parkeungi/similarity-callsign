@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 3️⃣ 항공사별 집계 통계 조회
-    // 조치율 = 완료 건수 / (진행중 + 완료) 건수 × 100%
+    // 조치율 = (진행중 + 완료) / 전체호출부호 × 100%
     // 📌 카티션 곱셈 방지: 서브쿼리로 각각 집계 후 JOIN
     const result = await query(
       `
@@ -90,7 +90,11 @@ export async function GET(request: NextRequest) {
         COUNT(DISTINCT cs.id) as total_callsigns,
         COALESCE(action_stats.in_progress_actions, 0) as in_progress_actions,
         COALESCE(action_stats.completed_actions, 0) as completed_actions,
-        COALESCE(action_stats.completion_rate, 0) as completion_rate
+        ROUND(
+          (COALESCE(action_stats.in_progress_actions, 0) + COALESCE(action_stats.completed_actions, 0)) * 100.0 /
+          NULLIF(COUNT(DISTINCT cs.id), 0),
+          1
+        ) as completion_rate
       FROM airlines al
       LEFT JOIN callsigns cs ON cs.airline_id = al.id
       LEFT JOIN (
@@ -98,15 +102,7 @@ export async function GET(request: NextRequest) {
         SELECT
           airline_id,
           SUM(CASE WHEN status = 'in_progress' AND COALESCE(is_cancelled, 0) = 0 THEN 1 ELSE 0 END) as in_progress_actions,
-          SUM(CASE WHEN status = 'completed' AND COALESCE(is_cancelled, 0) = 0 THEN 1 ELSE 0 END) as completed_actions,
-          ROUND(
-            SUM(CASE WHEN status = 'completed' AND COALESCE(is_cancelled, 0) = 0 THEN 1 ELSE 0 END) * 100.0 /
-            NULLIF(
-              SUM(CASE WHEN status IN ('in_progress', 'completed') AND COALESCE(is_cancelled, 0) = 0 THEN 1 ELSE 0 END),
-              0
-            ),
-            1
-          ) as completion_rate
+          SUM(CASE WHEN status = 'completed' AND COALESCE(is_cancelled, 0) = 0 THEN 1 ELSE 0 END) as completed_actions
         FROM actions
         WHERE (${whereClause})
         GROUP BY airline_id
