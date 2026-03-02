@@ -99,9 +99,10 @@ export async function GET(request: NextRequest) {
       LEFT JOIN callsigns cs ON cs.airline_id = al.id
       LEFT JOIN (
         -- 액션 집계 서브쿼리 (날짜 필터 적용)
+        -- 📌 진행중 = pending + in_progress 통합
         SELECT
           airline_id,
-          SUM(CASE WHEN status = 'in_progress' AND COALESCE(is_cancelled, 0) = 0 THEN 1 ELSE 0 END) as in_progress_actions,
+          SUM(CASE WHEN status IN ('pending', 'in_progress') AND COALESCE(is_cancelled, 0) = 0 THEN 1 ELSE 0 END) as in_progress_actions,
           SUM(CASE WHEN status = 'completed' AND COALESCE(is_cancelled, 0) = 0 THEN 1 ELSE 0 END) as completed_actions
         FROM actions
         WHERE (${whereClause})
