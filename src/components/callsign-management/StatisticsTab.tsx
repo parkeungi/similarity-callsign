@@ -330,10 +330,16 @@ export function StatisticsTab() {
                     호출부호
                   </th>
                   <th className="px-8 py-5 text-center text-[12px] font-bold text-slate-400 uppercase tracking-wider">
+                    미조치
+                  </th>
+                  <th className="px-8 py-5 text-center text-[12px] font-bold text-slate-400 uppercase tracking-wider">
                     조치 현황
                   </th>
                   <th className="px-8 py-5 text-center text-[12px] font-bold text-slate-400 uppercase tracking-wider">
                     조치율
+                  </th>
+                  <th className="px-8 py-5 text-center text-[12px] font-bold text-slate-400 uppercase tracking-wider">
+                    완료율
                   </th>
                 </tr>
               </thead>
@@ -344,10 +350,20 @@ export function StatisticsTab() {
                     <td className="px-8 py-5 text-center font-semibold text-slate-500">
                       {stat.total_callsigns}개
                     </td>
+                    <td className="px-8 py-5 text-center font-semibold text-slate-600">
+                      {stat.pending_callsigns}개
+                    </td>
                     <td className="px-8 py-5 text-center font-medium">
                       <span className="text-indigo-500 font-bold px-1">{stat.in_progress_actions}건</span>
                       <span className="text-slate-300 px-1">/</span>
                       <span className="text-emerald-500 font-bold px-1">{stat.completed_actions}건</span>
+                    </td>
+                    <td className="px-8 py-5 text-center">
+                      <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-bold ${stat.action_rate > 50 ? 'bg-emerald-50 text-emerald-600' :
+                          stat.action_rate > 20 ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                        {stat.action_rate.toFixed(1)}%
+                      </span>
                     </td>
                     <td className="px-8 py-5 text-center">
                       <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-bold ${stat.completion_rate > 80 ? 'bg-emerald-50 text-emerald-600' :
