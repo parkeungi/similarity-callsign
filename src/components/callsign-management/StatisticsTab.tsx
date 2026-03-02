@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useActionTypeStats, useAirlineDetailStats } from '@/hooks/useAdminStats';
 import { StatCard } from './StatCard';
 import { ActionTypeDistributionChart } from '@/components/admin/ActionTypeDistributionChart';
+import { MonthlyDetectionTrendChart } from '@/components/admin/charts/MonthlyDetectionTrendChart';
 import { format, addDays, addMonths, lastDayOfMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -374,6 +375,9 @@ export function StatisticsTab() {
           </div>
         )}
       </div>
+
+      {/* 월별 신규 vs 재검출 비율 */}
+      <MonthlyDetectionTrendChart />
 
       {/* 조치 유형별 분포 */}
       <ActionTypeDistributionChart dateRange={dateRange} />
