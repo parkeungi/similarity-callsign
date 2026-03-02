@@ -118,7 +118,8 @@ POST   /api/auth/refresh                 # 토큰 갱신
 ```typescript
 // 항공사 테이블(airlines)에 입력된 11개만 국내항공사로 인정
 // 그 외는 모두 외항사로 취급
-const domesticAirlines = new Set(['KE', 'OZ', 'LJ', 'BX', 'TW', 'ZE', 'RF', 'WJ', 'EK', 'VJ', 'AF']);
+// 국내항공사 (ICAO 3글자 코드) - DB에서 확인한 항공사 테이블의 모든 항공사
+const domesticAirlines = new Set(['KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR']);
 const isForeignAirline = !domesticAirlines.has(otherAirlineCode);
 ```
 
