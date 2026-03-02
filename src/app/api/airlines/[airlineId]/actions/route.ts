@@ -303,13 +303,6 @@ export async function POST(
   try {
     const { airlineId } = await params;
 
-    // 📌 DEBUG: POST 요청이 도달했는지 확인
-    console.log('[POST /api/airlines/[airlineId]/actions] 요청 도달:', {
-      airlineId,
-      method: request.method,
-      url: request.url,
-    });
-
     // 인증 확인
     const authHeader = request.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -337,11 +330,9 @@ export async function POST(
       );
     }
 
-    // 국내 항공사 목록 조회 (W-5 FIX: 최종 상태 계산용)
-    const domesticAirlinesResult = await query('SELECT code FROM airlines');
-    const domesticAirlines = new Set(
-      (domesticAirlinesResult.rows || []).map((a: any) => a.code)
-    );
+    // 국내 항공사 목록 (CLAUDE.md 정의: 항공사 테이블에 입력된 11개만 국내항공사)
+    // DB에서 확인된 ICAO 3글자 코드: KAL, AAR, JJA, JNA, TWB, ABL, ASV, EOK, FGW, APZ, ESR
+    const domesticAirlines = new Set(['KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR']);
 
     // 요청 본문 (ActionModal에서 snake_case로 전송)
     const body = await request.json();
@@ -380,17 +371,10 @@ export async function POST(
 
     // 호출부호 존재 및 항공사 코드 일치 확인 + 상세 정보 조회
     // (내 항공사이거나 상대 항공사인 경우 모두 허용)
-    console.log('[POST /api/airlines/[airlineId]/actions] 호출부호 조회:', {
-      callsignId,
-      airlineCode,
-    });
-
     const callsignCheck = await query(
       'SELECT id, airline_code, other_airline_code, my_action_status, other_action_status FROM callsigns WHERE id = ? AND (airline_code = ? OR other_airline_code = ?)',
       [callsignId, airlineCode, airlineCode]
     );
-
-    console.log('[POST /api/airlines/[airlineId]/actions] 호출부호 조회 결과:', callsignCheck.rows.length);
 
     if (callsignCheck.rows.length === 0) {
       return NextResponse.json(
@@ -447,24 +431,30 @@ export async function POST(
     if (existingActionResult.rows.length === 0) {
       // 📌 NEW: action이 없으면 INSERT (호출부호만 있는 경우)
       const nowIso = new Date().toISOString();
-      const createResult = await query(
+      await query(
         `INSERT INTO actions
           (airline_id, callsign_id, action_type, status, registered_by, registered_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [airlineId, callsignId, actionType || '조치등록', actionStatus, payload.userId, nowIso, nowIso]
       );
-      existingActionId = createResult.lastInsertRowid as string;
-      console.log('[POST /api/airlines/[airlineId]/actions] NEW action created:', existingActionId);
+      // 실제 UUID id를 조회 (lastInsertRowid는 SQLite 내부 rowid이므로 불가)
+      const newActionResult = await query(
+        `SELECT id FROM actions WHERE airline_id = ? AND callsign_id = ? ORDER BY registered_at DESC LIMIT 1`,
+        [airlineId, callsignId]
+      );
+      if (newActionResult.rows.length === 0) {
+        throw new Error('신규 조치 생성 후 조회 실패');
+      }
+      existingActionId = newActionResult.rows[0].id;
     } else {
       existingActionId = existingActionResult.rows[0].id;
-      console.log('[POST /api/airlines/[airlineId]/actions] Existing action found:', existingActionId);
     }
 
     // Step 2: action UPDATE (취소된 행도 복현 가능)
-    await transaction(async (trx) => {
+    transaction((trx) => {
       // 1. action 업데이트 (상태, 조치 정보, 취소 플래그 복원)
       const nowIso = new Date().toISOString();
-      await trx(
+      trx(
         `UPDATE actions SET
           action_type = ?,
           description = ?,
@@ -487,8 +477,11 @@ export async function POST(
       const isSameAirline = callsignData.airline_code === callsignData.other_airline_code;
       const isForeignAirline = !otherAirlineCode || !domesticAirlines.has(otherAirlineCode);
 
-      let myStatus = isMy ? actionStatus : callsignData.my_action_status || 'no_action';
-      let otherStatus = !isMy ? actionStatus : callsignData.other_action_status || 'no_action';
+      // W-11 FIX: isMy 판별에 따라 정확하게 상태 업데이트
+      // - isMy=true: 현재 항공사가 'my'이면 → myStatus 업데이트, otherStatus 유지
+      // - isMy=false: 현재 항공사가 'other'이면 → otherStatus 업데이트, myStatus 유지
+      let myStatus = isMy ? actionStatus : (callsignData.my_action_status || 'no_action');
+      let otherStatus = isMy ? (callsignData.other_action_status || 'no_action') : actionStatus;
 
       // 같은 항공사: 한쪽이 조치되면 양쪽 모두 동일 상태로 동기화
       // (한쪽이 completed이면 양쪽 모두 completed)
@@ -513,14 +506,14 @@ export async function POST(
         // 같은 항공사: 한쪽만 완료해도 완료
         newCallsignStatus = (myCompleted || otherCompleted) ? 'completed' : 'in_progress';
       } else if (isForeignAirline) {
-        // 외국항공사: 자사만 완료하면 완료 (상대는 자동완료됨)
-        newCallsignStatus = myCompleted ? 'completed' : 'in_progress';
+        // 외국항공사 (자사나 상대 중 하나): 한쪽만 완료해도 완료
+        newCallsignStatus = (myCompleted || otherCompleted) ? 'completed' : 'in_progress';
       } else {
         // 국내 항공사 간: 양쪽 모두 완료해야 완료
         newCallsignStatus = (myCompleted && otherCompleted) ? 'completed' : 'in_progress';
       }
 
-      await trx(
+      trx(
         `UPDATE callsigns SET status = ?, my_action_status = ?, other_action_status = ? WHERE id = ?`,
         [newCallsignStatus, myStatus, otherStatus, callsignId]
       );

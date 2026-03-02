@@ -112,7 +112,10 @@ export const authStore = create<AuthStore>((set, get) => ({
         });
         console.log('[AuthStore] 초기화 완료: localStorage에서 accessToken 복원');
 
-        // 백그라운드에서 토큰 유효성 검증 (API 요청 시 자동 갱신됨)
+        // 백그라운드에서 user 정보도 복원 (새로고침 시 user가 null인 문제 해결)
+        get().fetchUserInfo().catch(() => {
+          // user 복원 실패는 무시 (API 요청 시 자동 갱신됨)
+        });
         return;
       }
 

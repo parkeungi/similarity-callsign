@@ -90,12 +90,6 @@ export default function AirlinePage() {
     let name = user.airline?.name_ko || '';
     let id = user.airline?.id || '';
 
-    // 📌 DEBUG: user.airline 정보 확인 (JSON 문자열로 변환)
-    console.log('[AirlinePage] user.airline (전체):', JSON.stringify(user.airline, null, 2));
-    console.log('[AirlinePage] airline.id:', id);
-    console.log('[AirlinePage] airline.id length:', id.length);
-    console.log('[AirlinePage] airline.id type:', typeof id);
-
     if (!code) {
       code = 'KAL';
       name = '대한항공';
@@ -110,7 +104,6 @@ export default function AirlinePage() {
 
     if (id) {
       setAirlineId(id);
-      console.log('[AirlinePage] setAirlineId called with:', id);
     }
   }, [user, router]);
 
@@ -123,15 +116,6 @@ export default function AirlinePage() {
     limit: actionLimit,
   });
 
-  // 📌 DEBUG: airlineId와 관련 상태 확인
-  useEffect(() => {
-    if (airlineId) {
-      console.log('[AirlinePage] Final airlineId:', {
-        value: airlineId,
-        length: airlineId.length,
-      });
-    }
-  }, [airlineId]);
 
   const { data: callsignsData, isLoading: callsignsLoading } = useAirlineCallsigns(airlineId, {
     limit: 1000,

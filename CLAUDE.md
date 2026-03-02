@@ -276,6 +276,151 @@ POST /api/airlines/:airlineId/actions
 
 ---
 
+#### ✅ **airline-validator 에이전트** (항공사 페이지 자동 검증)
+**목적**: Airline 페이지 수정 후 모든 기능을 자동 검증 (로그 기반)
+
+**자동 호출 시점**:
+```
+조건: src/app/(main)/airline/ 또는 src/components/airline/ 파일 수정 후
+     코드 구현 완료 시 자동 실행
+예시:
+  - src/app/(main)/airline/page.tsx 수정
+  - src/components/airline/IncidentFilters.tsx 수정
+  - src/hooks/useAirlineCallsigns.ts 수정
+  - src/hooks/useActions.ts 수정
+```
+
+**검증 프로세스**:
+```
+1. 로그 수집 (도구: qa-monitor)
+   └─ Docker/브라우저 콘솔 로그 캡처
+
+2. 데이터 흐름 검증
+   ├─ API 요청 → API 응답 일치도
+   ├─ DB 쿼리 결과 → UI 표시 데이터 비교
+   ├─ 필터 입력값 → DB WHERE 절 → UI 결과 비교
+   └─ 정렬/페이지네이션 로그 검증
+
+3. 기능별 검증
+   ├─ 조치대상 목록 로딩
+   ├─ 필터 적용 (상태, 위험도, 날짜 범위)
+   ├─ 정렬 기능
+   ├─ 페이지네이션
+   ├─ 검색 기능
+   └─ 조치 등록/수정 후 목록 갱신
+
+4. 결과 판정
+   └─ Pass/Fail 판정 및 리포트 작성
+```
+
+**검증 항목** (12개):
+```
+✅ 1. 항공사 정보 로딩 (user.airline 데이터)
+✅ 2. 조치대상 목록 초기 로딩 (API → DB 쿼리 → UI)
+✅ 3. DB SELECT 결과 vs UI 표시 데이터 비교 (행 수, 컬럼값)
+✅ 4. 상태 필터 적용 (in_progress/completed)
+✅ 5. 위험도 필터 적용 (매우높음/높음/중간/낮음)
+✅ 6. 날짜 범위 필터 (from ~ to)
+✅ 7. 필터 조합 적용 (상태 + 위험도 + 날짜)
+✅ 8. 정렬 기능 (created_at, updated_at, risk_level)
+✅ 9. 페이지네이션 (page, limit, total 일치)
+✅ 10. 조치 등록 후 목록 갱신
+✅ 11. 조치 수정 후 목록 갱신
+✅ 12. 에러 처리 (401, 404, 500 응답 처리)
+```
+
+**로그 비교 예시**:
+```
+입력 (사용자 액션):
+  [AirlinePage] 필터 적용: { status: 'completed', riskLevel: '높음' }
+
+처리 (API 로직):
+  [API] GET /api/airlines/abc123/callsigns?status=completed&riskLevel=높음
+  [Database] SELECT * FROM callsigns WHERE status=? AND risk_level=? (params: ['completed', '높음'])
+  [Database] Result: 5 rows
+
+UI 표시:
+  [UI] 조치대상 목록 렌더링: 5개 행 표시
+
+검증:
+  ✅ DB 쿼리 (SELECT) → UI 행 수 (5) 일치
+  ✅ 모든 행의 status = 'completed' (필터 검증)
+  ✅ 모든 행의 risk_level = '높음' (필터 검증)
+```
+
+**테스트 데이터셋**:
+```
+목업 항공사 ID: [제주항공/아시아나/대한항공 등에서 선택]
+
+테스트 케이스:
+├─ 전체 목록 조회 (필터 없음)
+├─ 상태별 필터 (in_progress, completed)
+├─ 위험도별 필터 (매우높음, 높음, 중간, 낮음)
+├─ 날짜 범위 (최근 7일, 최근 30일, 전체)
+├─ 정렬 (생성일순, 수정일순, 위험도순)
+└─ 페이지네이션 (limit=10, 20, 50)
+```
+
+**검증 결과 리포트**:
+```typescript
+{
+  timestamp: "2026-03-02T10:30:00Z",
+  success: true,          // 모든 검증 통과 여부
+  summary: {
+    totalTests: 12,
+    passedTests: 12,
+    failedTests: 0,
+    passRate: "100%"
+  },
+  results: [
+    {
+      testName: "조치대상 목록 초기 로딩",
+      status: "✅ PASS",
+      details: {
+        dbRowCount: 45,
+        uiRowCount: 45,
+        match: true
+      }
+    },
+    {
+      testName: "상태 필터 (in_progress)",
+      status: "✅ PASS",
+      details: {
+        filterApplied: "status = 'in_progress'",
+        expectedRows: 28,
+        actualRows: 28,
+        match: true
+      }
+    },
+    // ... 더 많은 결과
+  ],
+  logComparison: {
+    apiRequest: "GET /api/airlines/abc123/callsigns?status=completed",
+    dbQuery: "SELECT * FROM callsigns WHERE airline_id=? AND status=?",
+    dbResult: 12,
+    uiDisplay: 12,
+    match: true
+  },
+  recommendation: "✅ 모든 기능이 정상 작동합니다. 추가 검증 준비 완료!"
+}
+```
+
+**보유 권한**:
+```
+도구: Read, Write, Edit, Glob, Grep, Bash, Task(qa-monitor)
+접근 범위: src/app/(main)/airline/**, src/components/airline/**, src/hooks/**, data/katc1.db
+제한사항: 코드 수정 불가 (검증만 수행), admin 페이지 검증 불가
+```
+
+**명령어 예시**:
+```
+"airline 페이지 검증해줘"
+"필터 기능 자동 검증 실행"
+"조치대상 목록 데이터 흐름 검증"
+```
+
+---
+
 #### 👨‍💼 **admin 에이전트** (관리자 서비스 개발)
 **목적**: Admin 페이지 및 관리자 기능 개발 담당
 
@@ -313,12 +458,90 @@ POST /api/airlines/:airlineId/actions
 
 ---
 
+#### 🧪 **actions-test 에이전트** (조치 기능 자동 테스트)
+**목적**: 조치(Actions) 기능 등록/수정/취소 자동 테스트 및 검증
+
+**자동 호출 시점**:
+```
+조건: 아래 파일 수정 시 자동 실행
+예시:
+  - src/app/api/airlines/[airlineId]/actions/route.ts 수정
+  - src/app/api/actions/[id] 수정
+  - src/hooks/useActions.ts 수정
+  - src/components/actions/ActionModal.tsx 수정
+```
+
+**주요 책임**:
+- 조치 등록 테스트 (POST /api/airlines/:airlineId/actions)
+- 조치 수정/상태 변경 테스트 (PATCH /api/actions/:id)
+- 조치 취소 테스트 (is_cancelled 플래그)
+- 상태 동기화 검증 (actions ↔ callsigns)
+- 국내/외항사 판별 로직 검증
+- 데이터베이스 상태 확인 (SQLite)
+
+**검증 항목**:
+```
+✅ 1. 조치 등록 (같은 항공사 + 국내↔국내 + 국내↔외항사)
+✅ 2. 조치 상태 변경 (completed, in_progress)
+✅ 3. 취소 기능 (is_cancelled=1, status 되돌림)
+✅ 4. 재조치 (취소 후 다시 조치)
+✅ 5. callsigns 최종 상태 동기화 확인
+✅ 6. 토큰/인증 검증
+✅ 7. 입력값 검증 (빈 값, 잘못된 ID)
+✅ 8. 데이터베이스 무결성 확인
+```
+
+**테스트 결과 리포트**:
+```
+테스트 케이스별 Pass/Fail 상태
+├─ ✅/❌ 조치 등록 (같은 항공사)
+├─ ✅/❌ 조치 등록 (국내↔국내)
+├─ ✅/❌ 조치 등록 (국내↔외항사)
+├─ ✅/❌ 상태 동기화
+├─ ✅/❌ 취소 및 재조치
+└─ 📊 DB 최종 상태 (SQL 쿼리 결과)
+```
+
+**출력 형식**:
+```typescript
+{
+  success: boolean,
+  results: [
+    { testCase: "조치 등록 (같은 항공사)", passed: true, details: "..." },
+    { testCase: "상태 동기화", passed: false, error: "..." }
+  ],
+  dbState: {
+    totalActions: 123,
+    completedActions: 45,
+    inProgressActions: 78
+  }
+}
+```
+
+**보유 권한**:
+```
+도구: Read, Write, Edit, Glob, Grep, Bash
+접근 범위: src/app/api/airlines/, src/app/api/actions/, src/hooks/useActions.ts, src/components/actions/**, data/katc1.db
+제한사항: 인증 시스템 수정 불가, 다른 기능 API 수정 불가
+```
+
+**명령어 예시**:
+```
+"조치 등록 기능 테스트해줘"
+"조치 수정 및 취소 검증해줘"
+"조치 시스템 통합 테스트 실행해줘"
+```
+
+---
+
 ### 에이전트 선택 기준
 
 | 상황 | 할당 에이전트 |
 |------|--------------|
-| Airline 페이지 수정 | 🛫 airline |
+| Airline 페이지 개발 | 🛫 airline |
+| Airline 페이지 검증 | **✅ airline-validator** (자동 검증) |
 | Admin 페이지 수정 | 👨‍💼 admin |
+| **Actions API 수정** | **🧪 actions-test** (자동 테스트) |
 | API 엔드포인트 수정 | security-architect (보안 검증) |
 | 인증 시스템 수정 | 직접 처리 (에이전트 미배정) |
 | 데이터베이스 스키마 | 직접 처리 (에이전트 미배정) |
@@ -451,6 +674,12 @@ const result = await query(
 
 ## 🔄 개발 워크플로우
 
+### 📌 Git Push 정책 (필수)
+> **모든 push는 사용자 명시적 승인 필수**
+> - 자동 push 절대 금지
+> - 코드 수정 완료 후 → 마지막에 "push 할지" 묻기
+> - 사용자 승인 후에만 git push 실행
+
 ### 1단계: 작업 시작
 ```bash
 # 새 브랜치 생성 (선택사항)
@@ -490,10 +719,19 @@ git commit -m "feat: 설명 또는 fix: 버그 설명"
 - security-architect: 보안 검증 (자동)
 ```
 
-### 5단계: Push
+### 5단계: Push 확인 (사용자 승인 필수) ⭐
+```
+코드 수정 완료 후:
+1. Claude Code가 변경사항 요약 제시
+2. "문제가 없으면 push 할까요?" 물어보기
+3. 사용자 승인 대기
+```
+
+### 6단계: Push 실행 (승인 후)
 ```bash
+# 사용자 승인 후에만 실행
 git push origin [branch]
-# 또는 main 브랜치로
+# 또는 master 브랜치로
 git push origin master
 ```
 
@@ -592,5 +830,5 @@ git push origin master
 
 ---
 
-**최종 수정**: 2026-03-01 (Actions 상태 관리 로직 명확화)
+**최종 수정**: 2026-03-02 (airline-validator 에이전트 추가)
 **관리자**: sein

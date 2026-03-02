@@ -79,10 +79,10 @@ export function IncidentFilters({
                     }
                   }}
                   className={`px-4 py-2.5 text-[13px] font-black tracking-tight transition-all border-r border-gray-200 last:border-r-0 ${range === 'search'
-                      ? 'bg-[#00205b] text-white hover:bg-[#001540] min-w-[60px]'
-                      : activeRange === range
-                        ? 'bg-gray-800 text-white'
-                        : 'bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-[#00205b] text-white hover:bg-[#001540] min-w-[60px]'
+                    : activeRange === range
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                     }`}
                 >
                   {range === 'search' ? '조회' : range === 'today' ? '오늘' : range === '1w' ? '1주' : range === '2w' ? '2주' : '1개월'}
@@ -134,8 +134,8 @@ export function IncidentFilters({
           onClick={onExport}
           disabled={isExporting || allFilteredIncidentsCount === 0}
           className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-none font-bold shadow-sm transition-all text-[13px] border ${isExporting || allFilteredIncidentsCount === 0
-              ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-              : 'bg-green-700 border-green-700 text-white hover:bg-green-800 hover:border-green-800'
+            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+            : 'bg-green-700 border-green-700 text-white hover:bg-green-800 hover:border-green-800'
             }`}
         >
           <svg
@@ -158,7 +158,7 @@ export function IncidentFilters({
       </div>
 
       {/* 하단 로우: 검색 바 */}
-      <div className="flex-1 relative w-full group">
+      <div className="relative w-full max-w-3xl group">
         <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#00205b] transition-colors">
           <svg
             className="w-5 h-5"
