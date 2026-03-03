@@ -1,40 +1,35 @@
 /**
  * Next.js 미들웨어: 서버사이드 라우트 보호
- * - refreshToken 쿠키만 검증 (단순화)
+ * - refreshToken 쿠키 검증 (JWT 서명 검증 포함)
  * - 역할 기반 접근 제어는 클라이언트에서 처리
  */
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import jwt from 'jsonwebtoken';
 
 // 보호되는 라우트
 const protectedRoutes = ['/airline', '/admin', '/announcements', '/callsign-management'];
-// 📌 /change-password는 제외: 로그인 상태의 사용자가 언제든 접근 가능해야 함
-const authRoutes = ['/login', '/forgot-password'];
+// 📌 인증 라우트: 로그인한 사용자는 이 페이지로 갈 수 없음
+const authRoutes = ['/signup', '/forgot-password', '/change-password'];
 
 interface RefreshTokenPayload {
   userId: string;
   exp?: number;
 }
 
-const decodeJwtPayload = (token: string): RefreshTokenPayload | null => {
+// ✅ JWT 서명 검증 함수 (jsonwebtoken 라이브러리 사용)
+const verifyRefreshToken = (token: string): RefreshTokenPayload | null => {
   try {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.warn('[Middleware] JWT_SECRET이 설정되지 않음');
       return null;
     }
 
-    const base64Payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64Payload.padEnd(base64Payload.length + (4 - (base64Payload.length % 4)) % 4, '=');
-    const decoded = atob(padded);
-    const jsonPayload = decodeURIComponent(
-      decoded
-        .split('')
-        .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`)
-        .join('')
-    );
-
-    return JSON.parse(jsonPayload);
+    // ✅ jsonwebtoken으로 서명 검증
+    const decoded = jwt.verify(token, secret) as RefreshTokenPayload;
+    return decoded;
   } catch (error) {
     return null;
   }
@@ -51,32 +46,26 @@ const isTokenExpired = (payload: RefreshTokenPayload | null): boolean => {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ✅ Option A: refreshToken 쿠키만 확인 (단순화)
-  // sessionStorage 복구는 클라이언트(authStore)에서 처리
+  // ✅ refreshToken 쿠키 추출
   const refreshToken = request.cookies.get('refreshToken')?.value;
 
-  // 토큰 유효성/만료 여부 체크
+  // 토큰 유효성 체크
   let tokenPayload: RefreshTokenPayload | null = null;
   let shouldDeleteRefreshToken = false;
-  let isValidFormat = false;
+  let isLoggedIn = false;
 
   if (refreshToken) {
-    const parts = refreshToken.split('.');
-    isValidFormat = parts.length === 3 && parts.every((part) => part.length > 0);
+    // ✅ JWT 서명 검증
+    tokenPayload = verifyRefreshToken(refreshToken);
 
-    if (!isValidFormat) {
+    if (!tokenPayload || isTokenExpired(tokenPayload)) {
       shouldDeleteRefreshToken = true;
+      tokenPayload = null;
     } else {
-      tokenPayload = decodeJwtPayload(refreshToken);
-      if (!tokenPayload || isTokenExpired(tokenPayload)) {
-        shouldDeleteRefreshToken = true;
-        tokenPayload = null;
-      }
+      isLoggedIn = true;
     }
   }
 
-  // refreshToken만으로 인증 여부 판단
-  const isLoggedIn = !!refreshToken && isValidFormat && !!tokenPayload;
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
 
@@ -87,18 +76,18 @@ export function middleware(request: NextRequest) {
     return response;
   };
 
-  // ✅ Option A: 단순화된 미들웨어 로직
-  // 1. 로그인 안 된 상태 + 보호 라우트 → /login으로 리다이렉트
+  // 라우팅 로직
+  // 1. 미로그인 + 보호 라우트 → 로그인 페이지(/)로 리다이렉트
   if (!isLoggedIn && isProtectedRoute) {
-    return finalizeResponse(NextResponse.redirect(new URL('/login', request.url)));
+    return finalizeResponse(NextResponse.redirect(new URL('/', request.url)));
   }
 
-  // 2. 로그인 상태 + 인증 라우트 → 보호 라우트로 리다이렉트
+  // 2. 로그인 상태 + 인증 라우트(signup, forgot-password, change-password) → /airline로 리다이렉트
   if (isLoggedIn && isAuthRoute) {
     return finalizeResponse(NextResponse.redirect(new URL('/airline', request.url)));
   }
 
-  // 3. 로그인 상태 + 홈(/) 접속 → /airline로 리다이렉트
+  // 3. 로그인 상태 + 홈(/) 접속 → /airline으로 리다이렉트
   if (isLoggedIn && pathname === '/') {
     return finalizeResponse(NextResponse.redirect(new URL('/airline', request.url)));
   }
