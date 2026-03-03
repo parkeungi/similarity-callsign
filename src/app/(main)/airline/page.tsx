@@ -13,7 +13,7 @@ import { useDateRangeFilter, formatDateInput, toInputDate } from '@/hooks/useDat
 import { ActionModal } from '@/components/actions/ActionModal';
 import { Header } from '@/components/layout/Header';
 import { AirlineStatisticsTab } from '@/components/airline/AirlineStatisticsTab';
-import { IncidentsTab, ActionsTab, AnnouncementsTab } from '@/components/airline/tabs';
+import { IncidentsTab, ActionsTab, AnnouncementsTab, AirlineOccurrenceTab, AirlineActionHistoryTab } from '@/components/airline/tabs';
 import { AnnouncementPopup } from '@/components/airline/AnnouncementPopup';
 import { NanoIcon } from '@/components/ui/NanoIcon';
 import {
@@ -41,7 +41,7 @@ export default function AirlinePage() {
   const [airlineCode, setAirlineCode] = useState<string>('');
   const [airlineName, setAirlineName] = useState<string>('');
   const [airlineId, setAirlineId] = useState<string | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<AirlineTabType>('incidents');
+  const [activeTab, setActiveTab] = useState<AirlineTabType>('occurrence');
 
   // 모달 상태
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
@@ -59,7 +59,12 @@ export default function AirlinePage() {
   const [errorTypeFilter, setErrorTypeFilter] = useState<'all' | ErrorType>('all');
   const [isExporting, setIsExporting] = useState(false);
 
-  // 발생현황 탭 상태
+  // 발생현황 탭 상태 (신규)
+  const [occurrencePage, setOccurrencePage] = useState(1);
+  const [occurrenceLimit, setOccurrenceLimit] = useState(10);
+  const [occurrenceSearchInput, setOccurrenceSearchInput] = useState('');
+
+  // 조치대상 탭 상태 (기존)
   const [incidentsPage, setIncidentsPage] = useState(1);
   const [incidentsLimit, setIncidentsLimit] = useState(10);
   const [incidentsSearch, setIncidentsSearch] = useState('');
@@ -311,6 +316,8 @@ export default function AirlinePage() {
   }, []);
 
   const navItems: Array<{ id: AirlineTabType; label: string; icon: any; color: 'primary' | 'info' | 'success' | 'orange' }> = [
+    { id: 'occurrence', label: '발생현황', icon: BarChart3, color: 'primary' },
+    { id: 'action-history', label: '조치이력', icon: ClipboardList, color: 'info' },
     { id: 'incidents', label: '조치대상', icon: BarChart3, color: 'primary' },
     { id: 'actions', label: '검출이력', icon: ClipboardList, color: 'info' },
     { id: 'statistics', label: '통계', icon: TrendingUp, color: 'success' },
@@ -354,6 +361,54 @@ export default function AirlinePage() {
         {/* 오른쪽 콘텐츠 영역 */}
         <div className="flex-1 overflow-y-auto h-full bg-gray-50">
           <div className="w-full max-w-6xl mx-auto px-4 py-10 space-y-8 animate-fade-in flex flex-col">
+            {activeTab === 'occurrence' && (
+              <AirlineOccurrenceTab
+                incidents={incidents}
+                airlineCode={airlineCode}
+                startDate={incidentsDateFilter.startDate}
+                endDate={incidentsDateFilter.endDate}
+                activeRange={incidentsDateFilter.activeRange}
+                errorTypeFilter={errorTypeFilter}
+                isExporting={isExporting}
+                incidentsPage={occurrencePage}
+                incidentsLimit={occurrenceLimit}
+                incidentsSearchInput={occurrenceSearchInput}
+                onPageChange={setOccurrencePage}
+                onLimitChange={(limit) => {
+                  setOccurrenceLimit(limit);
+                  setOccurrencePage(1);
+                }}
+                onSearchInputChange={setOccurrenceSearchInput}
+                onSearchSubmit={() => setOccurrencePage(1)}
+                onStartDateChange={incidentsDateFilter.handleStartDateChange}
+                onEndDateChange={incidentsDateFilter.handleEndDateChange}
+                onApplyQuickRange={incidentsDateFilter.applyQuickRange}
+                onErrorTypeFilterChange={setErrorTypeFilter}
+                onExport={handleExportIncidents}
+                onOpenActionModal={handleOpenActionModal}
+              />
+            )}
+
+            {activeTab === 'action-history' && (
+              <AirlineActionHistoryTab
+                actionsData={actionsData}
+                actionsLoading={actionsLoading}
+                actionPage={actionPage}
+                actionLimit={actionLimit}
+                actionSearchInput={actionSearchInput}
+                actionStatusFilter={actionStatusFilter}
+                onPageChange={setActionPage}
+                onLimitChange={handleLimitChange}
+                onSearchInputChange={setActionSearchInput}
+                onSearchSubmit={handleSearchSubmit}
+                onStatusFilterChange={setActionStatusFilter}
+                onActionClick={(action) => {
+                  setSelectedAction(action);
+                  setIsActionDetailModalOpen(true);
+                }}
+              />
+            )}
+
             {activeTab === 'incidents' && (
               <IncidentsTab
                 incidents={incidents}

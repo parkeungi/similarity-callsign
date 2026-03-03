@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>유사호출부호 경고시스템 — 항공사 v7</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<style>
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+:root {
+    --bg:#f0f2f5;--surface:#ffffff;--surface-alt:#f8f9fb;
+    --border:#e2e5ea;--border-light:#eef0f3;
+    --text:#1a1d23;--text-sec:#5a6170;--text-muted:#8b92a0;
+    --primary:#2563eb;--primary-light:#dbeafe;--primary-dark:#1d4ed8;
+    --danger:#dc2626;--danger-light:#fef2f2;
+    --warning:#f59e0b;--warning-light:#fffbeb;
+    --success:#16a34a;--success-light:#f0fdf4;
+    --info:#0891b2;--info-light:#ecfeff;
+    --purple:#7c3aed;--purple-light:#f5f3ff;
+    --radius:10px;--radius-sm:6px;--radius-lg:14px;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.06);--shadow:0 2px 8px rgba(0,0,0,.08);--shadow-lg:0 8px 24px rgba(0,0,0,.12);
+    --font:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.5;}
+.app-wrapper{min-height:100vh;display:flex;flex-direction:column;}
+.top-bar{background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15);}
+.top-bar h1{font-size:17px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:center;gap:8px;}
+.top-bar .icon{font-size:20px;}
+.top-bar .airline-name{background:rgba(255,255,255,.15);padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;}
+.top-bar-right{display:flex;align-items:center;gap:10px;}
+.btn-topbar{background:rgba(255,255,255,.15);border:none;color:#fff;padding:6px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:var(--font);}
+.btn-topbar:hover{background:rgba(255,255,255,.25);}
+.btn-topbar.danger{background:rgba(220,38,38,.3);}
+.btn-topbar.danger:hover{background:rgba(220,38,38,.5);}
+.main-content{flex:1;padding:20px 24px;max-width:1400px;margin:0 auto;width:100%;}
+.tab-nav{display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid var(--border);}
+.tab-btn{padding:10px 20px;border:none;background:none;color:var(--text-sec);font-size:14px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:var(--font);}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);}
+.tab-btn .badge-count{background:var(--danger);color:#fff;font-size:11px;padding:1px 7px;border-radius:10px;margin-left:6px;font-weight:700;}
+.tab-panel{display:none;}.tab-panel.active{display:block;}
+
+.login-container{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 50%,#0891b2 100%);}
+.login-card{background:#fff;border-radius:var(--radius-lg);padding:48px 40px;width:420px;max-width:90vw;box-shadow:var(--shadow-lg);text-align:center;}
+.login-card h2{font-size:22px;font-weight:800;margin-bottom:6px;}
+.login-card p{color:var(--text-sec);font-size:14px;margin-bottom:28px;}
+.login-card .logo{font-size:42px;margin-bottom:16px;}
+.form-group{margin-bottom:18px;text-align:left;}
+.form-group label{display:block;font-size:13px;font-weight:600;color:var(--text-sec);margin-bottom:6px;}
+.form-select{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:var(--font);outline:none;background:#fff;}
+.btn-login{width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius);font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);margin-top:8px;}
+.btn-login:hover{background:var(--primary-dark);}
+.login-footer{margin-top:20px;font-size:12px;color:var(--text-muted);}
+
+.filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;background:var(--surface);padding:14px 18px;border-radius:var(--radius);border:1px solid var(--border);}
+.filter-bar label{font-size:13px;font-weight:600;color:var(--text-sec);white-space:nowrap;}
+.filter-bar input[type="date"]{padding:7px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font);outline:none;}
+.pf-sep{color:var(--text-muted);}
+.pf-quick{display:flex;gap:4px;margin-left:4px;}
+.pf-qbtn{padding:5px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#fff;font-size:12px;font-weight:600;color:var(--text-sec);cursor:pointer;font-family:var(--font);white-space:nowrap;}
+.pf-qbtn:hover{border-color:var(--primary);color:var(--primary);}
+.pf-qbtn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+.pf-qbtn.reset{color:var(--text-sec);border-color:var(--border);background:var(--surface-alt);}
+.pf-qbtn.reset:hover{color:var(--danger);border-color:var(--danger);background:#fef2f2;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);}
+.btn-primary{background:var(--primary);color:#fff;}.btn-primary:hover{background:var(--primary-dark);}
+.btn-secondary{background:var(--surface);color:var(--text-sec);border:1.5px solid var(--border);}.btn-secondary:hover{background:var(--surface-alt);}
+.btn-success{background:var(--success);color:#fff;}
+.btn-danger{background:var(--danger);color:#fff;}
+.btn-sm{padding:5px 10px;font-size:12px;}
+
+/* ===== 대시보드 ===== */
+.dash-row {
+    margin-bottom:24px;
+}
+.dash-left {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
+    padding:28px 28px 24px;
+    box-shadow:var(--shadow-sm);
+}
+.dl-title { font-size:14px; font-weight:700; color:var(--text-sec); margin-bottom:16px; }
+.dl-big { display:flex; align-items:baseline; gap:8px; margin-bottom:20px; }
+.dl-big .dl-num { font-size:40px; font-weight:800; color:var(--text); line-height:1; }
+.dl-big .dl-unit { font-size:15px; color:var(--text-muted); font-weight:500; }
+.dl-cards { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+.dl-card {
+    border-radius:var(--radius);
+    padding:16px 18px;
+    position:relative;
+    cursor:pointer;
+    transition:all .2s;
+    border:2px solid transparent;
+}
+.dl-card:hover { opacity:.85; }
+.dl-card.active { border-color:rgba(0,0,0,.15); box-shadow:0 2px 8px rgba(0,0,0,.1); transform:scale(1.02); }
+.dl-card .dc-label { font-size:13px; font-weight:700; margin-bottom:8px; }
+.dl-card .dc-row { display:flex; align-items:baseline; gap:6px; }
+.dl-card .dc-num { font-size:28px; font-weight:800; line-height:1; }
+.dl-card .dc-pct { font-size:13px; font-weight:600; color:rgba(0,0,0,.45); }
+.dl-card.c-atc { background:#fef2f2; }
+.dl-card.c-atc .dc-label { color:#b91c1c; }
+.dl-card.c-atc .dc-num { color:#b91c1c; }
+.dl-card.c-pilot { background:#fff7ed; }
+.dl-card.c-pilot .dc-label { color:#c2410c; }
+.dl-card.c-pilot .dc-num { color:#c2410c; }
+.dl-card.c-none { background:#f0fdf4; }
+.dl-card.c-none .dc-label { color:#15803d; }
+.dl-card.c-none .dc-num { color:#15803d; }
+
+/* 사건 카드 */
+.inc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;}
+.inc-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;transition:all .2s;border-left:4px solid var(--border);}
+.inc-card:hover{box-shadow:var(--shadow);transform:translateY(-1px);}
+.inc-card.risk-very-high{border-left-color:var(--danger);}.inc-card.risk-high{border-left-color:var(--warning);}
+.inc-card.risk-low{border-left-color:var(--success);}.inc-card.risk-very-low{border-left-color:var(--info);}
+.inc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.inc-top-left{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.cs{font-size:15px;font-weight:800;letter-spacing:.5px;font-family:'Courier New',monospace;}
+.cs.mine{color:var(--primary);}.cs.other{color:var(--danger);}
+.cs-arrow{color:var(--text-muted);font-size:13px;}
+.error-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;}
+.error-badge.atc{background:#fef2f2;color:#dc2626;}
+.error-badge.pilot{background:#fffbeb;color:#d97706;}
+.error-badge.none-type{background:var(--success-light);color:var(--success);}
+.btn-action{padding:5px 12px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);white-space:nowrap;}
+.btn-action:hover{background:var(--primary-dark);}
+.inc-bottom{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.inc-metric{text-align:center;padding:8px 4px;background:var(--surface-alt);border-radius:var(--radius-sm);}
+.m-label{font-size:10px;color:var(--text-muted);font-weight:600;margin-bottom:4px;}
+.m-value{font-size:14px;font-weight:700;}
+.m-value.danger{color:var(--danger);}.m-value.warning{color:var(--warning);}
+.m-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;}
+.m-badge.very-high{background:#fef2f2;color:#dc2626;}.m-badge.high{background:#fffbeb;color:#d97706;}
+.m-badge.low{background:#f0fdf4;color:#16a34a;}.m-badge.very-low{background:#ecfeff;color:#0891b2;}
+.inc-timeline{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-light);}
+.tl-label{font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:6px;}
+.tl-chips{display:flex;gap:6px;flex-wrap:wrap;}
+.t-chip{font-size:11px;background:var(--surface-alt);color:var(--text-sec);padding:3px 10px;border-radius:12px;font-weight:500;}
+
+.act-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+.act-sum-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;cursor:pointer;transition:all .2s;}
+.act-sum-card:hover{box-shadow:var(--shadow);transform:translateY(-1px);}
+.act-sum-card.active{border-color:var(--primary);background:var(--surface-alt);box-shadow:0 0 0 2px rgba(37,99,235,.15);}
+.act-sum-card .as-num{font-size:24px;font-weight:800;line-height:1;}
+.act-sum-card .as-label{font-size:12px;color:var(--text-sec);font-weight:500;margin-top:6px;}
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{background:var(--surface-alt);font-weight:700;color:var(--text-sec);text-align:left;padding:10px 14px;border-bottom:2px solid var(--border);white-space:nowrap;font-size:12px;}
+td{padding:10px 14px;border-bottom:1px solid var(--border-light);}
+tr:hover td{background:var(--surface-alt);}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;}
+.badge-danger{background:#fef2f2;color:#dc2626;}.badge-warning{background:#fffbeb;color:#d97706;}
+.badge-success{background:#f0fdf4;color:#16a34a;}.badge-info{background:#ecfeff;color:#0891b2;}
+.admin-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.admin-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;}
+.admin-stat .asl{font-size:12px;color:var(--text-muted);margin-bottom:4px;}.admin-stat .asn{font-size:24px;font-weight:800;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.active{display:flex;}
+.modal{background:#fff;border-radius:var(--radius-lg);width:560px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-lg);}
+.modal-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
+.modal-header h3{font-size:16px;font-weight:700;}
+.modal-close{background:none;border:none;font-size:22px;color:var(--text-muted);cursor:pointer;}.modal-close:hover{color:var(--text);}
+.modal-body{padding:24px;}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;}
+.form-row{margin-bottom:16px;}
+.form-row label{display:block;font-size:13px;font-weight:600;color:var(--text-sec);margin-bottom:5px;}
+.form-row .req{color:var(--danger);}
+.form-row input,.form-row select,.form-row textarea{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font);outline:none;}
+.form-row textarea{min-height:80px;resize:vertical;}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--primary);}
+.empty-state{text-align:center;padding:48px 20px;color:var(--text-muted);}
+.empty-state .icon{font-size:40px;margin-bottom:12px;}
+
+/* 가이드 */
+.guide-box {
+    padding:14px 20px;border-radius:var(--radius);margin-bottom:20px;
+    font-size:13px;line-height:1.7;color:#1a5276;
+    background:#eef6fc;border-left:4px solid var(--info);
+}
+.guide-box strong { color:#0c4a6e; }
+.tip-box {
+    margin-top:16px;padding:12px 16px;background:var(--surface-alt);border-radius:var(--radius-sm);
+    font-size:12px;color:var(--text-muted);border:1px solid var(--border);line-height:1.7;
+}
+.tip-box strong { color:var(--text-sec); }
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+.section-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.section-count{font-size:13px;color:var(--text-muted);font-weight:500;}
+
+@media print{.top-bar,.tab-nav,.filter-bar,.btn,.pf-quick,.no-print,.guide-box,.tip-box{display:none!important;}body{background:#fff;}}
+@media(max-width:1024px){.admin-stats{grid-template-columns:repeat(4,1fr);}}
+@media(max-width:768px){.top-bar{padding:10px 16px;}.top-bar h1{font-size:14px;}.main-content{padding:14px 12px;}.inc-grid{grid-template-columns:1fr;}.inc-bottom{grid-template-columns:repeat(2,1fr);}.filter-bar{flex-direction:column;align-items:stretch;}.pf-quick{width:100%;flex-wrap:wrap;margin-left:0;}.tab-btn{padding:8px 12px;font-size:13px;}.admin-stats,.act-summary{grid-template-columns:repeat(2,1fr);gap:8px;}.dl-cards{grid-template-columns:1fr;}}
+.fade-in{animation:fadeIn .25s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="login-container">
+    <div class="login-card">
+        <div class="logo">✈️</div>
+        <h2>유사호출부호 경고시스템</h2>
+        <p>항공사 전용 — 사후분석 및 조치관리</p>
+        <div class="form-group">
+            <label>항공사 선택</label>
+            <select id="loginAirline" class="form-select">
+                <option value="">항공사를 선택하세요</option>
+                <option value="KAL">대한항공 (KAL)</option><option value="AAR">아시아나항공 (AAR)</option>
+                <option value="JJA">제주항공 (JJA)</option><option value="JNA">진에어 (JNA)</option>
+                <option value="TWB">티웨이항공 (TWB)</option><option value="ABL">에어부산 (ABL)</option>
+                <option value="ASV">에어서울 (ASV)</option><option value="EOK">이스타항공 (EOK)</option>
+                <option value="FGW">플라이강원 (FGW)</option>
+            </select>
+        </div>
+        <button class="btn-login" onclick="doLogin()">로그인</button>
+        <div style="margin-top:14px;"><button class="btn-login" style="background:#6b7280;" onclick="doAdminLogin()">관리자 로그인</button></div>
+        <div class="login-footer">국토교통부 항공교통본부 · 유사호출부호 안전관리 시스템</div>
+    </div>
+</div>
+
+<!-- MAIN -->
+<div id="appScreen" class="app-wrapper" style="display:none;">
+    <div class="top-bar">
+        <h1><span class="icon">✈️</span>유사호출부호 경고시스템<span id="topName" class="airline-name"></span></h1>
+        <div class="top-bar-right">
+            <span id="topDate" style="font-size:12px;opacity:.8;"></span>
+            <button class="btn-topbar danger" onclick="doLogout()">로그아웃</button>
+        </div>
+    </div>
+    <div class="main-content">
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('dash',this)">📊 유사호출부호 발생현황</button>
+            <button class="tab-btn" onclick="switchTab('act',this)">📋 조치 이력</button>
+            <button id="tabAdmin" class="tab-btn" onclick="switchTab('admin',this)" style="display:none;">🔧 관리자</button>
+        </div>
+
+        <!-- 발생현황 -->
+        <div id="panel-dash" class="tab-panel active">
+            <div class="filter-bar">
+                <label>📅 조회기간</label>
+                <input type="date" id="fFrom" onchange="renderDash()" style="width:150px;"><span class="pf-sep">~</span>
+                <input type="date" id="fTo" onchange="renderDash()" style="width:150px;">
+                <div class="pf-quick">
+                    <button class="pf-qbtn" onclick="setQ('today',this)">오늘</button>
+                    <button class="pf-qbtn" onclick="setQ('7',this)">최근 1주</button>
+                    <button class="pf-qbtn" onclick="setQ('14',this)">최근 2주</button>
+                    <button class="pf-qbtn active" onclick="setQ('30',this)">최근 1개월</button>
+                </div>
+                <div style="flex:1;"></div>
+                <button class="pf-qbtn reset" onclick="resetDashFilter()">✕ 필터해제</button>
+            </div>
+
+            <div class="guide-box">
+                ℹ️ 자사 편명과 관련된 유사호출부호 발생현황을 확인할 수 있습니다. <strong>오류유형 카드</strong>를 클릭하면 해당 유형으로 필터링되며, 각 편명의 <strong>「조치 등록」</strong> 버튼으로 조치사항을 기록할 수 있습니다.
+            </div>
+
+            <!-- 오류유형 -->
+            <div class="dash-row">
+                <div class="dash-left" id="dashLeft"></div>
+            </div>
+
+            <div class="section-header">
+                <div class="section-title">⚠️ 오류 발생 편명 <span id="incCnt" class="section-count"></span></div>
+                <div style="display:flex;gap:8px;align-items:center;" class="no-print">
+                    <label style="font-size:12px;font-weight:600;color:var(--text-sec);">정렬</label>
+                    <select id="incSort" onchange="renderList()" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:var(--font);">
+                        <option value="date">최신순</option><option value="count">발생건수순</option><option value="risk">오류가능성순</option>
+                    </select>
+                    <button class="btn btn-secondary btn-sm" onclick="expInc()">📥 엑셀</button>
+                </div>
+            </div>
+            <div id="incGrid" class="inc-grid"></div>
+            <div class="tip-box">💡 <strong>Tip:</strong> 조회기간을 변경하면 해당 기간의 발생현황이 표시됩니다. 오류유형 카드를 다시 클릭하면 필터가 해제됩니다. 엑셀 다운로드로 데이터를 내려받을 수 있습니다.</div>
+        </div>
+
+        <!-- 조치 이력 -->
+        <div id="panel-act" class="tab-panel">
+            <div class="filter-bar">
+                <label>📅 조회기간</label>
+                <input type="date" id="actFrom" onchange="renderActs()" style="width:150px;"><span class="pf-sep">~</span>
+                <input type="date" id="actTo" onchange="renderActs()" style="width:150px;">
+                <div class="pf-quick">
+                    <button class="pf-qbtn" onclick="setActQ('today',this)">오늘</button>
+                    <button class="pf-qbtn" onclick="setActQ('7',this)">최근 1주</button>
+                    <button class="pf-qbtn" onclick="setActQ('14',this)">최근 2주</button>
+                    <button class="pf-qbtn active" onclick="setActQ('30',this)">최근 1개월</button>
+                </div>
+                <div style="flex:1;"></div>
+                <button class="pf-qbtn reset" onclick="resetActFilter()">✕ 필터해제</button>
+            </div>
+            <div class="guide-box">
+                ℹ️ 유사호출부호 관련 조치현황을 관리합니다. <strong>조치완료</strong> 버튼으로 조치 내용을 확인·수정하고, <strong>조치등록</strong> 버튼으로 새로운 조치를 등록할 수 있습니다.
+            </div>
+            <div class="act-summary" id="actSum"></div>
+            <div class="section-header no-print">
+                <div class="section-title">📋 조치 목록</div>
+                <button class="btn btn-success btn-sm" onclick="expAct()">📥 엑셀</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>등록일</th><th>유사호출부호</th><th>조치대상편명</th><th>조치유형</th><th>조치완료일</th><th style="white-space:nowrap;">조치현황</th></tr></thead><tbody id="actTbl"></tbody></table></div>
+            <div class="tip-box">💡 <strong>Tip:</strong> 조치현황 열의 「조치 등록」 버튼을 눌러 새로운 조치를 등록할 수 있습니다. 등록 완료 시 「조치완료」 버튼으로 변경되며, 클릭하면 내용 확인·수정이 가능합니다.</div>
+        </div>
+
+        <!-- 관리자 -->
+        <div id="panel-admin" class="tab-panel">
+            <div class="guide-box">
+                ℹ️ 전체 항공사의 유사호출부호 발생현황과 조치 이력을 통합 관리합니다. <strong>항공사별 현황</strong>에서 오류유형 분포를 확인하고, 하단에서 <strong>전체 조치 이력</strong>을 항공사별로 필터링하여 조회할 수 있습니다.
+            </div>
+            <div class="filter-bar">
+                <label>📅 조회기간</label>
+                <input type="date" id="aFrom" onchange="renderAdmin()" style="width:150px;"><span class="pf-sep">~</span>
+                <input type="date" id="aTo" onchange="renderAdmin()" style="width:150px;">
+                <div class="pf-quick">
+                    <button class="pf-qbtn" onclick="setAdminQ('today',this)">오늘</button>
+                    <button class="pf-qbtn" onclick="setAdminQ('7',this)">최근 1주</button>
+                    <button class="pf-qbtn" onclick="setAdminQ('14',this)">최근 2주</button>
+                    <button class="pf-qbtn active" onclick="setAdminQ('30',this)">최근 1개월</button>
+                </div>
+                <div style="flex:1;"></div>
+                <button class="pf-qbtn reset" onclick="resetAdminFilter()">✕ 필터해제</button>
+            </div>
+            <div class="admin-stats" id="adminStats"></div>
+            <div class="section-header"><div class="section-title">📊 항공사별 현황</div></div>
+            <div class="table-wrap" style="margin-bottom:20px;">
+                <table><thead><tr><th>항공사</th><th>발생건수</th><th>편명 변경</th><th>조종사 브리핑</th><th>스케줄 조정</th><th>기타</th><th>조치등록</th></tr></thead><tbody id="adminTbl"></tbody></table>
+            </div>
+            <div class="section-header">
+                <div class="section-title">📋 전체 조치 이력</div>
+                <div style="display:flex;gap:8px;">
+                    <select id="adminAF" onchange="renderAdminAct()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font);"><option value="all">전체 항공사</option></select>
+                    <button class="btn btn-success btn-sm" onclick="expAll()">📥 전체 엑셀</button>
+                </div>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>항공사</th><th>등록일</th><th>조치완료일</th><th>유사호출부호</th><th>조치대상편명</th><th>조치유형</th><th>상세</th></tr></thead><tbody id="adminActTbl"></tbody></table></div>
+        </div>
+    </div>
+</div>
+
+<!-- 조치 등록 모달 -->
+<div id="amModal" class="modal-overlay" onclick="if(event.target===this)closeAM()">
+    <div class="modal">
+        <div class="modal-header"><h3>조치등록</h3><button class="modal-close" onclick="closeAM()">&times;</button></div>
+        <div class="modal-body">
+            <div class="form-row"><label>유사호출부호</label><input type="text" id="amPair" readonly style="background:var(--surface-alt);font-weight:700;"></div>
+            <div class="form-row"><label>조치대상편명 <span class="req">*</span></label><select id="amCS"></select></div>
+            <div class="form-row"><label>등록일</label><input type="text" id="amRegDate" readonly style="background:var(--surface-alt);"></div>
+            <div class="form-row"><label>조치유형 <span class="req">*</span></label>
+                <select id="amTp"><option value="">선택하세요</option><option>편명 변경</option><option>조종사 브리핑</option><option>스케줄 조정</option><option>기타</option></select></div>
+            <div class="form-row"><label>조치완료일 <span class="req">*</span></label><input type="date" id="amDu"></div>
+            <div class="form-row"><label>상세내용</label><textarea id="amDt" placeholder="조치 내용을 기술하세요."></textarea></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary" onclick="closeAM()">취소</button><button class="btn btn-primary" onclick="saveNewAct()">저장</button></div>
+    </div>
+</div>
+
+<!-- 상세/수정 모달 -->
+<div id="dmModal" class="modal-overlay" onclick="if(event.target===this)closeDM()">
+    <div class="modal">
+        <div class="modal-header"><h3>조치 상세 · 수정</h3><button class="modal-close" onclick="closeDM()">&times;</button></div>
+        <div class="modal-body" id="dmBody"></div>
+    </div>
+</div>
+
+<script>
+const AL={KAL:{n:'대한항공'},AAR:{n:'아시아나항공'},JJA:{n:'제주항공'},JNA:{n:'진에어'},TWB:{n:'티웨이항공'},ABL:{n:'에어부산'},ASV:{n:'에어서울'},EOK:{n:'이스타항공'},FGW:{n:'플라이강원'}};
+const INC=[
+    {id:'I001',pair:'KAL761 | ABL760',mine:'KAL761',other:'ABL760',airline:'KAL',atcCount:0,pilotCount:3,noneCount:1,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-02-03',dates:['02-03 15:07','01-28 21:27','01-28 15:50','01-19 09:19']},
+    {id:'I002',pair:'KAL518 | EOK581',mine:'KAL518',other:'EOK581',airline:'KAL',atcCount:1,pilotCount:3,noneCount:2,risk:'매우높음',similarity:'높음',lastDate:'2026-02-16',dates:['02-16 19:37','02-13 17:11','02-11 06:31','01-31 15:05','01-22 11:11','01-21 10:21']},
+    {id:'I003',pair:'KAL995 | ABL995',mine:'KAL995',other:'ABL995',airline:'KAL',atcCount:3,pilotCount:0,noneCount:1,risk:'높음',similarity:'낮음',lastDate:'2026-02-23',dates:['02-23 07:01','02-15 07:59','01-28 10:39','01-25 12:14']},
+    {id:'I004',pair:'KAL519 | KAL591',mine:'KAL519',other:'KAL591',airline:'KAL',atcCount:0,pilotCount:0,noneCount:1,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-25',dates:['02-25 18:33']},
+    {id:'I005',pair:'KAL578 | EOK577',mine:'KAL578',other:'EOK577',airline:'KAL',atcCount:0,pilotCount:3,noneCount:1,risk:'높음',similarity:'높음',lastDate:'2026-01-27',dates:['01-27 21:01','01-22 21:07','01-22 06:42','01-19 12:14']},
+    {id:'I006',pair:'KAL839 | TWB893',mine:'KAL839',other:'TWB893',airline:'KAL',atcCount:4,pilotCount:2,noneCount:1,risk:'높음',similarity:'매우높음',lastDate:'2026-02-15',dates:['02-15 14:21','02-10 10:23','02-06 17:30','02-04 12:13','01-25 09:17','01-21 12:25','01-17 22:43']},
+    {id:'I007',pair:'KAL417 | JNA417',mine:'KAL417',other:'JNA417',airline:'KAL',atcCount:2,pilotCount:2,noneCount:1,risk:'높음',similarity:'낮음',lastDate:'2026-02-28',dates:['02-28 11:37','02-28 08:22','02-26 22:47','02-25 08:40','01-23 09:52']},
+    {id:'I008',pair:'KAL588 | AAR588',mine:'KAL588',other:'AAR588',airline:'KAL',atcCount:0,pilotCount:2,noneCount:0,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-17',dates:['02-17 13:38','01-20 18:24']},
+    {id:'I009',pair:'KAL543 | KAL534',mine:'KAL543',other:'KAL534',airline:'KAL',atcCount:3,pilotCount:2,noneCount:1,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-02-15',dates:['02-15 06:37','02-05 19:12','02-02 16:22','01-22 18:57','01-21 12:50','01-18 19:28']},
+    {id:'I010',pair:'KAL923 | EOK932',mine:'KAL923',other:'EOK932',airline:'KAL',atcCount:4,pilotCount:1,noneCount:0,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-27',dates:['02-27 13:28','02-18 08:46','02-12 15:39','02-01 06:28','01-25 20:20']},
+    {id:'I011',pair:'KAL973 | EOK937',mine:'KAL973',other:'EOK937',airline:'KAL',atcCount:0,pilotCount:0,noneCount:3,risk:'높음',similarity:'매우높음',lastDate:'2026-02-26',dates:['02-26 18:51','01-20 22:47','01-20 07:55']},
+    {id:'I012',pair:'KAL527 | JJA527',mine:'KAL527',other:'JJA527',airline:'KAL',atcCount:3,pilotCount:0,noneCount:2,risk:'높음',similarity:'높음',lastDate:'2026-01-28',dates:['01-28 19:16','01-26 09:22','01-25 08:36','01-22 19:37','01-17 15:23']},
+    {id:'I013',pair:'KAL939 | TWB939',mine:'KAL939',other:'TWB939',airline:'KAL',atcCount:5,pilotCount:0,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-02-22',dates:['02-22 07:52','02-15 19:59','02-01 19:23','01-26 09:03','01-17 12:02']},
+    {id:'I014',pair:'KAL757 | JNA758',mine:'KAL757',other:'JNA758',airline:'KAL',atcCount:3,pilotCount:0,noneCount:2,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-18',dates:['02-18 14:00','02-13 13:18','02-10 18:46','01-26 11:29','01-22 18:57']},
+    {id:'I015',pair:'KAL594 | KAL594',mine:'KAL594',other:'KAL594',airline:'KAL',atcCount:1,pilotCount:0,noneCount:1,risk:'높음',similarity:'낮음',lastDate:'2026-02-10',dates:['02-10 13:34','01-30 18:41']},
+    {id:'I016',pair:'KAL296 | ASV303',mine:'KAL296',other:'ASV303',airline:'KAL',atcCount:0,pilotCount:2,noneCount:0,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-27',dates:['02-27 21:21','01-19 15:46']},
+    {id:'I017',pair:'KAL864 | EOK863',mine:'KAL864',other:'EOK863',airline:'KAL',atcCount:4,pilotCount:0,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-02-22',dates:['02-22 10:37','02-21 12:28','02-17 10:19','02-01 12:21']},
+    {id:'I018',pair:'KAL161 | JJA162',mine:'KAL161',other:'JJA162',airline:'KAL',atcCount:1,pilotCount:1,noneCount:1,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-26',dates:['02-26 13:26','02-16 09:02','02-02 22:13']},
+    {id:'I019',pair:'KAL570 | ABL507',mine:'KAL570',other:'ABL507',airline:'KAL',atcCount:0,pilotCount:0,noneCount:3,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-02-16',dates:['02-16 19:08','02-15 10:13','01-31 09:55']},
+    {id:'I020',pair:'KAL345 | ASV343',mine:'KAL345',other:'ASV343',airline:'KAL',atcCount:0,pilotCount:0,noneCount:3,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-02-22',dates:['02-22 22:15','02-22 08:11','01-17 08:27']},
+    {id:'I021',pair:'KAL320 | KAL321',mine:'KAL320',other:'KAL321',airline:'KAL',atcCount:0,pilotCount:1,noneCount:1,risk:'매우높음',similarity:'높음',lastDate:'2026-02-15',dates:['02-15 17:18','02-14 09:37']},
+    {id:'I022',pair:'KAL469 | ASV463',mine:'KAL469',other:'ASV463',airline:'KAL',atcCount:4,pilotCount:0,noneCount:1,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-27',dates:['02-27 11:51','02-17 06:38','02-10 07:23','02-01 19:14','01-24 19:25']},
+    {id:'I023',pair:'KAL756 | EOK757',mine:'KAL756',other:'EOK757',airline:'KAL',atcCount:3,pilotCount:0,noneCount:2,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-24',dates:['02-24 08:23','02-21 22:13','02-12 11:28','02-06 07:43','01-19 13:12']},
+    {id:'I024',pair:'KAL201 | ASV200',mine:'KAL201',other:'ASV200',airline:'KAL',atcCount:0,pilotCount:1,noneCount:0,risk:'낮음',similarity:'높음',lastDate:'2026-01-16',dates:['01-16 17:09']},
+    {id:'I025',pair:'KAL345 | AAR346',mine:'KAL345',other:'AAR346',airline:'KAL',atcCount:2,pilotCount:0,noneCount:2,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-25',dates:['02-25 20:27','02-12 18:11','01-26 16:17','01-25 08:10']},
+    {id:'I026',pair:'KAL716 | TWB716',mine:'KAL716',other:'TWB716',airline:'KAL',atcCount:3,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-23',dates:['02-23 06:15','02-21 13:13','02-21 12:40']},
+    {id:'I027',pair:'KAL995 | EOK986',mine:'KAL995',other:'EOK986',airline:'KAL',atcCount:4,pilotCount:1,noneCount:0,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-21',dates:['02-21 15:05','02-14 16:43','01-26 13:59','01-25 20:33','01-16 09:53']},
+    {id:'I028',pair:'KAL693 | EOK693',mine:'KAL693',other:'EOK693',airline:'KAL',atcCount:0,pilotCount:1,noneCount:0,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-20',dates:['02-20 14:31']},
+    {id:'I029',pair:'KAL488 | ASV488',mine:'KAL488',other:'ASV488',airline:'KAL',atcCount:5,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-26',dates:['02-26 17:18','02-18 06:06','02-10 22:20','02-02 09:31','01-15 22:14']},
+    {id:'I030',pair:'KAL884 | EOK884',mine:'KAL884',other:'EOK884',airline:'KAL',atcCount:0,pilotCount:0,noneCount:2,risk:'높음',similarity:'매우높음',lastDate:'2026-02-28',dates:['02-28 08:28','01-21 19:36']},
+    {id:'I031',pair:'AAR114 | JNA114',mine:'AAR114',other:'JNA114',airline:'AAR',atcCount:4,pilotCount:1,noneCount:2,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-13',dates:['02-13 16:25','02-10 07:43','01-24 13:18','01-20 14:05','01-17 21:28','01-16 17:16','01-16 13:09']},
+    {id:'I032',pair:'AAR587 | EOK586',mine:'AAR587',other:'EOK586',airline:'AAR',atcCount:4,pilotCount:2,noneCount:2,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-16',dates:['02-16 12:12','02-10 14:10','02-07 21:20','01-24 14:28','01-24 07:42','01-19 08:29','01-17 17:02']},
+    {id:'I033',pair:'AAR443 | KAL434',mine:'AAR443',other:'KAL434',airline:'AAR',atcCount:4,pilotCount:2,noneCount:0,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-23',dates:['02-23 17:25','02-10 08:02','02-09 12:56','02-06 17:37','01-27 21:11','01-26 22:06']},
+    {id:'I034',pair:'AAR566 | ASV569',mine:'AAR566',other:'ASV569',airline:'AAR',atcCount:3,pilotCount:0,noneCount:1,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-26',dates:['02-26 07:46','02-15 06:20','01-31 09:57','01-18 21:03']},
+    {id:'I035',pair:'AAR233 | ASV230',mine:'AAR233',other:'ASV230',airline:'AAR',atcCount:0,pilotCount:0,noneCount:2,risk:'낮음',similarity:'낮음',lastDate:'2026-02-24',dates:['02-24 07:52','01-18 06:03']},
+    {id:'I036',pair:'AAR997 | EOK979',mine:'AAR997',other:'EOK979',airline:'AAR',atcCount:1,pilotCount:0,noneCount:0,risk:'높음',similarity:'매우낮음',lastDate:'2026-01-16',dates:['01-16 12:00']},
+    {id:'I037',pair:'AAR948 | KAL949',mine:'AAR948',other:'KAL949',airline:'AAR',atcCount:3,pilotCount:1,noneCount:2,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-02-09',dates:['02-09 21:40','02-06 13:03','01-29 08:00','01-19 09:29','01-15 11:26','01-15 10:08']},
+    {id:'I038',pair:'AAR389 | TWB393',mine:'AAR389',other:'TWB393',airline:'AAR',atcCount:1,pilotCount:2,noneCount:2,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-02-02',dates:['02-02 17:28','01-21 06:07','01-19 06:53','01-18 06:13','01-15 11:14']},
+    {id:'I039',pair:'AAR140 | ASV141',mine:'AAR140',other:'ASV141',airline:'AAR',atcCount:0,pilotCount:0,noneCount:2,risk:'낮음',similarity:'낮음',lastDate:'2026-01-25',dates:['01-25 09:21','01-24 08:27']},
+    {id:'I040',pair:'AAR577 | ASV578',mine:'AAR577',other:'ASV578',airline:'AAR',atcCount:0,pilotCount:4,noneCount:0,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-08',dates:['02-08 11:36','01-26 06:25','01-21 17:02','01-18 18:29']},
+    {id:'I041',pair:'AAR552 | JNA553',mine:'AAR552',other:'JNA553',airline:'AAR',atcCount:2,pilotCount:0,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-02-20',dates:['02-20 09:47','02-20 09:38']},
+    {id:'I042',pair:'AAR151 | JJA158',mine:'AAR151',other:'JJA158',airline:'AAR',atcCount:4,pilotCount:0,noneCount:2,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-26',dates:['02-26 14:07','02-17 15:37','02-02 10:22','01-31 07:30','01-19 20:06','01-15 20:12']},
+    {id:'I043',pair:'AAR258 | JNA257',mine:'AAR258',other:'JNA257',airline:'AAR',atcCount:4,pilotCount:1,noneCount:1,risk:'낮음',similarity:'높음',lastDate:'2026-02-27',dates:['02-27 12:01','02-26 15:46','02-12 20:41','01-30 16:14','01-23 10:44','01-16 08:21']},
+    {id:'I044',pair:'AAR579 | AAR578',mine:'AAR579',other:'AAR578',airline:'AAR',atcCount:1,pilotCount:2,noneCount:1,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-12',dates:['02-12 16:04','02-06 07:58','01-20 21:04','01-17 11:51']},
+    {id:'I045',pair:'AAR184 | AAR186',mine:'AAR184',other:'AAR186',airline:'AAR',atcCount:1,pilotCount:2,noneCount:1,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-12',dates:['02-12 18:36','02-05 18:12','01-25 22:26','01-16 12:11']},
+    {id:'I046',pair:'AAR310 | KAL309',mine:'AAR310',other:'KAL309',airline:'AAR',atcCount:2,pilotCount:2,noneCount:2,risk:'높음',similarity:'높음',lastDate:'2026-02-28',dates:['02-28 18:59','02-15 08:54','02-14 22:13','01-20 19:59','01-17 12:04','01-15 13:11']},
+    {id:'I047',pair:'AAR906 | KAL906',mine:'AAR906',other:'KAL906',airline:'AAR',atcCount:4,pilotCount:1,noneCount:0,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-02-15',dates:['02-15 17:55','02-14 14:03','02-13 13:34','01-30 18:24','01-28 13:48']},
+    {id:'I048',pair:'AAR807 | JJA806',mine:'AAR807',other:'JJA806',airline:'AAR',atcCount:2,pilotCount:0,noneCount:0,risk:'높음',similarity:'낮음',lastDate:'2026-02-17',dates:['02-17 11:16','02-09 19:39']},
+    {id:'I049',pair:'AAR648 | ABL684',mine:'AAR648',other:'ABL684',airline:'AAR',atcCount:3,pilotCount:1,noneCount:2,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-28',dates:['02-28 10:31','02-28 10:27','02-26 15:50','02-19 15:46','02-12 06:58','02-09 18:24']},
+    {id:'I050',pair:'AAR566 | JJA565',mine:'AAR566',other:'JJA565',airline:'AAR',atcCount:3,pilotCount:4,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-02-16',dates:['02-16 19:05','01-28 11:33','01-28 09:11','01-27 22:32','01-25 21:12','01-18 06:00','01-16 21:05']},
+    {id:'I051',pair:'AAR162 | EOK154',mine:'AAR162',other:'EOK154',airline:'AAR',atcCount:2,pilotCount:2,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-08',dates:['02-08 20:58','01-28 18:09','01-19 17:07','01-18 15:21']},
+    {id:'I052',pair:'AAR178 | EOK187',mine:'AAR178',other:'EOK187',airline:'AAR',atcCount:0,pilotCount:2,noneCount:0,risk:'낮음',similarity:'낮음',lastDate:'2026-02-08',dates:['02-08 22:43','01-16 11:45']},
+    {id:'I053',pair:'AAR238 | KAL283',mine:'AAR238',other:'KAL283',airline:'AAR',atcCount:0,pilotCount:0,noneCount:2,risk:'매우높음',similarity:'매우높음',lastDate:'2026-01-24',dates:['01-24 19:40','01-24 15:00']},
+    {id:'I054',pair:'AAR441 | JJA441',mine:'AAR441',other:'JJA441',airline:'AAR',atcCount:3,pilotCount:2,noneCount:0,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-27',dates:['02-27 08:41','02-14 08:34','01-24 15:32','01-21 09:47','01-17 10:24']},
+    {id:'I055',pair:'AAR244 | JNA244',mine:'AAR244',other:'JNA244',airline:'AAR',atcCount:1,pilotCount:2,noneCount:2,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-22',dates:['02-22 17:04','01-28 22:06','01-28 21:34','01-27 19:50','01-15 09:39']},
+    {id:'I056',pair:'AAR886 | EOK893',mine:'AAR886',other:'EOK893',airline:'AAR',atcCount:3,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-28',dates:['02-28 16:40','02-19 17:46','02-18 11:55']},
+    {id:'I057',pair:'AAR411 | KAL412',mine:'AAR411',other:'KAL412',airline:'AAR',atcCount:0,pilotCount:2,noneCount:1,risk:'낮음',similarity:'높음',lastDate:'2026-02-26',dates:['02-26 15:52','02-02 09:32','01-26 20:53']},
+    {id:'I058',pair:'AAR202 | EOK209',mine:'AAR202',other:'EOK209',airline:'AAR',atcCount:5,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-20',dates:['02-20 22:09','01-30 09:15','01-26 09:04','01-23 11:04','01-16 12:20']},
+    {id:'I059',pair:'AAR760 | JNA706',mine:'AAR760',other:'JNA706',airline:'AAR',atcCount:0,pilotCount:0,noneCount:2,risk:'높음',similarity:'낮음',lastDate:'2026-02-06',dates:['02-06 12:33','01-27 15:09']},
+    {id:'I060',pair:'AAR952 | ASV925',mine:'AAR952',other:'ASV925',airline:'AAR',atcCount:2,pilotCount:0,noneCount:1,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-07',dates:['02-07 13:12','01-23 06:48','01-18 09:21']},
+    {id:'I061',pair:'AAR961 | ASV962',mine:'AAR961',other:'ASV962',airline:'AAR',atcCount:2,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-24',dates:['02-24 10:45','02-03 12:25']},
+    {id:'I062',pair:'JJA194 | KAL194',mine:'JJA194',other:'KAL194',airline:'JJA',atcCount:0,pilotCount:0,noneCount:1,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-22',dates:['02-22 19:04']},
+    {id:'I063',pair:'JJA772 | KAL727',mine:'JJA772',other:'KAL727',airline:'JJA',atcCount:5,pilotCount:4,noneCount:0,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-24',dates:['02-24 15:56','02-13 17:40','02-09 15:04','01-30 06:58','01-29 16:05','01-29 10:22','01-20 06:43']},
+    {id:'I064',pair:'JJA702 | AAR698',mine:'JJA702',other:'AAR698',airline:'JJA',atcCount:5,pilotCount:2,noneCount:0,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-26',dates:['02-26 20:55','02-22 15:18','02-06 06:56','02-02 06:46','01-26 12:12','01-22 20:53','01-20 16:15']},
+    {id:'I065',pair:'JJA190 | AAR192',mine:'JJA190',other:'AAR192',airline:'JJA',atcCount:0,pilotCount:0,noneCount:3,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-11',dates:['02-11 19:46','02-04 16:04','01-31 22:08']},
+    {id:'I066',pair:'JJA170 | ASV107',mine:'JJA170',other:'ASV107',airline:'JJA',atcCount:0,pilotCount:1,noneCount:0,risk:'높음',similarity:'낮음',lastDate:'2026-01-15',dates:['01-15 19:20']},
+    {id:'I067',pair:'JJA880 | JJA808',mine:'JJA880',other:'JJA808',airline:'JJA',atcCount:1,pilotCount:1,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-07',dates:['02-07 10:32','02-03 21:49']},
+    {id:'I068',pair:'JJA690 | KAL690',mine:'JJA690',other:'KAL690',airline:'JJA',atcCount:1,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-01',dates:['02-01 14:01']},
+    {id:'I069',pair:'JJA465 | JJA457',mine:'JJA465',other:'JJA457',airline:'JJA',atcCount:5,pilotCount:1,noneCount:0,risk:'높음',similarity:'낮음',lastDate:'2026-02-26',dates:['02-26 21:15','02-26 07:41','02-03 16:24','01-29 13:29','01-26 16:53','01-19 14:58']},
+    {id:'I070',pair:'JJA436 | KAL436',mine:'JJA436',other:'KAL436',airline:'JJA',atcCount:2,pilotCount:2,noneCount:1,risk:'높음',similarity:'매우높음',lastDate:'2026-02-23',dates:['02-23 20:56','02-14 20:16','01-27 10:16','01-16 18:54','01-15 12:13']},
+    {id:'I071',pair:'JJA745 | AAR754',mine:'JJA745',other:'AAR754',airline:'JJA',atcCount:0,pilotCount:3,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-01-26',dates:['01-26 13:40','01-26 09:10','01-19 22:38']},
+    {id:'I072',pair:'JJA204 | TWB203',mine:'JJA204',other:'TWB203',airline:'JJA',atcCount:0,pilotCount:0,noneCount:3,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-27',dates:['02-27 07:11','02-13 19:03','01-23 09:29']},
+    {id:'I073',pair:'JJA871 | JNA817',mine:'JJA871',other:'JNA817',airline:'JJA',atcCount:0,pilotCount:0,noneCount:3,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-25',dates:['02-25 08:49','02-20 17:53','02-13 08:42']},
+    {id:'I074',pair:'JJA869 | JNA869',mine:'JJA869',other:'JNA869',airline:'JJA',atcCount:0,pilotCount:0,noneCount:3,risk:'낮음',similarity:'높음',lastDate:'2026-02-12',dates:['02-12 21:47','01-30 16:58','01-20 16:08']},
+    {id:'I075',pair:'JJA748 | FGW749',mine:'JJA748',other:'FGW749',airline:'JJA',atcCount:4,pilotCount:0,noneCount:1,risk:'높음',similarity:'낮음',lastDate:'2026-02-24',dates:['02-24 12:22','02-13 07:33','02-02 06:10','01-26 15:38','01-21 17:55']},
+    {id:'I076',pair:'JJA125 | ASV120',mine:'JJA125',other:'ASV120',airline:'JJA',atcCount:0,pilotCount:0,noneCount:2,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-02',dates:['02-02 11:24','01-27 20:13']},
+    {id:'I077',pair:'JJA537 | ASV537',mine:'JJA537',other:'ASV537',airline:'JJA',atcCount:1,pilotCount:2,noneCount:2,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-21',dates:['02-21 17:54','02-08 18:04','01-29 15:14','01-28 13:31','01-26 12:21']},
+    {id:'I078',pair:'JJA179 | ABL197',mine:'JJA179',other:'ABL197',airline:'JJA',atcCount:4,pilotCount:2,noneCount:2,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-27',dates:['02-27 15:53','02-27 09:49','02-11 19:44','02-03 18:32','02-02 07:39','01-29 11:36','01-25 14:30']},
+    {id:'I079',pair:'JJA616 | JJA615',mine:'JJA616',other:'JJA615',airline:'JJA',atcCount:4,pilotCount:0,noneCount:0,risk:'높음',similarity:'낮음',lastDate:'2026-02-09',dates:['02-09 14:19','01-19 13:53','01-19 13:38','01-15 14:02']},
+    {id:'I080',pair:'JJA810 | TWB800',mine:'JJA810',other:'TWB800',airline:'JJA',atcCount:3,pilotCount:1,noneCount:1,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-28',dates:['02-28 10:02','01-31 14:06','01-31 09:38','01-22 07:07','01-18 06:51']},
+    {id:'I081',pair:'JJA653 | AAR654',mine:'JJA653',other:'AAR654',airline:'JJA',atcCount:4,pilotCount:2,noneCount:0,risk:'낮음',similarity:'높음',lastDate:'2026-02-22',dates:['02-22 09:12','02-16 19:52','02-09 08:11','01-29 06:41','01-24 18:33','01-20 06:01']},
+    {id:'I082',pair:'JJA678 | JNA677',mine:'JJA678',other:'JNA677',airline:'JJA',atcCount:0,pilotCount:4,noneCount:0,risk:'높음',similarity:'낮음',lastDate:'2026-02-28',dates:['02-28 17:32','02-27 21:02','02-14 07:55','02-13 11:37']},
+    {id:'I083',pair:'JJA384 | TWB384',mine:'JJA384',other:'TWB384',airline:'JJA',atcCount:0,pilotCount:0,noneCount:3,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-02-25',dates:['02-25 20:16','02-04 14:49','01-31 14:52']},
+    {id:'I084',pair:'JJA812 | TWB818',mine:'JJA812',other:'TWB818',airline:'JJA',atcCount:0,pilotCount:4,noneCount:0,risk:'낮음',similarity:'높음',lastDate:'2026-02-26',dates:['02-26 10:55','02-22 14:30','02-04 11:33','01-26 18:14']},
+    {id:'I085',pair:'JJA271 | FGW279',mine:'JJA271',other:'FGW279',airline:'JJA',atcCount:4,pilotCount:0,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-02-10',dates:['02-10 09:27','02-07 14:04','01-26 21:53','01-26 12:10']},
+    {id:'I086',pair:'JJA206 | FGW260',mine:'JJA206',other:'FGW260',airline:'JJA',atcCount:0,pilotCount:4,noneCount:1,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-28',dates:['02-28 21:33','01-28 15:07','01-17 22:31','01-16 09:27','01-16 07:45']},
+    {id:'I087',pair:'JJA301 | AAR310',mine:'JJA301',other:'AAR310',airline:'JJA',atcCount:2,pilotCount:3,noneCount:2,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-28',dates:['02-28 08:36','02-24 12:40','02-18 14:53','01-31 16:45','01-22 18:31','01-19 11:52','01-15 14:46']},
+    {id:'I088',pair:'JJA541 | AAR533',mine:'JJA541',other:'AAR533',airline:'JJA',atcCount:0,pilotCount:0,noneCount:3,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-28',dates:['02-28 11:13','02-26 08:49','02-15 14:25']},
+    {id:'I089',pair:'JJA312 | KAL321',mine:'JJA312',other:'KAL321',airline:'JJA',atcCount:0,pilotCount:0,noneCount:3,risk:'매우높음',similarity:'높음',lastDate:'2026-02-25',dates:['02-25 08:53','02-13 17:16','01-21 21:07']},
+    {id:'I090',pair:'JJA849 | ASV841',mine:'JJA849',other:'ASV841',airline:'JJA',atcCount:0,pilotCount:3,noneCount:1,risk:'매우높음',similarity:'높음',lastDate:'2026-02-24',dates:['02-24 17:34','02-21 22:40','02-11 21:16','01-26 06:11']},
+    {id:'I091',pair:'JJA423 | KAL432',mine:'JJA423',other:'KAL432',airline:'JJA',atcCount:0,pilotCount:0,noneCount:1,risk:'높음',similarity:'높음',lastDate:'2026-02-23',dates:['02-23 10:00']},
+    {id:'I092',pair:'JJA119 | ABL119',mine:'JJA119',other:'ABL119',airline:'JJA',atcCount:1,pilotCount:0,noneCount:0,risk:'매우높음',similarity:'높음',lastDate:'2026-02-12',dates:['02-12 06:51']},
+    {id:'I093',pair:'JJA337 | JNA344',mine:'JJA337',other:'JNA344',airline:'JJA',atcCount:0,pilotCount:2,noneCount:1,risk:'낮음',similarity:'매우높음',lastDate:'2026-01-29',dates:['01-29 07:41','01-24 19:44','01-23 13:21']},
+    {id:'I094',pair:'JJA796 | FGW797',mine:'JJA796',other:'FGW797',airline:'JJA',atcCount:1,pilotCount:2,noneCount:2,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-26',dates:['02-26 10:33','02-14 12:49','01-27 12:08','01-23 22:11','01-18 17:23']},
+    {id:'I095',pair:'JJA700 | AAR700',mine:'JJA700',other:'AAR700',airline:'JJA',atcCount:2,pilotCount:0,noneCount:0,risk:'높음',similarity:'매우낮음',lastDate:'2026-01-31',dates:['01-31 09:37','01-17 06:20']},
+    {id:'I096',pair:'JNA721 | KAL723',mine:'JNA721',other:'KAL723',airline:'JNA',atcCount:3,pilotCount:0,noneCount:2,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-15',dates:['02-15 10:35','02-10 15:50','02-05 10:44','01-16 10:15','01-15 10:10']},
+    {id:'I097',pair:'JNA794 | JJA794',mine:'JNA794',other:'JJA794',airline:'JNA',atcCount:1,pilotCount:2,noneCount:2,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-02-21',dates:['02-21 20:13','02-21 11:06','01-31 12:45','01-28 09:34','01-15 07:33']},
+    {id:'I098',pair:'JNA788 | EOK786',mine:'JNA788',other:'EOK786',airline:'JNA',atcCount:0,pilotCount:4,noneCount:0,risk:'높음',similarity:'낮음',lastDate:'2026-02-25',dates:['02-25 22:18','02-14 18:37','02-08 09:46','01-15 10:32']},
+    {id:'I099',pair:'JNA258 | JJA258',mine:'JNA258',other:'JJA258',airline:'JNA',atcCount:1,pilotCount:2,noneCount:2,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-27',dates:['02-27 19:51','02-20 10:49','02-15 11:06','02-14 16:13','01-16 11:25']},
+    {id:'I100',pair:'JNA378 | AAR378',mine:'JNA378',other:'AAR378',airline:'JNA',atcCount:5,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-05',dates:['02-05 07:41','02-03 08:10','01-24 17:34','01-23 07:20','01-21 14:02']},
+    {id:'I101',pair:'JNA929 | JNA930',mine:'JNA929',other:'JNA930',airline:'JNA',atcCount:3,pilotCount:2,noneCount:0,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-24',dates:['02-24 11:21','02-13 15:20','01-29 22:29','01-24 22:37','01-17 08:32']},
+    {id:'I102',pair:'JNA849 | FGW894',mine:'JNA849',other:'FGW894',airline:'JNA',atcCount:1,pilotCount:0,noneCount:1,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-28',dates:['02-28 20:04','02-16 07:53']},
+    {id:'I103',pair:'JNA763 | KAL772',mine:'JNA763',other:'KAL772',airline:'JNA',atcCount:0,pilotCount:0,noneCount:2,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-11',dates:['02-11 15:50','01-18 07:31']},
+    {id:'I104',pair:'JNA462 | AAR462',mine:'JNA462',other:'AAR462',airline:'JNA',atcCount:3,pilotCount:1,noneCount:2,risk:'높음',similarity:'낮음',lastDate:'2026-02-15',dates:['02-15 21:18','02-06 22:52','01-26 14:31','01-23 06:22','01-21 12:27','01-20 08:04']},
+    {id:'I105',pair:'JNA723 | EOK715',mine:'JNA723',other:'EOK715',airline:'JNA',atcCount:4,pilotCount:0,noneCount:2,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-19',dates:['02-19 06:43','02-07 13:26','01-31 19:20','01-30 15:23','01-23 22:24','01-21 16:10']},
+    {id:'I106',pair:'JNA325 | JJA329',mine:'JNA325',other:'JJA329',airline:'JNA',atcCount:3,pilotCount:0,noneCount:0,risk:'매우높음',similarity:'낮음',lastDate:'2026-01-29',dates:['01-29 16:05','01-26 13:50','01-24 15:19']},
+    {id:'I107',pair:'JNA995 | ABL995',mine:'JNA995',other:'ABL995',airline:'JNA',atcCount:0,pilotCount:0,noneCount:2,risk:'높음',similarity:'매우낮음',lastDate:'2026-01-29',dates:['01-29 11:42','01-22 20:14']},
+    {id:'I108',pair:'JNA789 | EOK798',mine:'JNA789',other:'EOK798',airline:'JNA',atcCount:3,pilotCount:3,noneCount:2,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-25',dates:['02-25 18:13','02-08 15:38','02-02 18:14','01-21 19:57','01-19 17:23','01-17 22:34','01-17 20:04']},
+    {id:'I109',pair:'JNA203 | AAR196',mine:'JNA203',other:'AAR196',airline:'JNA',atcCount:2,pilotCount:0,noneCount:0,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-05',dates:['02-05 14:05','01-31 14:00']},
+    {id:'I110',pair:'JNA859 | TWB859',mine:'JNA859',other:'TWB859',airline:'JNA',atcCount:4,pilotCount:3,noneCount:0,risk:'매우높음',similarity:'높음',lastDate:'2026-02-28',dates:['02-28 09:43','02-10 06:54','02-05 09:57','02-04 16:52','02-04 06:02','01-31 08:25','01-25 18:50']},
+    {id:'I111',pair:'JNA784 | JNA779',mine:'JNA784',other:'JNA779',airline:'JNA',atcCount:0,pilotCount:1,noneCount:2,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-01',dates:['02-01 15:46','01-29 10:14','01-16 17:09']},
+    {id:'I112',pair:'JNA145 | FGW154',mine:'JNA145',other:'FGW154',airline:'JNA',atcCount:4,pilotCount:3,noneCount:1,risk:'높음',similarity:'매우높음',lastDate:'2026-02-25',dates:['02-25 13:36','02-17 18:45','02-17 14:39','02-10 18:47','01-31 17:01','01-26 07:18','01-25 12:33']},
+    {id:'I113',pair:'JNA344 | AAR344',mine:'JNA344',other:'AAR344',airline:'JNA',atcCount:2,pilotCount:0,noneCount:2,risk:'매우높음',similarity:'매우높음',lastDate:'2026-01-30',dates:['01-30 22:46','01-21 06:02','01-17 20:12','01-17 07:49']},
+    {id:'I114',pair:'JNA433 | AAR433',mine:'JNA433',other:'AAR433',airline:'JNA',atcCount:4,pilotCount:2,noneCount:1,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-28',dates:['02-28 19:50','02-17 17:46','02-09 18:37','02-06 16:43','02-03 15:16','01-18 07:09','01-17 22:44']},
+    {id:'I115',pair:'JNA419 | EOK422',mine:'JNA419',other:'EOK422',airline:'JNA',atcCount:2,pilotCount:0,noneCount:0,risk:'높음',similarity:'높음',lastDate:'2026-01-24',dates:['01-24 20:28','01-18 13:56']},
+    {id:'I116',pair:'JNA852 | KAL852',mine:'JNA852',other:'KAL852',airline:'JNA',atcCount:0,pilotCount:4,noneCount:1,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-24',dates:['02-24 22:43','02-14 17:13','02-12 12:56','01-31 06:58','01-26 17:04']},
+    {id:'I117',pair:'JNA328 | TWB382',mine:'JNA328',other:'TWB382',airline:'JNA',atcCount:4,pilotCount:3,noneCount:1,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-25',dates:['02-25 18:21','02-13 06:12','02-06 11:01','01-29 14:19','01-26 17:56','01-22 18:28','01-16 10:40']},
+    {id:'I118',pair:'JNA839 | FGW831',mine:'JNA839',other:'FGW831',airline:'JNA',atcCount:0,pilotCount:2,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-25',dates:['02-25 18:38','01-28 13:49']},
+    {id:'I119',pair:'JNA454 | FGW444',mine:'JNA454',other:'FGW444',airline:'JNA',atcCount:0,pilotCount:0,noneCount:3,risk:'높음',similarity:'매우높음',lastDate:'2026-02-28',dates:['02-28 15:14','02-12 17:13','01-17 20:46']},
+    {id:'I120',pair:'JNA972 | EOK973',mine:'JNA972',other:'EOK973',airline:'JNA',atcCount:2,pilotCount:2,noneCount:2,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-02-24',dates:['02-24 19:42','02-11 06:34','02-10 20:57','01-29 21:44','01-28 21:10','01-19 11:05']},
+    {id:'I121',pair:'JNA746 | FGW747',mine:'JNA746',other:'FGW747',airline:'JNA',atcCount:5,pilotCount:0,noneCount:0,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-24',dates:['02-24 12:10','02-14 14:07','02-06 17:35','01-17 14:16','01-16 17:41']},
+    {id:'I122',pair:'JNA647 | KAL674',mine:'JNA647',other:'KAL674',airline:'JNA',atcCount:1,pilotCount:0,noneCount:0,risk:'매우높음',similarity:'낮음',lastDate:'2026-01-21',dates:['01-21 22:01']},
+    {id:'I123',pair:'JNA395 | KAL396',mine:'JNA395',other:'KAL396',airline:'JNA',atcCount:4,pilotCount:0,noneCount:1,risk:'낮음',similarity:'높음',lastDate:'2026-02-11',dates:['02-11 20:55','02-10 09:48','01-26 15:10','01-23 06:25','01-18 15:49']},
+    {id:'I124',pair:'JNA183 | TWB138',mine:'JNA183',other:'TWB138',airline:'JNA',atcCount:3,pilotCount:0,noneCount:1,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-14',dates:['02-14 14:12','02-01 17:07','01-23 14:26','01-16 19:11']},
+    {id:'I125',pair:'JNA961 | JJA962',mine:'JNA961',other:'JJA962',airline:'JNA',atcCount:3,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-17',dates:['02-17 19:14','02-09 17:55','01-17 14:38']},
+    {id:'I126',pair:'TWB963 | KAL936',mine:'TWB963',other:'KAL936',airline:'TWB',atcCount:0,pilotCount:0,noneCount:1,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-08',dates:['02-08 13:11']},
+    {id:'I127',pair:'TWB905 | JJA950',mine:'TWB905',other:'JJA950',airline:'TWB',atcCount:2,pilotCount:3,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-11',dates:['02-11 11:16','01-19 20:11','01-16 20:49','01-15 22:14','01-15 21:26']},
+    {id:'I128',pair:'TWB124 | EOK123',mine:'TWB124',other:'EOK123',airline:'TWB',atcCount:0,pilotCount:3,noneCount:1,risk:'낮음',similarity:'높음',lastDate:'2026-02-13',dates:['02-13 17:20','02-07 19:54','02-01 21:46','01-16 20:44']},
+    {id:'I129',pair:'TWB270 | KAL273',mine:'TWB270',other:'KAL273',airline:'TWB',atcCount:3,pilotCount:3,noneCount:1,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-18',dates:['02-18 16:50','01-28 10:59','01-24 18:46','01-24 09:02','01-23 09:18','01-17 18:40','01-15 22:52']},
+    {id:'I130',pair:'TWB859 | AAR860',mine:'TWB859',other:'AAR860',airline:'TWB',atcCount:0,pilotCount:1,noneCount:0,risk:'매우높음',similarity:'낮음',lastDate:'2026-01-19',dates:['01-19 17:36']},
+    {id:'I131',pair:'TWB175 | EOK176',mine:'TWB175',other:'EOK176',airline:'TWB',atcCount:2,pilotCount:0,noneCount:2,risk:'높음',similarity:'높음',lastDate:'2026-02-09',dates:['02-09 10:01','01-26 14:17','01-16 21:20','01-16 08:24']},
+    {id:'I132',pair:'TWB115 | KAL151',mine:'TWB115',other:'KAL151',airline:'TWB',atcCount:2,pilotCount:1,noneCount:1,risk:'낮음',similarity:'매우높음',lastDate:'2026-01-31',dates:['01-31 07:37','01-25 12:08','01-23 18:46','01-22 20:14']},
+    {id:'I133',pair:'TWB475 | ABL468',mine:'TWB475',other:'ABL468',airline:'TWB',atcCount:5,pilotCount:0,noneCount:0,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-10',dates:['02-10 11:36','01-29 19:08','01-27 06:39','01-24 10:23','01-17 06:46']},
+    {id:'I134',pair:'TWB934 | EOK943',mine:'TWB934',other:'EOK943',airline:'TWB',atcCount:1,pilotCount:0,noneCount:0,risk:'낮음',similarity:'낮음',lastDate:'2026-02-06',dates:['02-06 21:33']},
+    {id:'I135',pair:'TWB753 | EOK755',mine:'TWB753',other:'EOK755',airline:'TWB',atcCount:1,pilotCount:4,noneCount:0,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-16',dates:['02-16 21:03','02-11 18:18','02-11 13:31','01-21 13:29','01-20 08:50']},
+    {id:'I136',pair:'TWB730 | FGW738',mine:'TWB730',other:'FGW738',airline:'TWB',atcCount:4,pilotCount:1,noneCount:0,risk:'낮음',similarity:'높음',lastDate:'2026-02-08',dates:['02-08 09:00','02-03 07:48','01-31 21:53','01-30 14:10','01-25 14:59']},
+    {id:'I137',pair:'TWB477 | ASV487',mine:'TWB477',other:'ASV487',airline:'TWB',atcCount:1,pilotCount:0,noneCount:0,risk:'낮음',similarity:'매우높음',lastDate:'2026-01-23',dates:['01-23 17:51']},
+    {id:'I138',pair:'TWB279 | ABL297',mine:'TWB279',other:'ABL297',airline:'TWB',atcCount:3,pilotCount:0,noneCount:1,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-16',dates:['02-16 18:45','02-08 13:30','01-18 16:57','01-15 10:02']},
+    {id:'I139',pair:'TWB421 | TWB420',mine:'TWB421',other:'TWB420',airline:'TWB',atcCount:0,pilotCount:0,noneCount:2,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-28',dates:['02-28 10:16','01-24 07:10']},
+    {id:'I140',pair:'TWB318 | EOK318',mine:'TWB318',other:'EOK318',airline:'TWB',atcCount:0,pilotCount:0,noneCount:2,risk:'매우높음',similarity:'높음',lastDate:'2026-01-21',dates:['01-21 08:42','01-16 06:30']},
+    {id:'I141',pair:'TWB595 | EOK595',mine:'TWB595',other:'EOK595',airline:'TWB',atcCount:2,pilotCount:1,noneCount:1,risk:'높음',similarity:'높음',lastDate:'2026-02-14',dates:['02-14 12:05','02-03 20:48','01-19 21:05','01-16 12:44']},
+    {id:'I142',pair:'TWB681 | ASV689',mine:'TWB681',other:'ASV689',airline:'TWB',atcCount:0,pilotCount:4,noneCount:0,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-18',dates:['02-18 07:35','02-04 11:50','01-30 18:26','01-27 13:32']},
+    {id:'I143',pair:'TWB916 | EOK961',mine:'TWB916',other:'EOK961',airline:'TWB',atcCount:2,pilotCount:1,noneCount:1,risk:'높음',similarity:'낮음',lastDate:'2026-02-05',dates:['02-05 18:03','01-28 21:14','01-25 10:21','01-16 13:59']},
+    {id:'I144',pair:'TWB947 | EOK948',mine:'TWB947',other:'EOK948',airline:'TWB',atcCount:4,pilotCount:2,noneCount:2,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-19',dates:['02-19 11:18','02-17 20:03','02-13 16:54','02-09 08:59','01-29 21:04','01-24 22:44','01-18 06:21']},
+    {id:'I145',pair:'TWB464 | JJA465',mine:'TWB464',other:'JJA465',airline:'TWB',atcCount:1,pilotCount:4,noneCount:0,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-02-08',dates:['02-08 18:32','02-08 11:25','02-07 12:10','01-23 22:38','01-23 08:10']},
+    {id:'I146',pair:'TWB815 | ASV806',mine:'TWB815',other:'ASV806',airline:'TWB',atcCount:1,pilotCount:1,noneCount:0,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-02-28',dates:['02-28 08:01','01-17 09:09']},
+    {id:'I147',pair:'TWB457 | EOK475',mine:'TWB457',other:'EOK475',airline:'TWB',atcCount:4,pilotCount:0,noneCount:0,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-25',dates:['02-25 11:05','02-16 08:55','02-13 21:38','02-13 13:32']},
+    {id:'I148',pair:'TWB219 | EOK219',mine:'TWB219',other:'EOK219',airline:'TWB',atcCount:4,pilotCount:0,noneCount:0,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-02-19',dates:['02-19 17:14','02-16 15:58','01-21 15:05','01-21 09:27']},
+    {id:'I149',pair:'TWB817 | TWB813',mine:'TWB817',other:'TWB813',airline:'TWB',atcCount:0,pilotCount:0,noneCount:1,risk:'높음',similarity:'높음',lastDate:'2026-01-17',dates:['01-17 13:28']},
+    {id:'I150',pair:'TWB481 | ASV480',mine:'TWB481',other:'ASV480',airline:'TWB',atcCount:0,pilotCount:0,noneCount:2,risk:'높음',similarity:'낮음',lastDate:'2026-02-14',dates:['02-14 15:46','01-28 06:20']},
+    {id:'I151',pair:'TWB530 | AAR529',mine:'TWB530',other:'AAR529',airline:'TWB',atcCount:1,pilotCount:2,noneCount:0,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-28',dates:['02-28 10:19','01-28 07:38','01-22 10:08']},
+    {id:'I152',pair:'TWB741 | EOK740',mine:'TWB741',other:'EOK740',airline:'TWB',atcCount:0,pilotCount:4,noneCount:0,risk:'높음',similarity:'높음',lastDate:'2026-02-12',dates:['02-12 20:35','01-27 16:06','01-27 07:13','01-20 19:58']},
+    {id:'I153',pair:'TWB797 | ABL797',mine:'TWB797',other:'ABL797',airline:'TWB',atcCount:3,pilotCount:0,noneCount:2,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-09',dates:['02-09 16:33','02-08 08:24','02-01 09:48','01-17 16:42','01-15 12:44']},
+    {id:'I154',pair:'TWB882 | KAL873',mine:'TWB882',other:'KAL873',airline:'TWB',atcCount:0,pilotCount:0,noneCount:2,risk:'낮음',similarity:'높음',lastDate:'2026-02-08',dates:['02-08 07:44','01-17 17:14']},
+    {id:'I155',pair:'TWB396 | ABL389',mine:'TWB396',other:'ABL389',airline:'TWB',atcCount:1,pilotCount:3,noneCount:2,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-28',dates:['02-28 22:52','02-23 07:45','02-18 13:31','01-26 15:40','01-21 22:06','01-20 13:37']},
+    {id:'I156',pair:'ABL931 | ASV913',mine:'ABL931',other:'ASV913',airline:'ABL',atcCount:0,pilotCount:1,noneCount:0,risk:'높음',similarity:'낮음',lastDate:'2026-02-08',dates:['02-08 13:40']},
+    {id:'I157',pair:'ABL520 | ABL502',mine:'ABL520',other:'ABL502',airline:'ABL',atcCount:4,pilotCount:0,noneCount:1,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-21',dates:['02-21 13:27','02-18 16:58','02-09 22:59','02-05 14:30','01-20 10:03']},
+    {id:'I158',pair:'ABL362 | KAL352',mine:'ABL362',other:'KAL352',airline:'ABL',atcCount:3,pilotCount:0,noneCount:0,risk:'낮음',similarity:'낮음',lastDate:'2026-02-13',dates:['02-13 14:17','02-08 13:14','01-30 09:34']},
+    {id:'I159',pair:'ABL300 | AAR305',mine:'ABL300',other:'AAR305',airline:'ABL',atcCount:0,pilotCount:0,noneCount:1,risk:'높음',similarity:'낮음',lastDate:'2026-01-15',dates:['01-15 17:39']},
+    {id:'I160',pair:'ABL639 | KAL639',mine:'ABL639',other:'KAL639',airline:'ABL',atcCount:3,pilotCount:2,noneCount:2,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-17',dates:['02-17 21:44','02-14 20:27','02-12 08:47','02-01 06:32','01-28 11:54','01-24 21:58','01-16 22:21']},
+    {id:'I161',pair:'ABL966 | KAL967',mine:'ABL966',other:'KAL967',airline:'ABL',atcCount:0,pilotCount:0,noneCount:2,risk:'낮음',similarity:'높음',lastDate:'2026-01-31',dates:['01-31 21:53','01-31 15:06']},
+    {id:'I162',pair:'ABL247 | TWB274',mine:'ABL247',other:'TWB274',airline:'ABL',atcCount:1,pilotCount:1,noneCount:2,risk:'낮음',similarity:'낮음',lastDate:'2026-02-17',dates:['02-17 10:06','02-12 16:41','02-07 16:25','01-23 19:19']},
+    {id:'I163',pair:'ABL676 | KAL677',mine:'ABL676',other:'KAL677',airline:'ABL',atcCount:2,pilotCount:3,noneCount:1,risk:'높음',similarity:'매우높음',lastDate:'2026-02-20',dates:['02-20 08:53','02-18 13:25','02-02 07:35','02-01 17:38','02-01 13:51','01-23 13:48']},
+    {id:'I164',pair:'ABL213 | JJA231',mine:'ABL213',other:'JJA231',airline:'ABL',atcCount:2,pilotCount:0,noneCount:2,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-18',dates:['02-18 19:46','02-03 19:04','01-31 21:05','01-17 16:12']},
+    {id:'I165',pair:'ABL491 | JJA419',mine:'ABL491',other:'JJA419',airline:'ABL',atcCount:2,pilotCount:0,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-01-30',dates:['01-30 16:38','01-28 17:39']},
+    {id:'I166',pair:'ABL878 | AAR878',mine:'ABL878',other:'AAR878',airline:'ABL',atcCount:0,pilotCount:0,noneCount:3,risk:'높음',similarity:'매우높음',lastDate:'2026-01-29',dates:['01-29 17:23','01-16 15:18','01-15 22:24']},
+    {id:'I167',pair:'ABL748 | JNA757',mine:'ABL748',other:'JNA757',airline:'ABL',atcCount:3,pilotCount:1,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-25',dates:['02-25 07:29','02-20 09:26','02-17 16:21','02-12 18:10']},
+    {id:'I168',pair:'ABL498 | ASV493',mine:'ABL498',other:'ASV493',airline:'ABL',atcCount:1,pilotCount:2,noneCount:0,risk:'높음',similarity:'높음',lastDate:'2026-02-12',dates:['02-12 11:25','01-27 07:50','01-23 13:37']},
+    {id:'I169',pair:'ABL744 | KAL744',mine:'ABL744',other:'KAL744',airline:'ABL',atcCount:1,pilotCount:3,noneCount:2,risk:'매우높음',similarity:'높음',lastDate:'2026-02-20',dates:['02-20 11:02','02-05 22:06','01-31 19:52','01-24 14:17','01-23 08:22','01-20 10:38']},
+    {id:'I170',pair:'ABL595 | ABL559',mine:'ABL595',other:'ABL559',airline:'ABL',atcCount:0,pilotCount:0,noneCount:1,risk:'낮음',similarity:'매우낮음',lastDate:'2026-01-26',dates:['01-26 06:20']},
+    {id:'I171',pair:'ABL772 | ABL727',mine:'ABL772',other:'ABL727',airline:'ABL',atcCount:3,pilotCount:0,noneCount:0,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-18',dates:['02-18 06:17','02-13 07:54','02-03 12:18']},
+    {id:'I172',pair:'ABL651 | JNA651',mine:'ABL651',other:'JNA651',airline:'ABL',atcCount:3,pilotCount:4,noneCount:0,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-22',dates:['02-22 16:44','02-16 13:20','02-09 07:12','01-31 12:29','01-30 12:18','01-24 06:05','01-21 09:55']},
+    {id:'I173',pair:'ABL508 | ABL580',mine:'ABL508',other:'ABL580',airline:'ABL',atcCount:3,pilotCount:0,noneCount:0,risk:'낮음',similarity:'낮음',lastDate:'2026-02-05',dates:['02-05 14:12','01-26 17:55','01-17 20:45']},
+    {id:'I174',pair:'ABL940 | EOK904',mine:'ABL940',other:'EOK904',airline:'ABL',atcCount:0,pilotCount:1,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-01-25',dates:['01-25 07:45']},
+    {id:'I175',pair:'ABL554 | AAR554',mine:'ABL554',other:'AAR554',airline:'ABL',atcCount:2,pilotCount:0,noneCount:1,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-02-10',dates:['02-10 12:37','01-16 20:41','01-15 10:32']},
+    {id:'I176',pair:'ABL159 | ABL195',mine:'ABL159',other:'ABL195',airline:'ABL',atcCount:2,pilotCount:0,noneCount:0,risk:'높음',similarity:'높음',lastDate:'2026-02-19',dates:['02-19 12:22','02-17 10:01']},
+    {id:'I177',pair:'ABL148 | KAL148',mine:'ABL148',other:'KAL148',airline:'ABL',atcCount:0,pilotCount:0,noneCount:1,risk:'높음',similarity:'낮음',lastDate:'2026-01-17',dates:['01-17 11:16']},
+    {id:'I178',pair:'ABL277 | ABL276',mine:'ABL277',other:'ABL276',airline:'ABL',atcCount:0,pilotCount:0,noneCount:3,risk:'높음',similarity:'매우높음',lastDate:'2026-01-29',dates:['01-29 15:05','01-28 15:20','01-25 14:04']},
+    {id:'I179',pair:'ABL763 | JNA764',mine:'ABL763',other:'JNA764',airline:'ABL',atcCount:3,pilotCount:2,noneCount:0,risk:'높음',similarity:'매우낮음',lastDate:'2026-01-22',dates:['01-22 15:53','01-21 17:53','01-19 19:53','01-18 17:40','01-16 22:29']},
+    {id:'I180',pair:'ABL129 | JJA130',mine:'ABL129',other:'JJA130',airline:'ABL',atcCount:0,pilotCount:1,noneCount:0,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-01-29',dates:['01-29 14:40']},
+    {id:'I181',pair:'ABL470 | ASV477',mine:'ABL470',other:'ASV477',airline:'ABL',atcCount:1,pilotCount:0,noneCount:2,risk:'매우높음',similarity:'높음',lastDate:'2026-02-04',dates:['02-04 12:31','01-29 22:45','01-24 22:29']},
+    {id:'I182',pair:'ABL821 | JNA825',mine:'ABL821',other:'JNA825',airline:'ABL',atcCount:2,pilotCount:1,noneCount:2,risk:'높음',similarity:'매우높음',lastDate:'2026-02-16',dates:['02-16 18:16','01-30 18:39','01-19 19:42','01-16 11:59','01-15 19:14']},
+    {id:'I183',pair:'ABL924 | JJA942',mine:'ABL924',other:'JJA942',airline:'ABL',atcCount:2,pilotCount:3,noneCount:1,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-17',dates:['02-17 14:57','02-11 16:12','02-10 11:08','02-08 08:25','01-23 19:51','01-19 07:48']},
+    {id:'I184',pair:'ABL575 | JJA557',mine:'ABL575',other:'JJA557',airline:'ABL',atcCount:3,pilotCount:0,noneCount:0,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-18',dates:['02-18 19:30','02-09 12:07','01-26 19:44']},
+    {id:'I185',pair:'ABL683 | TWB683',mine:'ABL683',other:'TWB683',airline:'ABL',atcCount:3,pilotCount:2,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-20',dates:['02-20 14:31','02-18 08:19','01-24 18:19','01-23 20:02','01-15 16:05']},
+    {id:'I186',pair:'ABL118 | AAR119',mine:'ABL118',other:'AAR119',airline:'ABL',atcCount:4,pilotCount:3,noneCount:1,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-25',dates:['02-25 11:58','02-21 20:31','02-18 21:05','01-26 13:59','01-23 19:25','01-23 12:48','01-20 13:18']},
+    {id:'I187',pair:'ABL523 | ASV527',mine:'ABL523',other:'ASV527',airline:'ABL',atcCount:2,pilotCount:0,noneCount:0,risk:'높음',similarity:'높음',lastDate:'2026-01-22',dates:['01-22 10:57','01-18 15:58']},
+    {id:'I188',pair:'ABL970 | EOK979',mine:'ABL970',other:'EOK979',airline:'ABL',atcCount:0,pilotCount:0,noneCount:2,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-06',dates:['02-06 22:54','01-21 17:18']},
+    {id:'I189',pair:'ABL342 | EOK341',mine:'ABL342',other:'EOK341',airline:'ABL',atcCount:5,pilotCount:0,noneCount:0,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-02-24',dates:['02-24 07:26','02-05 10:12','01-30 17:02','01-19 17:33','01-18 20:49']},
+    {id:'I190',pair:'ASV165 | ABL165',mine:'ASV165',other:'ABL165',airline:'ASV',atcCount:4,pilotCount:3,noneCount:1,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-28',dates:['02-28 18:24','02-28 15:08','02-08 18:33','01-29 19:10','01-24 07:32','01-22 20:49','01-20 08:37']},
+    {id:'I191',pair:'ASV680 | JJA678',mine:'ASV680',other:'JJA678',airline:'ASV',atcCount:3,pilotCount:2,noneCount:2,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-28',dates:['02-28 15:40','02-26 20:00','02-16 08:25','02-11 18:35','02-01 07:23','01-28 21:12','01-25 08:59']},
+    {id:'I192',pair:'ASV999 | TWB999',mine:'ASV999',other:'TWB999',airline:'ASV',atcCount:4,pilotCount:0,noneCount:0,risk:'낮음',similarity:'높음',lastDate:'2026-02-01',dates:['02-01 15:46','01-30 16:00','01-29 09:55','01-26 22:23']},
+    {id:'I193',pair:'ASV552 | FGW525',mine:'ASV552',other:'FGW525',airline:'ASV',atcCount:0,pilotCount:3,noneCount:2,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-02-20',dates:['02-20 15:25','02-19 20:30','02-09 19:33','01-26 18:56','01-18 19:35']},
+    {id:'I194',pair:'ASV226 | TWB226',mine:'ASV226',other:'TWB226',airline:'ASV',atcCount:5,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-10',dates:['02-10 13:26','01-30 21:01','01-30 06:03','01-24 19:35','01-21 19:01']},
+    {id:'I195',pair:'ASV770 | AAR707',mine:'ASV770',other:'AAR707',airline:'ASV',atcCount:1,pilotCount:2,noneCount:2,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-11',dates:['02-11 18:11','02-04 10:44','02-02 07:05','01-25 10:36','01-15 15:43']},
+    {id:'I196',pair:'ASV257 | KAL248',mine:'ASV257',other:'KAL248',airline:'ASV',atcCount:3,pilotCount:1,noneCount:1,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-03',dates:['02-03 06:51','01-25 21:01','01-20 18:59','01-20 16:23','01-19 17:43']},
+    {id:'I197',pair:'ASV465 | FGW466',mine:'ASV465',other:'FGW466',airline:'ASV',atcCount:3,pilotCount:3,noneCount:1,risk:'매우높음',similarity:'높음',lastDate:'2026-01-28',dates:['01-28 19:03','01-27 07:31','01-26 13:55','01-25 11:48','01-24 12:03','01-20 14:17','01-18 07:26']},
+    {id:'I198',pair:'ASV999 | FGW999',mine:'ASV999',other:'FGW999',airline:'ASV',atcCount:4,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-11',dates:['02-11 10:23','02-11 10:05','02-06 19:12','01-26 19:58']},
+    {id:'I199',pair:'ASV661 | TWB667',mine:'ASV661',other:'TWB667',airline:'ASV',atcCount:3,pilotCount:1,noneCount:2,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-27',dates:['02-27 06:45','02-26 09:49','02-18 09:09','02-12 16:31','02-09 06:48','02-01 16:00']},
+    {id:'I200',pair:'ASV784 | KAL785',mine:'ASV784',other:'KAL785',airline:'ASV',atcCount:0,pilotCount:0,noneCount:2,risk:'높음',similarity:'높음',lastDate:'2026-01-22',dates:['01-22 14:54','01-16 06:27']},
+    {id:'I201',pair:'ASV268 | ABL268',mine:'ASV268',other:'ABL268',airline:'ASV',atcCount:3,pilotCount:0,noneCount:0,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-14',dates:['02-14 07:53','02-11 14:24','02-03 13:12']},
+    {id:'I202',pair:'ASV635 | FGW645',mine:'ASV635',other:'FGW645',airline:'ASV',atcCount:1,pilotCount:0,noneCount:0,risk:'낮음',similarity:'높음',lastDate:'2026-01-30',dates:['01-30 22:44']},
+    {id:'I203',pair:'ASV298 | ASV298',mine:'ASV298',other:'ASV298',airline:'ASV',atcCount:0,pilotCount:0,noneCount:3,risk:'높음',similarity:'높음',lastDate:'2026-02-06',dates:['02-06 14:53','02-03 08:37','01-21 08:49']},
+    {id:'I204',pair:'ASV715 | FGW714',mine:'ASV715',other:'FGW714',airline:'ASV',atcCount:0,pilotCount:0,noneCount:3,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-15',dates:['02-15 13:17','02-12 09:15','01-24 15:43']},
+    {id:'I205',pair:'ASV953 | JNA947',mine:'ASV953',other:'JNA947',airline:'ASV',atcCount:4,pilotCount:1,noneCount:1,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-14',dates:['02-14 20:48','02-14 09:23','02-10 15:30','01-28 20:31','01-22 14:18','01-19 18:58']},
+    {id:'I206',pair:'ASV364 | TWB363',mine:'ASV364',other:'TWB363',airline:'ASV',atcCount:3,pilotCount:0,noneCount:0,risk:'높음',similarity:'낮음',lastDate:'2026-02-03',dates:['02-03 10:52','01-21 15:37','01-19 22:40']},
+    {id:'I207',pair:'ASV183 | JNA182',mine:'ASV183',other:'JNA182',airline:'ASV',atcCount:1,pilotCount:0,noneCount:0,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-01-24',dates:['01-24 21:05']},
+    {id:'I208',pair:'ASV829 | JJA828',mine:'ASV829',other:'JJA828',airline:'ASV',atcCount:2,pilotCount:3,noneCount:2,risk:'매우높음',similarity:'높음',lastDate:'2026-02-19',dates:['02-19 06:09','02-08 19:11','02-06 10:13','02-01 22:04','01-22 12:10','01-19 11:21','01-16 08:02']},
+    {id:'I209',pair:'ASV251 | ABL256',mine:'ASV251',other:'ABL256',airline:'ASV',atcCount:0,pilotCount:0,noneCount:2,risk:'낮음',similarity:'높음',lastDate:'2026-02-27',dates:['02-27 08:21','01-31 10:41']},
+    {id:'I210',pair:'ASV896 | JNA902',mine:'ASV896',other:'JNA902',airline:'ASV',atcCount:0,pilotCount:0,noneCount:1,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-21',dates:['02-21 19:24']},
+    {id:'I211',pair:'ASV260 | ASV263',mine:'ASV260',other:'ASV263',airline:'ASV',atcCount:2,pilotCount:1,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-02-22',dates:['02-22 08:35','02-19 12:20','01-23 06:34']},
+    {id:'I212',pair:'ASV839 | KAL848',mine:'ASV839',other:'KAL848',airline:'ASV',atcCount:0,pilotCount:0,noneCount:3,risk:'높음',similarity:'낮음',lastDate:'2026-02-19',dates:['02-19 09:07','02-12 15:16','01-20 12:05']},
+    {id:'I213',pair:'ASV902 | JNA911',mine:'ASV902',other:'JNA911',airline:'ASV',atcCount:5,pilotCount:0,noneCount:0,risk:'낮음',similarity:'낮음',lastDate:'2026-02-09',dates:['02-09 10:36','02-03 20:35','01-21 11:19','01-18 12:50','01-17 17:24']},
+    {id:'I214',pair:'ASV167 | AAR169',mine:'ASV167',other:'AAR169',airline:'ASV',atcCount:0,pilotCount:0,noneCount:3,risk:'매우높음',similarity:'높음',lastDate:'2026-02-23',dates:['02-23 22:17','01-30 20:44','01-17 14:39']},
+    {id:'I215',pair:'ASV375 | FGW376',mine:'ASV375',other:'FGW376',airline:'ASV',atcCount:4,pilotCount:0,noneCount:0,risk:'낮음',similarity:'높음',lastDate:'2026-02-14',dates:['02-14 15:54','02-13 20:10','02-08 13:46','01-19 15:27']},
+    {id:'I216',pair:'ASV578 | FGW578',mine:'ASV578',other:'FGW578',airline:'ASV',atcCount:1,pilotCount:1,noneCount:2,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-22',dates:['02-22 08:39','02-09 18:39','02-03 17:27','01-28 20:04']},
+    {id:'I217',pair:'ASV138 | AAR142',mine:'ASV138',other:'AAR142',airline:'ASV',atcCount:0,pilotCount:1,noneCount:0,risk:'낮음',similarity:'높음',lastDate:'2026-01-25',dates:['01-25 10:05']},
+    {id:'I218',pair:'ASV628 | ABL627',mine:'ASV628',other:'ABL627',airline:'ASV',atcCount:0,pilotCount:4,noneCount:0,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-15',dates:['02-15 12:48','01-30 17:27','01-26 20:30','01-26 07:35']},
+    {id:'I219',pair:'ASV488 | JNA483',mine:'ASV488',other:'JNA483',airline:'ASV',atcCount:4,pilotCount:3,noneCount:1,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-26',dates:['02-26 15:17','02-15 11:42','01-31 17:57','01-25 12:51','01-25 08:44','01-18 09:39','01-17 08:47']},
+    {id:'I220',pair:'ASV357 | TWB365',mine:'ASV357',other:'TWB365',airline:'ASV',atcCount:0,pilotCount:4,noneCount:0,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-24',dates:['02-24 18:30','02-23 13:26','02-13 08:59','01-20 17:11']},
+    {id:'I221',pair:'ASV167 | ABL176',mine:'ASV167',other:'ABL176',airline:'ASV',atcCount:1,pilotCount:3,noneCount:1,risk:'낮음',similarity:'높음',lastDate:'2026-02-28',dates:['02-28 19:28','02-11 22:49','02-11 06:12','01-25 17:52','01-17 19:01']},
+    {id:'I222',pair:'EOK849 | TWB848',mine:'EOK849',other:'TWB848',airline:'EOK',atcCount:1,pilotCount:2,noneCount:0,risk:'매우높음',similarity:'매우높음',lastDate:'2026-01-17',dates:['01-17 19:52','01-16 17:32','01-15 21:26']},
+    {id:'I223',pair:'EOK466 | KAL467',mine:'EOK466',other:'KAL467',airline:'EOK',atcCount:3,pilotCount:0,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-02-20',dates:['02-20 13:45','02-01 21:02','01-17 18:13']},
+    {id:'I224',pair:'EOK802 | JNA793',mine:'EOK802',other:'JNA793',airline:'EOK',atcCount:0,pilotCount:2,noneCount:0,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-02-27',dates:['02-27 10:27','02-27 06:18']},
+    {id:'I225',pair:'EOK756 | JNA757',mine:'EOK756',other:'JNA757',airline:'EOK',atcCount:2,pilotCount:3,noneCount:1,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-18',dates:['02-18 21:27','02-15 12:25','01-27 14:45','01-22 21:48','01-21 07:24','01-15 19:40']},
+    {id:'I226',pair:'EOK288 | ASV287',mine:'EOK288',other:'ASV287',airline:'EOK',atcCount:0,pilotCount:2,noneCount:0,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-02-15',dates:['02-15 11:44','01-18 14:18']},
+    {id:'I227',pair:'EOK372 | ABL379',mine:'EOK372',other:'ABL379',airline:'EOK',atcCount:4,pilotCount:0,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-02-27',dates:['02-27 21:12','02-27 16:23','01-26 07:14','01-15 20:50']},
+    {id:'I228',pair:'EOK967 | KAL967',mine:'EOK967',other:'KAL967',airline:'EOK',atcCount:0,pilotCount:0,noneCount:2,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-02-26',dates:['02-26 19:21','02-24 07:54']},
+    {id:'I229',pair:'EOK788 | JNA793',mine:'EOK788',other:'JNA793',airline:'EOK',atcCount:2,pilotCount:0,noneCount:0,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-28',dates:['02-28 12:52','02-15 21:59']},
+    {id:'I230',pair:'EOK923 | JNA922',mine:'EOK923',other:'JNA922',airline:'EOK',atcCount:0,pilotCount:0,noneCount:3,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-09',dates:['02-09 18:08','02-06 18:01','01-24 11:26']},
+    {id:'I231',pair:'EOK517 | KAL518',mine:'EOK517',other:'KAL518',airline:'EOK',atcCount:0,pilotCount:4,noneCount:2,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-22',dates:['02-22 06:59','02-02 09:16','01-30 15:53','01-27 20:06','01-19 12:37','01-15 12:29']},
+    {id:'I232',pair:'EOK444 | TWB437',mine:'EOK444',other:'TWB437',airline:'EOK',atcCount:0,pilotCount:4,noneCount:0,risk:'낮음',similarity:'낮음',lastDate:'2026-02-06',dates:['02-06 09:56','01-26 12:16','01-20 22:18','01-17 22:18']},
+    {id:'I233',pair:'EOK415 | EOK415',mine:'EOK415',other:'EOK415',airline:'EOK',atcCount:2,pilotCount:2,noneCount:0,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-26',dates:['02-26 17:24','02-21 06:02','02-19 14:05','01-28 07:57']},
+    {id:'I234',pair:'EOK995 | TWB995',mine:'EOK995',other:'TWB995',airline:'EOK',atcCount:4,pilotCount:2,noneCount:2,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-15',dates:['02-15 21:58','02-10 20:56','02-10 15:34','02-05 09:13','01-25 09:26','01-18 07:01','01-15 20:31']},
+    {id:'I235',pair:'EOK566 | ASV571',mine:'EOK566',other:'ASV571',airline:'EOK',atcCount:0,pilotCount:2,noneCount:2,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-02',dates:['02-02 22:52','01-26 22:15','01-24 06:25','01-18 06:04']},
+    {id:'I236',pair:'EOK457 | TWB457',mine:'EOK457',other:'TWB457',airline:'EOK',atcCount:0,pilotCount:0,noneCount:1,risk:'높음',similarity:'매우높음',lastDate:'2026-02-09',dates:['02-09 07:34']},
+    {id:'I237',pair:'EOK528 | JNA582',mine:'EOK528',other:'JNA582',airline:'EOK',atcCount:3,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-02-21',dates:['02-21 11:06','01-30 17:53','01-21 17:37']},
+    {id:'I238',pair:'EOK119 | TWB119',mine:'EOK119',other:'TWB119',airline:'EOK',atcCount:0,pilotCount:0,noneCount:3,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-11',dates:['02-11 11:06','01-21 16:37','01-17 10:24']},
+    {id:'I239',pair:'EOK755 | ASV754',mine:'EOK755',other:'ASV754',airline:'EOK',atcCount:1,pilotCount:2,noneCount:1,risk:'높음',similarity:'낮음',lastDate:'2026-02-26',dates:['02-26 14:39','02-09 09:29','02-06 12:37','01-28 11:03']},
+    {id:'I240',pair:'EOK402 | JNA395',mine:'EOK402',other:'JNA395',airline:'EOK',atcCount:0,pilotCount:0,noneCount:2,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-25',dates:['02-25 06:24','02-04 07:08']},
+    {id:'I241',pair:'EOK449 | KAL494',mine:'EOK449',other:'KAL494',airline:'EOK',atcCount:5,pilotCount:0,noneCount:0,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-23',dates:['02-23 07:12','01-30 19:37','01-28 19:59','01-26 12:33','01-22 06:37']},
+    {id:'I242',pair:'EOK470 | EOK472',mine:'EOK470',other:'EOK472',airline:'EOK',atcCount:1,pilotCount:0,noneCount:2,risk:'매우낮음',similarity:'높음',lastDate:'2026-01-31',dates:['01-31 12:35','01-31 11:25','01-30 09:58']},
+    {id:'I243',pair:'EOK864 | TWB869',mine:'EOK864',other:'TWB869',airline:'EOK',atcCount:0,pilotCount:1,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-01-31',dates:['01-31 14:51']},
+    {id:'I244',pair:'EOK306 | EOK305',mine:'EOK306',other:'EOK305',airline:'EOK',atcCount:1,pilotCount:0,noneCount:2,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-27',dates:['02-27 17:50','02-18 20:23','01-28 11:30']},
+    {id:'I245',pair:'EOK424 | ABL442',mine:'EOK424',other:'ABL442',airline:'EOK',atcCount:1,pilotCount:3,noneCount:2,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-19',dates:['02-19 20:33','01-30 10:29','01-28 14:50','01-24 16:29','01-24 10:10','01-16 14:02']},
+    {id:'I246',pair:'EOK465 | FGW469',mine:'EOK465',other:'FGW469',airline:'EOK',atcCount:3,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-18',dates:['02-18 07:45','01-21 10:17','01-18 20:26']},
+    {id:'I247',pair:'EOK308 | KAL307',mine:'EOK308',other:'KAL307',airline:'EOK',atcCount:1,pilotCount:0,noneCount:0,risk:'높음',similarity:'매우높음',lastDate:'2026-01-24',dates:['01-24 15:38']},
+    {id:'I248',pair:'EOK809 | TWB802',mine:'EOK809',other:'TWB802',airline:'EOK',atcCount:0,pilotCount:0,noneCount:2,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-17',dates:['02-17 14:23','01-31 17:12']},
+    {id:'I249',pair:'EOK455 | FGW454',mine:'EOK455',other:'FGW454',airline:'EOK',atcCount:0,pilotCount:3,noneCount:1,risk:'낮음',similarity:'높음',lastDate:'2026-02-27',dates:['02-27 17:46','01-21 19:20','01-20 09:06','01-19 11:27']},
+    {id:'I250',pair:'EOK539 | TWB593',mine:'EOK539',other:'TWB593',airline:'EOK',atcCount:2,pilotCount:2,noneCount:0,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-05',dates:['02-05 14:37','01-24 14:18','01-21 12:30','01-16 13:51']},
+    {id:'I251',pair:'EOK948 | KAL953',mine:'EOK948',other:'KAL953',airline:'EOK',atcCount:3,pilotCount:0,noneCount:2,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-21',dates:['02-21 19:26','02-20 11:51','01-30 20:08','01-23 06:43','01-17 08:07']},
+    {id:'I252',pair:'EOK461 | ASV416',mine:'EOK461',other:'ASV416',airline:'EOK',atcCount:4,pilotCount:3,noneCount:1,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-26',dates:['02-26 15:37','02-16 14:42','01-27 22:17','01-26 13:03','01-19 18:09','01-17 17:56','01-16 22:13']},
+    {id:'I253',pair:'EOK993 | AAR999',mine:'EOK993',other:'AAR999',airline:'EOK',atcCount:2,pilotCount:2,noneCount:1,risk:'낮음',similarity:'낮음',lastDate:'2026-02-22',dates:['02-22 15:13','02-22 06:41','02-17 22:10','02-03 21:31','02-01 09:14']},
+    {id:'I254',pair:'EOK596 | ASV594',mine:'EOK596',other:'ASV594',airline:'EOK',atcCount:0,pilotCount:0,noneCount:1,risk:'매우높음',similarity:'높음',lastDate:'2026-02-21',dates:['02-21 21:30']},
+    {id:'I255',pair:'EOK902 | KAL910',mine:'EOK902',other:'KAL910',airline:'EOK',atcCount:1,pilotCount:0,noneCount:0,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-02-11',dates:['02-11 08:56']},
+    {id:'I256',pair:'EOK510 | ABL501',mine:'EOK510',other:'ABL501',airline:'EOK',atcCount:4,pilotCount:2,noneCount:1,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-19',dates:['02-19 14:53','02-18 07:47','02-04 15:08','01-25 15:57','01-24 08:01','01-23 13:26','01-22 12:02']},
+    {id:'I257',pair:'FGW519 | JNA523',mine:'FGW519',other:'JNA523',airline:'FGW',atcCount:1,pilotCount:1,noneCount:0,risk:'매우낮음',similarity:'매우낮음',lastDate:'2026-02-04',dates:['02-04 12:54','02-01 18:49']},
+    {id:'I258',pair:'FGW725 | JJA733',mine:'FGW725',other:'JJA733',airline:'FGW',atcCount:0,pilotCount:0,noneCount:2,risk:'높음',similarity:'매우높음',lastDate:'2026-01-23',dates:['01-23 17:55','01-17 11:39']},
+    {id:'I259',pair:'FGW759 | FGW795',mine:'FGW759',other:'FGW795',airline:'FGW',atcCount:0,pilotCount:4,noneCount:1,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-19',dates:['02-19 11:38','02-19 08:25','02-04 09:55','01-28 19:02','01-21 18:59']},
+    {id:'I260',pair:'FGW789 | ASV794',mine:'FGW789',other:'ASV794',airline:'FGW',atcCount:4,pilotCount:0,noneCount:0,risk:'높음',similarity:'높음',lastDate:'2026-01-31',dates:['01-31 20:32','01-19 10:29','01-18 10:03','01-15 09:01']},
+    {id:'I261',pair:'FGW419 | FGW419',mine:'FGW419',other:'FGW419',airline:'FGW',atcCount:1,pilotCount:0,noneCount:2,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-12',dates:['02-12 20:03','01-17 17:35','01-16 09:48']},
+    {id:'I262',pair:'FGW484 | ASV483',mine:'FGW484',other:'ASV483',airline:'FGW',atcCount:4,pilotCount:4,noneCount:0,risk:'높음',similarity:'낮음',lastDate:'2026-02-08',dates:['02-08 14:10','02-03 08:59','02-02 21:15','01-30 09:52','01-29 17:02','01-29 08:32','01-16 07:35']},
+    {id:'I263',pair:'FGW837 | ASV837',mine:'FGW837',other:'ASV837',airline:'FGW',atcCount:4,pilotCount:3,noneCount:2,risk:'높음',similarity:'매우낮음',lastDate:'2026-02-23',dates:['02-23 19:10','02-21 06:33','02-07 15:06','02-07 12:01','02-07 08:45','02-04 07:01','01-23 07:54']},
+    {id:'I264',pair:'FGW762 | JJA754',mine:'FGW762',other:'JJA754',airline:'FGW',atcCount:0,pilotCount:2,noneCount:0,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-07',dates:['02-07 15:45','01-26 15:06']},
+    {id:'I265',pair:'FGW143 | FGW143',mine:'FGW143',other:'FGW143',airline:'FGW',atcCount:0,pilotCount:0,noneCount:1,risk:'높음',similarity:'낮음',lastDate:'2026-01-19',dates:['01-19 12:20']},
+    {id:'I266',pair:'FGW312 | JJA321',mine:'FGW312',other:'JJA321',airline:'FGW',atcCount:1,pilotCount:1,noneCount:2,risk:'낮음',similarity:'높음',lastDate:'2026-02-08',dates:['02-08 21:39','02-07 10:58','01-25 10:07','01-19 17:37']},
+    {id:'I267',pair:'FGW982 | KAL928',mine:'FGW982',other:'KAL928',airline:'FGW',atcCount:0,pilotCount:1,noneCount:0,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-02-20',dates:['02-20 16:06']},
+    {id:'I268',pair:'FGW853 | EOK853',mine:'FGW853',other:'EOK853',airline:'FGW',atcCount:2,pilotCount:0,noneCount:0,risk:'낮음',similarity:'매우높음',lastDate:'2026-01-30',dates:['01-30 14:07','01-18 19:16']},
+    {id:'I269',pair:'FGW304 | EOK303',mine:'FGW304',other:'EOK303',airline:'FGW',atcCount:1,pilotCount:3,noneCount:0,risk:'높음',similarity:'높음',lastDate:'2026-02-03',dates:['02-03 19:37','01-29 08:07','01-25 10:59','01-21 09:39']},
+    {id:'I270',pair:'FGW649 | JNA694',mine:'FGW649',other:'JNA694',airline:'FGW',atcCount:3,pilotCount:2,noneCount:1,risk:'낮음',similarity:'매우낮음',lastDate:'2026-02-28',dates:['02-28 16:29','02-17 22:29','02-16 06:44','02-13 14:50','01-30 14:01','01-27 22:42']},
+    {id:'I271',pair:'FGW174 | FGW174',mine:'FGW174',other:'FGW174',airline:'FGW',atcCount:2,pilotCount:3,noneCount:1,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-12',dates:['02-12 17:56','02-10 16:47','02-04 20:55','01-30 19:48','01-27 07:01','01-18 15:06']},
+    {id:'I272',pair:'FGW602 | ABL608',mine:'FGW602',other:'ABL608',airline:'FGW',atcCount:2,pilotCount:1,noneCount:0,risk:'매우높음',similarity:'매우낮음',lastDate:'2026-01-31',dates:['01-31 09:24','01-20 06:31','01-17 19:02']},
+    {id:'I273',pair:'FGW247 | EOK247',mine:'FGW247',other:'EOK247',airline:'FGW',atcCount:0,pilotCount:3,noneCount:0,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-13',dates:['02-13 06:21','01-25 12:30','01-15 07:47']},
+    {id:'I274',pair:'FGW717 | EOK717',mine:'FGW717',other:'EOK717',airline:'FGW',atcCount:0,pilotCount:4,noneCount:0,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-25',dates:['02-25 14:52','02-09 16:10','02-03 07:24','01-28 06:28']},
+    {id:'I275',pair:'FGW531 | KAL540',mine:'FGW531',other:'KAL540',airline:'FGW',atcCount:4,pilotCount:0,noneCount:0,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-25',dates:['02-25 11:08','02-08 22:57','01-27 20:12','01-24 18:11']},
+    {id:'I276',pair:'FGW746 | KAL745',mine:'FGW746',other:'KAL745',airline:'FGW',atcCount:1,pilotCount:2,noneCount:0,risk:'낮음',similarity:'낮음',lastDate:'2026-02-27',dates:['02-27 11:18','02-16 12:07','01-26 08:47']},
+    {id:'I277',pair:'FGW113 | KAL115',mine:'FGW113',other:'KAL115',airline:'FGW',atcCount:4,pilotCount:2,noneCount:1,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-22',dates:['02-22 10:42','02-16 12:13','02-15 10:33','01-31 06:25','01-30 13:45','01-20 13:16','01-19 12:05']},
+    {id:'I278',pair:'FGW122 | JNA122',mine:'FGW122',other:'JNA122',airline:'FGW',atcCount:3,pilotCount:2,noneCount:2,risk:'낮음',similarity:'매우높음',lastDate:'2026-02-20',dates:['02-20 18:59','02-13 08:01','02-08 18:46','02-06 16:02','02-06 13:51','01-29 08:51','01-20 07:39']},
+    {id:'I279',pair:'FGW115 | ABL115',mine:'FGW115',other:'ABL115',airline:'FGW',atcCount:5,pilotCount:0,noneCount:0,risk:'높음',similarity:'낮음',lastDate:'2026-02-25',dates:['02-25 14:14','02-14 19:15','02-12 19:28','02-12 11:24','01-29 17:37']},
+    {id:'I280',pair:'FGW203 | EOK197',mine:'FGW203',other:'EOK197',airline:'FGW',atcCount:3,pilotCount:0,noneCount:2,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-24',dates:['02-24 18:18','02-11 16:25','02-05 12:12','02-04 20:45','01-26 12:54']},
+    {id:'I281',pair:'FGW557 | ABL558',mine:'FGW557',other:'ABL558',airline:'FGW',atcCount:0,pilotCount:4,noneCount:0,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-01-31',dates:['01-31 17:49','01-27 21:10','01-19 07:57','01-18 11:58']},
+    {id:'I282',pair:'FGW687 | JJA687',mine:'FGW687',other:'JJA687',airline:'FGW',atcCount:5,pilotCount:3,noneCount:0,risk:'낮음',similarity:'낮음',lastDate:'2026-02-22',dates:['02-22 16:49','02-14 18:57','02-02 16:30','02-02 14:27','01-25 18:36','01-25 12:02','01-19 11:33']},
+    {id:'I283',pair:'FGW962 | FGW969',mine:'FGW962',other:'FGW969',airline:'FGW',atcCount:0,pilotCount:0,noneCount:1,risk:'매우낮음',similarity:'낮음',lastDate:'2026-02-26',dates:['02-26 22:09']},
+    {id:'I284',pair:'FGW149 | TWB194',mine:'FGW149',other:'TWB194',airline:'FGW',atcCount:1,pilotCount:1,noneCount:1,risk:'매우높음',similarity:'낮음',lastDate:'2026-02-19',dates:['02-19 13:14','02-15 13:56','01-19 16:37']},
+    {id:'I285',pair:'FGW251 | EOK251',mine:'FGW251',other:'EOK251',airline:'FGW',atcCount:0,pilotCount:0,noneCount:1,risk:'높음',similarity:'낮음',lastDate:'2026-01-22',dates:['01-22 22:25']},
+    {id:'I286',pair:'FGW248 | FGW248',mine:'FGW248',other:'FGW248',airline:'FGW',atcCount:3,pilotCount:3,noneCount:2,risk:'낮음',similarity:'낮음',lastDate:'2026-02-28',dates:['02-28 07:20','02-21 06:28','02-19 17:20','02-14 13:28','02-11 10:12','01-26 13:25','01-17 06:51']},
+    {id:'I287',pair:'FGW854 | JNA853',mine:'FGW854',other:'JNA853',airline:'FGW',atcCount:0,pilotCount:0,noneCount:3,risk:'높음',similarity:'매우높음',lastDate:'2026-01-27',dates:['01-27 15:57','01-24 07:04','01-17 09:17']},
+    {id:'I288',pair:'FGW837 | EOK836',mine:'FGW837',other:'EOK836',airline:'FGW',atcCount:0,pilotCount:2,noneCount:0,risk:'매우낮음',similarity:'매우높음',lastDate:'2026-01-20',dates:['01-20 11:46','01-16 13:07']},
+    {id:'I289',pair:'FGW821 | EOK814',mine:'FGW821',other:'EOK814',airline:'FGW',atcCount:0,pilotCount:0,noneCount:3,risk:'매우높음',similarity:'매우높음',lastDate:'2026-02-21',dates:['02-21 09:58','01-25 13:39','01-22 14:04']},
+    {id:'I290',pair:'FGW783 | JNA738',mine:'FGW783',other:'JNA738',airline:'FGW',atcCount:0,pilotCount:4,noneCount:1,risk:'매우낮음',similarity:'높음',lastDate:'2026-02-23',dates:['02-23 10:14','02-14 22:14','02-14 19:33','01-31 08:22','01-19 19:25']},
+];
+
+const SAMPLE_ACT=[
+    {id:'S01',airline:'KAL',pair:'KAL761 | ABL760',target:'KAL761',type:'조종사 브리핑',dueDate:'2026-01-28',detail:'KAL761/ABL760 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-01-28',status:'조치완료'},
+    {id:'S02',airline:'KAL',pair:'KAL588 | AAR588',target:'KAL588',type:'기타',dueDate:'2026-02-12',detail:'KAL588/AAR588 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-02-12',status:'조치완료'},
+    {id:'S03',airline:'KAL',pair:'KAL923 | EOK932',target:'KAL923',type:'기타',dueDate:'2026-02-09',detail:'KAL923/EOK932 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-02-09',status:'조치완료'},
+    {id:'S04',airline:'KAL',pair:'KAL527 | JJA527',target:'KAL527',type:'조종사 브리핑',dueDate:'2026-01-27',detail:'KAL527/JJA527 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-01-27',status:'조치완료'},
+    {id:'S05',airline:'KAL',pair:'KAL864 | EOK863',target:'KAL864',type:'스케줄 조정',dueDate:'2026-02-05',detail:'KAL864/EOK863 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-02-05',status:'조치완료'},
+    {id:'S06',airline:'KAL',pair:'KAL161 | JJA162',target:'KAL161',type:'기타',dueDate:'2026-02-15',detail:'KAL161/JJA162 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-15',status:'조치완료'},
+    {id:'S07',airline:'KAL',pair:'KAL488 | ASV488',target:'KAL488',type:'편명 변경',dueDate:'2026-02-28',detail:'KAL488/ASV488 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-28',status:'조치완료'},
+    {id:'S08',airline:'KAL',pair:'KAL578 | EOK577',target:'KAL578',type:'스케줄 조정',dueDate:'2026-02-21',detail:'KAL578/EOK577 유사호출부호 관련 모니터링 강화 조치',dateTime:'2026-02-21',status:'조치완료'},
+    {id:'S09',airline:'KAL',pair:'KAL995 | EOK986',target:'KAL995',type:'조종사 브리핑',dueDate:'2026-01-16',detail:'KAL995/EOK986 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-01-16',status:'조치완료'},
+    {id:'S10',airline:'KAL',pair:'KAL417 | JNA417',target:'KAL417',type:'스케줄 조정',dueDate:'2026-02-21',detail:'KAL417/JNA417 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-02-21',status:'조치완료'},
+    {id:'S11',airline:'KAL',pair:'KAL345 | AAR346',target:'KAL345',type:'편명 변경',dueDate:'2026-02-14',detail:'KAL345/AAR346 유사호출부호 관련 모니터링 강화 조치',dateTime:'2026-02-14',status:'조치완료'},
+    {id:'S12',airline:'KAL',pair:'KAL469 | ASV463',target:'KAL469',type:'스케줄 조정',dueDate:'2026-02-13',detail:'KAL469/ASV463 유사호출부호 관련 모니터링 강화 조치',dateTime:'2026-02-13',status:'조치완료'},
+    {id:'S13',airline:'KAL',pair:'KAL594 | KAL594',target:'KAL594',type:'편명 변경',dueDate:'2026-01-21',detail:'KAL594/KAL594 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-01-21',status:'조치완료'},
+    {id:'S14',airline:'KAL',pair:'KAL518 | EOK581',target:'KAL518',type:'조종사 브리핑',dueDate:'2026-02-18',detail:'KAL518/EOK581 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-02-18',status:'조치완료'},
+    {id:'S15',airline:'KAL',pair:'KAL756 | EOK757',target:'KAL756',type:'조종사 브리핑',dueDate:'2026-01-21',detail:'KAL756/EOK757 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-01-21',status:'조치완료'},
+    {id:'S16',airline:'KAL',pair:'KAL757 | JNA758',target:'KAL757',type:'편명 변경',dueDate:'2026-02-18',detail:'KAL757/JNA758 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-18',status:'조치완료'},
+    {id:'S17',airline:'AAR',pair:'AAR114 | JNA114',target:'AAR114',type:'기타',dueDate:'2026-01-15',detail:'AAR114/JNA114 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-01-15',status:'조치완료'},
+    {id:'S18',airline:'AAR',pair:'AAR997 | EOK979',target:'AAR997',type:'편명 변경',dueDate:'2026-02-04',detail:'AAR997/EOK979 유사호출부호 관련 모니터링 강화 조치',dateTime:'2026-02-04',status:'조치완료'},
+    {id:'S19',airline:'AAR',pair:'AAR310 | KAL309',target:'AAR310',type:'기타',dueDate:'2026-01-15',detail:'AAR310/KAL309 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-01-15',status:'조치완료'},
+    {id:'S20',airline:'AAR',pair:'AAR202 | EOK209',target:'AAR202',type:'스케줄 조정',dueDate:'2026-01-23',detail:'AAR202/EOK209 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-01-23',status:'조치완료'},
+    {id:'S21',airline:'AAR',pair:'AAR411 | KAL412',target:'AAR411',type:'조종사 브리핑',dueDate:'2026-01-31',detail:'AAR411/KAL412 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-01-31',status:'조치완료'},
+    {id:'S22',airline:'AAR',pair:'AAR566 | ASV569',target:'AAR566',type:'스케줄 조정',dueDate:'2026-02-02',detail:'AAR566/ASV569 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-02-02',status:'조치완료'},
+    {id:'S23',airline:'AAR',pair:'AAR577 | ASV578',target:'AAR577',type:'스케줄 조정',dueDate:'2026-01-15',detail:'AAR577/ASV578 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-01-15',status:'조치완료'},
+    {id:'S24',airline:'AAR',pair:'AAR244 | JNA244',target:'AAR244',type:'스케줄 조정',dueDate:'2026-02-05',detail:'AAR244/JNA244 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-02-05',status:'조치완료'},
+    {id:'S25',airline:'AAR',pair:'AAR587 | EOK586',target:'AAR587',type:'조종사 브리핑',dueDate:'2026-01-15',detail:'AAR587/EOK586 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-01-15',status:'조치완료'},
+    {id:'S26',airline:'AAR',pair:'AAR258 | JNA257',target:'AAR258',type:'편명 변경',dueDate:'2026-02-14',detail:'AAR258/JNA257 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-02-14',status:'조치완료'},
+    {id:'S27',airline:'AAR',pair:'AAR948 | KAL949',target:'AAR948',type:'편명 변경',dueDate:'2026-01-30',detail:'AAR948/KAL949 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-01-30',status:'조치완료'},
+    {id:'S28',airline:'AAR',pair:'AAR906 | KAL906',target:'AAR906',type:'편명 변경',dueDate:'2026-01-23',detail:'AAR906/KAL906 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-01-23',status:'조치완료'},
+    {id:'S29',airline:'JJA',pair:'JJA812 | TWB818',target:'JJA812',type:'편명 변경',dueDate:'2026-01-19',detail:'JJA812/TWB818 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-01-19',status:'조치완료'},
+    {id:'S30',airline:'JJA',pair:'JJA653 | AAR654',target:'JJA653',type:'스케줄 조정',dueDate:'2026-02-25',detail:'JJA653/AAR654 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-25',status:'조치완료'},
+    {id:'S31',airline:'JJA',pair:'JJA337 | JNA344',target:'JJA337',type:'편명 변경',dueDate:'2026-01-26',detail:'JJA337/JNA344 유사호출부호 관련 관제당국 협의 진행',dateTime:'2026-01-26',status:'조치완료'},
+    {id:'S32',airline:'JJA',pair:'JJA179 | ABL197',target:'JJA179',type:'스케줄 조정',dueDate:'2026-01-21',detail:'JJA179/ABL197 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-01-21',status:'조치완료'},
+    {id:'S33',airline:'JJA',pair:'JJA796 | FGW797',target:'JJA796',type:'기타',dueDate:'2026-02-20',detail:'JJA796/FGW797 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-20',status:'조치완료'},
+    {id:'S34',airline:'JJA',pair:'JJA170 | ASV107',target:'JJA170',type:'조종사 브리핑',dueDate:'2026-01-27',detail:'JJA170/ASV107 유사호출부호 관련 모니터링 강화 조치',dateTime:'2026-01-27',status:'조치완료'},
+    {id:'S35',airline:'JJA',pair:'JJA748 | FGW749',target:'JJA748',type:'편명 변경',dueDate:'2026-02-24',detail:'JJA748/FGW749 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-02-24',status:'조치완료'},
+    {id:'S36',airline:'JJA',pair:'JJA880 | JJA808',target:'JJA880',type:'편명 변경',dueDate:'2026-01-28',detail:'JJA880/JJA808 유사호출부호 관련 관제당국 협의 진행',dateTime:'2026-01-28',status:'조치완료'},
+    {id:'S37',airline:'JJA',pair:'JJA537 | ASV537',target:'JJA537',type:'조종사 브리핑',dueDate:'2026-01-29',detail:'JJA537/ASV537 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-01-29',status:'조치완료'},
+    {id:'S38',airline:'JJA',pair:'JJA301 | AAR310',target:'JJA301',type:'스케줄 조정',dueDate:'2026-02-16',detail:'JJA301/AAR310 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-02-16',status:'조치완료'},
+    {id:'S39',airline:'JJA',pair:'JJA690 | KAL690',target:'JJA690',type:'기타',dueDate:'2026-01-15',detail:'JJA690/KAL690 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-01-15',status:'조치완료'},
+    {id:'S40',airline:'JJA',pair:'JJA678 | JNA677',target:'JJA678',type:'스케줄 조정',dueDate:'2026-02-18',detail:'JJA678/JNA677 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-02-18',status:'조치완료'},
+    {id:'S41',airline:'JJA',pair:'JJA772 | KAL727',target:'JJA772',type:'편명 변경',dueDate:'2026-02-05',detail:'JJA772/KAL727 유사호출부호 관련 관제당국 협의 진행',dateTime:'2026-02-05',status:'조치완료'},
+    {id:'S42',airline:'JJA',pair:'JJA810 | TWB800',target:'JJA810',type:'스케줄 조정',dueDate:'2026-01-30',detail:'JJA810/TWB800 유사호출부호 관련 운항관리 강화 시행',dateTime:'2026-01-30',status:'조치완료'},
+    {id:'S43',airline:'JNA',pair:'JNA419 | EOK422',target:'JNA419',type:'스케줄 조정',dueDate:'2026-01-27',detail:'JNA419/EOK422 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-01-27',status:'조치완료'},
+    {id:'S44',airline:'JNA',pair:'JNA183 | TWB138',target:'JNA183',type:'기타',dueDate:'2026-01-25',detail:'JNA183/TWB138 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-01-25',status:'조치완료'},
+    {id:'S45',airline:'JNA',pair:'JNA325 | JJA329',target:'JNA325',type:'스케줄 조정',dueDate:'2026-02-15',detail:'JNA325/JJA329 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-02-15',status:'조치완료'},
+    {id:'S46',airline:'JNA',pair:'JNA145 | FGW154',target:'JNA145',type:'편명 변경',dueDate:'2026-01-15',detail:'JNA145/FGW154 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-01-15',status:'조치완료'},
+    {id:'S47',airline:'JNA',pair:'JNA859 | TWB859',target:'JNA859',type:'편명 변경',dueDate:'2026-02-22',detail:'JNA859/TWB859 유사호출부호 관련 관제당국 협의 진행',dateTime:'2026-02-22',status:'조치완료'},
+    {id:'S48',airline:'JNA',pair:'JNA929 | JNA930',target:'JNA929',type:'기타',dueDate:'2026-02-27',detail:'JNA929/JNA930 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-27',status:'조치완료'},
+    {id:'S49',airline:'JNA',pair:'JNA746 | FGW747',target:'JNA746',type:'조종사 브리핑',dueDate:'2026-01-30',detail:'JNA746/FGW747 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-01-30',status:'조치완료'},
+    {id:'S50',airline:'JNA',pair:'JNA203 | AAR196',target:'JNA203',type:'편명 변경',dueDate:'2026-01-24',detail:'JNA203/AAR196 유사호출부호 관련 관제당국 협의 진행',dateTime:'2026-01-24',status:'조치완료'},
+    {id:'S51',airline:'JNA',pair:'JNA784 | JNA779',target:'JNA784',type:'조종사 브리핑',dueDate:'2026-01-26',detail:'JNA784/JNA779 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-01-26',status:'조치완료'},
+    {id:'S52',airline:'JNA',pair:'JNA395 | KAL396',target:'JNA395',type:'스케줄 조정',dueDate:'2026-02-07',detail:'JNA395/KAL396 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-07',status:'조치완료'},
+    {id:'S53',airline:'JNA',pair:'JNA852 | KAL852',target:'JNA852',type:'편명 변경',dueDate:'2026-01-20',detail:'JNA852/KAL852 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-01-20',status:'조치완료'},
+    {id:'S54',airline:'JNA',pair:'JNA328 | TWB382',target:'JNA328',type:'편명 변경',dueDate:'2026-02-09',detail:'JNA328/TWB382 유사호출부호 관련 모니터링 강화 조치',dateTime:'2026-02-09',status:'조치완료'},
+    {id:'S55',airline:'JNA',pair:'JNA344 | AAR344',target:'JNA344',type:'기타',dueDate:'2026-02-24',detail:'JNA344/AAR344 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-02-24',status:'조치완료'},
+    {id:'S56',airline:'JNA',pair:'JNA794 | JJA794',target:'JNA794',type:'편명 변경',dueDate:'2026-01-15',detail:'JNA794/JJA794 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-01-15',status:'조치완료'},
+    {id:'S57',airline:'TWB',pair:'TWB730 | FGW738',target:'TWB730',type:'스케줄 조정',dueDate:'2026-02-26',detail:'TWB730/FGW738 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-02-26',status:'조치완료'},
+    {id:'S58',airline:'TWB',pair:'TWB595 | EOK595',target:'TWB595',type:'기타',dueDate:'2026-01-15',detail:'TWB595/EOK595 유사호출부호 관련 운항관리 강화 시행',dateTime:'2026-01-15',status:'조치완료'},
+    {id:'S59',airline:'TWB',pair:'TWB947 | EOK948',target:'TWB947',type:'스케줄 조정',dueDate:'2026-01-29',detail:'TWB947/EOK948 유사호출부호 관련 모니터링 강화 조치',dateTime:'2026-01-29',status:'조치완료'},
+    {id:'S60',airline:'TWB',pair:'TWB905 | JJA950',target:'TWB905',type:'기타',dueDate:'2026-01-19',detail:'TWB905/JJA950 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-01-19',status:'조치완료'},
+    {id:'S61',airline:'TWB',pair:'TWB753 | EOK755',target:'TWB753',type:'조종사 브리핑',dueDate:'2026-01-26',detail:'TWB753/EOK755 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-01-26',status:'조치완료'},
+    {id:'S62',airline:'TWB',pair:'TWB681 | ASV689',target:'TWB681',type:'편명 변경',dueDate:'2026-01-24',detail:'TWB681/ASV689 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-01-24',status:'조치완료'},
+    {id:'S63',airline:'TWB',pair:'TWB916 | EOK961',target:'TWB916',type:'편명 변경',dueDate:'2026-02-01',detail:'TWB916/EOK961 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-01',status:'조치완료'},
+    {id:'S64',airline:'TWB',pair:'TWB934 | EOK943',target:'TWB934',type:'스케줄 조정',dueDate:'2026-02-25',detail:'TWB934/EOK943 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-25',status:'조치완료'},
+    {id:'S65',airline:'TWB',pair:'TWB124 | EOK123',target:'TWB124',type:'조종사 브리핑',dueDate:'2026-01-27',detail:'TWB124/EOK123 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-01-27',status:'조치완료'},
+    {id:'S66',airline:'TWB',pair:'TWB741 | EOK740',target:'TWB741',type:'편명 변경',dueDate:'2026-02-17',detail:'TWB741/EOK740 유사호출부호 관련 운항관리 강화 시행',dateTime:'2026-02-17',status:'조치완료'},
+    {id:'S67',airline:'TWB',pair:'TWB815 | ASV806',target:'TWB815',type:'편명 변경',dueDate:'2026-01-15',detail:'TWB815/ASV806 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-01-15',status:'조치완료'},
+    {id:'S68',airline:'TWB',pair:'TWB464 | JJA465',target:'TWB464',type:'스케줄 조정',dueDate:'2026-02-07',detail:'TWB464/JJA465 유사호출부호 관련 관제당국 협의 진행',dateTime:'2026-02-07',status:'조치완료'},
+    {id:'S69',airline:'TWB',pair:'TWB175 | EOK176',target:'TWB175',type:'편명 변경',dueDate:'2026-02-02',detail:'TWB175/EOK176 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-02',status:'조치완료'},
+    {id:'S70',airline:'TWB',pair:'TWB219 | EOK219',target:'TWB219',type:'기타',dueDate:'2026-01-23',detail:'TWB219/EOK219 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-01-23',status:'조치완료'},
+    {id:'S71',airline:'TWB',pair:'TWB475 | ABL468',target:'TWB475',type:'기타',dueDate:'2026-01-19',detail:'TWB475/ABL468 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-01-19',status:'조치완료'},
+    {id:'S72',airline:'ABL',pair:'ABL575 | JJA557',target:'ABL575',type:'조종사 브리핑',dueDate:'2026-01-30',detail:'ABL575/JJA557 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-01-30',status:'조치완료'},
+    {id:'S73',airline:'ABL',pair:'ABL683 | TWB683',target:'ABL683',type:'기타',dueDate:'2026-02-20',detail:'ABL683/TWB683 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-20',status:'조치완료'},
+    {id:'S74',airline:'ABL',pair:'ABL520 | ABL502',target:'ABL520',type:'스케줄 조정',dueDate:'2026-01-28',detail:'ABL520/ABL502 유사호출부호 관련 운항관리 강화 시행',dateTime:'2026-01-28',status:'조치완료'},
+    {id:'S75',airline:'ABL',pair:'ABL491 | JJA419',target:'ABL491',type:'기타',dueDate:'2026-02-22',detail:'ABL491/JJA419 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-22',status:'조치완료'},
+    {id:'S76',airline:'ABL',pair:'ABL772 | ABL727',target:'ABL772',type:'편명 변경',dueDate:'2026-01-28',detail:'ABL772/ABL727 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-01-28',status:'조치완료'},
+    {id:'S77',airline:'ABL',pair:'ABL676 | KAL677',target:'ABL676',type:'기타',dueDate:'2026-01-19',detail:'ABL676/KAL677 유사호출부호 관련 관제당국 협의 진행',dateTime:'2026-01-19',status:'조치완료'},
+    {id:'S78',airline:'ABL',pair:'ABL129 | JJA130',target:'ABL129',type:'조종사 브리핑',dueDate:'2026-02-15',detail:'ABL129/JJA130 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-02-15',status:'조치완료'},
+    {id:'S79',airline:'ABL',pair:'ABL931 | ASV913',target:'ABL931',type:'편명 변경',dueDate:'2026-01-29',detail:'ABL931/ASV913 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-01-29',status:'조치완료'},
+    {id:'S80',airline:'ABL',pair:'ABL523 | ASV527',target:'ABL523',type:'스케줄 조정',dueDate:'2026-02-19',detail:'ABL523/ASV527 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-02-19',status:'조치완료'},
+    {id:'S81',airline:'ABL',pair:'ABL924 | JJA942',target:'ABL924',type:'편명 변경',dueDate:'2026-01-17',detail:'ABL924/JJA942 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-01-17',status:'조치완료'},
+    {id:'S82',airline:'ABL',pair:'ABL651 | JNA651',target:'ABL651',type:'기타',dueDate:'2026-02-10',detail:'ABL651/JNA651 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-02-10',status:'조치완료'},
+    {id:'S83',airline:'ABL',pair:'ABL763 | JNA764',target:'ABL763',type:'스케줄 조정',dueDate:'2026-01-15',detail:'ABL763/JNA764 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-01-15',status:'조치완료'},
+    {id:'S84',airline:'ABL',pair:'ABL744 | KAL744',target:'ABL744',type:'기타',dueDate:'2026-02-25',detail:'ABL744/KAL744 유사호출부호 관련 모니터링 강화 조치',dateTime:'2026-02-25',status:'조치완료'},
+    {id:'S85',airline:'ABL',pair:'ABL554 | AAR554',target:'ABL554',type:'기타',dueDate:'2026-02-02',detail:'ABL554/AAR554 유사호출부호 관련 관제당국 협의 진행',dateTime:'2026-02-02',status:'조치완료'},
+    {id:'S86',airline:'ASV',pair:'ASV226 | TWB226',target:'ASV226',type:'조종사 브리핑',dueDate:'2026-02-02',detail:'ASV226/TWB226 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-02-02',status:'조치완료'},
+    {id:'S87',airline:'ASV',pair:'ASV488 | JNA483',target:'ASV488',type:'편명 변경',dueDate:'2026-02-07',detail:'ASV488/JNA483 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-02-07',status:'조치완료'},
+    {id:'S88',airline:'ASV',pair:'ASV357 | TWB365',target:'ASV357',type:'기타',dueDate:'2026-02-20',detail:'ASV357/TWB365 유사호출부호 관련 관제당국 협의 진행',dateTime:'2026-02-20',status:'조치완료'},
+    {id:'S89',airline:'ASV',pair:'ASV260 | ASV263',target:'ASV260',type:'기타',dueDate:'2026-01-18',detail:'ASV260/ASV263 유사호출부호 관련 모니터링 강화 조치',dateTime:'2026-01-18',status:'조치완료'},
+    {id:'S90',airline:'ASV',pair:'ASV999 | TWB999',target:'ASV999',type:'기타',dueDate:'2026-01-19',detail:'ASV999/TWB999 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-01-19',status:'조치완료'},
+    {id:'S91',airline:'ASV',pair:'ASV138 | AAR142',target:'ASV138',type:'스케줄 조정',dueDate:'2026-02-23',detail:'ASV138/AAR142 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-02-23',status:'조치완료'},
+    {id:'S92',airline:'ASV',pair:'ASV770 | AAR707',target:'ASV770',type:'조종사 브리핑',dueDate:'2026-01-23',detail:'ASV770/AAR707 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-01-23',status:'조치완료'},
+    {id:'S93',airline:'ASV',pair:'ASV167 | ABL176',target:'ASV167',type:'스케줄 조정',dueDate:'2026-01-18',detail:'ASV167/ABL176 유사호출부호 관련 모니터링 강화 조치',dateTime:'2026-01-18',status:'조치완료'},
+    {id:'S94',airline:'ASV',pair:'ASV257 | KAL248',target:'ASV257',type:'스케줄 조정',dueDate:'2026-01-30',detail:'ASV257/KAL248 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-01-30',status:'조치완료'},
+    {id:'S95',airline:'ASV',pair:'ASV635 | FGW645',target:'ASV635',type:'스케줄 조정',dueDate:'2026-02-03',detail:'ASV635/FGW645 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-02-03',status:'조치완료'},
+    {id:'S96',airline:'ASV',pair:'ASV364 | TWB363',target:'ASV364',type:'편명 변경',dueDate:'2026-01-30',detail:'ASV364/TWB363 유사호출부호 관련 운항관리 강화 시행',dateTime:'2026-01-30',status:'조치완료'},
+    {id:'S97',airline:'ASV',pair:'ASV578 | FGW578',target:'ASV578',type:'조종사 브리핑',dueDate:'2026-02-23',detail:'ASV578/FGW578 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-02-23',status:'조치완료'},
+    {id:'S98',airline:'ASV',pair:'ASV375 | FGW376',target:'ASV375',type:'조종사 브리핑',dueDate:'2026-02-04',detail:'ASV375/FGW376 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-02-04',status:'조치완료'},
+    {id:'S99',airline:'ASV',pair:'ASV953 | JNA947',target:'ASV953',type:'스케줄 조정',dueDate:'2026-01-16',detail:'ASV953/JNA947 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-01-16',status:'조치완료'},
+    {id:'S100',airline:'EOK',pair:'EOK864 | TWB869',target:'EOK864',type:'스케줄 조정',dueDate:'2026-01-18',detail:'EOK864/TWB869 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-01-18',status:'조치완료'},
+    {id:'S101',airline:'EOK',pair:'EOK802 | JNA793',target:'EOK802',type:'기타',dueDate:'2026-01-30',detail:'EOK802/JNA793 유사호출부호 관련 모니터링 강화 조치',dateTime:'2026-01-30',status:'조치완료'},
+    {id:'S102',airline:'EOK',pair:'EOK528 | JNA582',target:'EOK528',type:'조종사 브리핑',dueDate:'2026-02-18',detail:'EOK528/JNA582 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-18',status:'조치완료'},
+    {id:'S103',airline:'EOK',pair:'EOK470 | EOK472',target:'EOK470',type:'스케줄 조정',dueDate:'2026-01-20',detail:'EOK470/EOK472 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-01-20',status:'조치완료'},
+    {id:'S104',airline:'EOK',pair:'EOK510 | ABL501',target:'EOK510',type:'편명 변경',dueDate:'2026-01-27',detail:'EOK510/ABL501 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-01-27',status:'조치완료'},
+    {id:'S105',airline:'EOK',pair:'EOK788 | JNA793',target:'EOK788',type:'조종사 브리핑',dueDate:'2026-01-30',detail:'EOK788/JNA793 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-01-30',status:'조치완료'},
+    {id:'S106',airline:'EOK',pair:'EOK755 | ASV754',target:'EOK755',type:'스케줄 조정',dueDate:'2026-02-19',detail:'EOK755/ASV754 유사호출부호 관련 운항관리 강화 시행',dateTime:'2026-02-19',status:'조치완료'},
+    {id:'S107',airline:'EOK',pair:'EOK995 | TWB995',target:'EOK995',type:'조종사 브리핑',dueDate:'2026-02-19',detail:'EOK995/TWB995 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-02-19',status:'조치완료'},
+    {id:'S108',airline:'EOK',pair:'EOK465 | FGW469',target:'EOK465',type:'기타',dueDate:'2026-02-20',detail:'EOK465/FGW469 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-20',status:'조치완료'},
+    {id:'S109',airline:'EOK',pair:'EOK466 | KAL467',target:'EOK466',type:'스케줄 조정',dueDate:'2026-02-15',detail:'EOK466/KAL467 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-02-15',status:'조치완료'},
+    {id:'S110',airline:'EOK',pair:'EOK308 | KAL307',target:'EOK308',type:'편명 변경',dueDate:'2026-01-20',detail:'EOK308/KAL307 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-01-20',status:'조치완료'},
+    {id:'S111',airline:'EOK',pair:'EOK288 | ASV287',target:'EOK288',type:'기타',dueDate:'2026-02-14',detail:'EOK288/ASV287 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-02-14',status:'조치완료'},
+    {id:'S112',airline:'FGW',pair:'FGW837 | ASV837',target:'FGW837',type:'편명 변경',dueDate:'2026-02-25',detail:'FGW837/ASV837 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-02-25',status:'조치완료'},
+    {id:'S113',airline:'FGW',pair:'FGW687 | JJA687',target:'FGW687',type:'편명 변경',dueDate:'2026-01-15',detail:'FGW687/JJA687 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-01-15',status:'조치완료'},
+    {id:'S114',airline:'FGW',pair:'FGW419 | FGW419',target:'FGW419',type:'조종사 브리핑',dueDate:'2026-01-24',detail:'FGW419/FGW419 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-01-24',status:'조치완료'},
+    {id:'S115',airline:'FGW',pair:'FGW149 | TWB194',target:'FGW149',type:'편명 변경',dueDate:'2026-02-23',detail:'FGW149/TWB194 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-02-23',status:'조치완료'},
+    {id:'S116',airline:'FGW',pair:'FGW519 | JNA523',target:'FGW519',type:'조종사 브리핑',dueDate:'2026-01-29',detail:'FGW519/JNA523 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-01-29',status:'조치완료'},
+    {id:'S117',airline:'FGW',pair:'FGW853 | EOK853',target:'FGW853',type:'편명 변경',dueDate:'2026-02-14',detail:'FGW853/EOK853 유사호출부호 관련 안전 브리핑 실시',dateTime:'2026-02-14',status:'조치완료'},
+    {id:'S118',airline:'FGW',pair:'FGW762 | JJA754',target:'FGW762',type:'기타',dueDate:'2026-02-18',detail:'FGW762/JJA754 유사호출부호 관련 재발 방지 대책 수립',dateTime:'2026-02-18',status:'조치완료'},
+    {id:'S119',airline:'FGW',pair:'FGW113 | KAL115',target:'FGW113',type:'스케줄 조정',dueDate:'2026-01-17',detail:'FGW113/KAL115 유사호출부호 관련 스케줄 조정 검토',dateTime:'2026-01-17',status:'조치완료'},
+    {id:'S120',airline:'FGW',pair:'FGW115 | ABL115',target:'FGW115',type:'편명 변경',dueDate:'2026-01-29',detail:'FGW115/ABL115 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-01-29',status:'조치완료'},
+    {id:'S121',airline:'FGW',pair:'FGW982 | KAL928',target:'FGW982',type:'편명 변경',dueDate:'2026-01-17',detail:'FGW982/KAL928 유사호출부호 관련 편명 변경 검토 중',dateTime:'2026-01-17',status:'조치완료'},
+    {id:'S122',airline:'FGW',pair:'FGW759 | FGW795',target:'FGW759',type:'편명 변경',dueDate:'2026-01-16',detail:'FGW759/FGW795 유사호출부호 관련 모니터링 강화 조치',dateTime:'2026-01-16',status:'조치완료'},
+    {id:'S123',airline:'FGW',pair:'FGW304 | EOK303',target:'FGW304',type:'기타',dueDate:'2026-02-10',detail:'FGW304/EOK303 유사호출부호 관련 조종사 주의사항 전달',dateTime:'2026-02-10',status:'조치완료'},
+    {id:'S124',airline:'FGW',pair:'FGW203 | EOK197',target:'FGW203',type:'스케줄 조정',dueDate:'2026-01-21',detail:'FGW203/EOK197 유사호출부호 관련 운항관리 강화 시행',dateTime:'2026-01-21',status:'조치완료'}
+];
+
+let ACTS=JSON.parse(localStorage.getItem('cs_v15')||'null')||[...SAMPLE_ACT];
+function svActs(){localStorage.setItem('cs_v15',JSON.stringify(ACTS));}
+
+let cc='',cn='',isA=false,sf='all';
+
+const td=()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+const fd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const rO={'매우높음':4,'높음':3,'낮음':2,'매우낮음':1};
+const rC=r=>r==='매우높음'?'very-high':r==='높음'?'high':r==='낮음'?'low':'very-low';
+const rB=r=>`<span class="m-badge ${rC(r)}">${r}</span>`;
+function inR(ds,f,t){if(!ds||ds==='-')return false;return ds.slice(0,10)>=f&&ds.slice(0,10)<=t;}
+
+function getI(){
+    const f=document.getElementById('fFrom')?.value||'',t=document.getElementById('fTo')?.value||'';
+    let d=isA?INC:INC.filter(i=>i.airline===cc);
+    if(f&&t)d=d.filter(i=>inR(i.lastDate,f,t));
+    return d;
+}
+function getA(){return isA?ACTS:ACTS.filter(a=>a.airline===cc);}
+
+function doLogin(){const c=document.getElementById('loginAirline').value;if(!c){alert('항공사를 선택하세요.');return;}cc=c;cn=AL[c].n;isA=false;start();}
+function doAdminLogin(){cc='';cn='관리자';isA=true;start();}
+function doLogout(){document.getElementById('loginScreen').style.display='flex';document.getElementById('appScreen').style.display='none';}
+
+function start(){
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('appScreen').style.display='flex';
+    document.getElementById('topName').textContent=isA?'🔧 관리자':cn;
+    document.getElementById('topDate').textContent=td();
+    document.getElementById('tabAdmin').style.display=isA?'':'none';
+    const t=new Date(),tw=new Date(t);tw.setDate(t.getDate()-30);
+    document.getElementById('fFrom').value=fd(tw);document.getElementById('fTo').value=td();
+    document.getElementById('actFrom').value=fd(tw);document.getElementById('actTo').value=td();
+    if(isA){document.getElementById('aFrom').value=fd(tw);document.getElementById('aTo').value=td();
+        const s=document.getElementById('adminAF');s.innerHTML='<option value="all">전체 항공사</option>';
+        Object.entries(AL).forEach(([k,v])=>{s.innerHTML+=`<option value="${k}">${v.n}</option>`;});}
+    switchTab('dash',document.querySelector('.tab-btn'));renderAll();
+}
+function switchTab(id,btn){
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    const p=document.getElementById('panel-'+id);if(p){p.classList.add('active');p.classList.add('fade-in');}
+    if(btn)btn.classList.add('active');
+    if(id==='act')renderActs();if(id==='admin')renderAdmin();
+}
+function setQ(v,el){
+    document.querySelectorAll('#panel-dash .pf-qbtn').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');
+    const e=new Date();let s=new Date();if(v==='today')s=e;else s.setDate(e.getDate()-parseInt(v)+1);
+    document.getElementById('fFrom').value=fd(s);document.getElementById('fTo').value=fd(e);renderDash();
+}
+function renderAll(){renderDash();renderActs();if(isA){renderAdmin();renderAdminAct();}}
+
+// ====== 대시보드 ======
+function renderDash(){
+    const data=getI();
+    const sumAtc=data.reduce((s,i)=>s+i.atcCount,0);
+    const sumPlt=data.reduce((s,i)=>s+i.pilotCount,0);
+    const sumNone=data.reduce((s,i)=>s+i.noneCount,0);
+    const grandTotal=sumAtc+sumPlt+sumNone;
+    const pAtc=grandTotal?Math.round(sumAtc/grandTotal*100):0;
+    const pPlt=grandTotal?Math.round(sumPlt/grandTotal*100):0;
+    const pNone=grandTotal?Math.round(sumNone/grandTotal*100):0;
+
+    const dispNum=sf==='atc'?sumAtc:sf==='pilot'?sumPlt:sf==='none'?sumNone:grandTotal;
+    const dispUnit=sf==='atc'?'건 (관제사 오류)':sf==='pilot'?'건 (조종사 오류)':sf==='none'?'건 (오류 미발생)':'건 검색됨';
+
+    document.getElementById('dashLeft').innerHTML=`
+        <div class="dl-title">발생건수</div>
+        <div class="dl-big"><span class="dl-num">${dispNum}</span><span class="dl-unit">${dispUnit}</span></div>
+        <div class="dl-cards">
+            <div class="dl-card c-atc${sf==='atc'?' active':''}" onclick="clickCard('atc')">
+                <div class="dc-label">관제사 오류</div>
+                <div class="dc-row"><span class="dc-num">${sumAtc}</span><span class="dc-pct">${pAtc}%</span></div>
+            </div>
+            <div class="dl-card c-pilot${sf==='pilot'?' active':''}" onclick="clickCard('pilot')">
+                <div class="dc-label">조종사 오류</div>
+                <div class="dc-row"><span class="dc-num">${sumPlt}</span><span class="dc-pct">${pPlt}%</span></div>
+            </div>
+            <div class="dl-card c-none${sf==='none'?' active':''}" onclick="clickCard('none')">
+                <div class="dc-label">오류 미발생</div>
+                <div class="dc-row"><span class="dc-num">${sumNone}</span><span class="dc-pct">${pNone}%</span></div>
+            </div>
+        </div>`;
+
+    renderList();
+}
+
+function clickCard(key){
+    sf=(sf===key)?'all':key;
+    renderDash();
+}
+
+// ====== 사건 카드 목록 ======
+function renderList(){
+    const data=getI();
+    let list=[...data];
+    if(sf==='atc') list=list.filter(i=>i.atcCount>0);
+    else if(sf==='pilot') list=list.filter(i=>i.pilotCount>0);
+    else if(sf==='none') list=list.filter(i=>i.noneCount>0);
+
+    const s=document.getElementById('incSort')?.value||'date';
+    const getTotal=i=>i.atcCount+i.pilotCount+i.noneCount;
+    if(s==='date')list.sort((a,b)=>b.lastDate.localeCompare(a.lastDate));
+    else if(s==='count')list.sort((a,b)=>getTotal(b)-getTotal(a));
+    else list.sort((a,b)=>(rO[b.risk]||0)-(rO[a.risk]||0));
+
+    document.getElementById('incCnt').textContent=`(${list.length}건)`;
+    document.getElementById('incGrid').innerHTML=list.length?list.map(i=>{
+        const total=i.atcCount+i.pilotCount+i.noneCount;
+        let badges='';
+        if(i.atcCount>0) badges+=`<span class="error-badge atc">관제사 오류(${i.atcCount}건)</span>`;
+        if(i.pilotCount>0) badges+=`<span class="error-badge pilot">조종사 오류(${i.pilotCount}건)</span>`;
+        if(i.noneCount>0) badges+=`<span class="error-badge none-type">오류 미발생(${i.noneCount}건)</span>`;
+        const pairKey=`${i.mine} | ${i.other}`;
+        const pairAct=ACTS.find(a=>a.pair===pairKey && (isA || a.airline===cc));
+        const actBtn=pairAct
+            ?`<button class="btn-action" style="background:var(--success);" onclick="viewDet('${pairAct.id}')">조치완료</button>`
+            :`<button class="btn-action" onclick="openAM('${i.mine}','${i.other}','${i.lastDate}')">조치등록</button>`;
+        return`<div class="inc-card risk-${rC(i.risk)}">
+            <div class="inc-top">
+                <div class="inc-top-left">
+                    <span class="cs mine">${i.mine}</span><span class="cs-arrow">↔</span><span class="cs other">${i.other}</span>
+                </div>
+                ${actBtn}
+            </div>
+            <div class="inc-bottom">
+                <div class="inc-metric"><div class="m-label">발생건수</div><div class="m-value ${total>=5?'danger':total>=3?'warning':''}">${total}건</div></div>
+                <div class="inc-metric"><div class="m-label">최근 발생일</div><div class="m-value">${i.lastDate.slice(5)}</div></div>
+                <div class="inc-metric"><div class="m-label">유사성</div><div class="m-value">${rB(i.similarity)}</div></div>
+                <div class="inc-metric"><div class="m-label">오류가능성</div><div class="m-value">${rB(i.risk)}</div></div>
+            </div>
+            ${badges?`<div class="inc-timeline"><div class="tl-label">📋 오류유형</div><div class="tl-chips">${badges}</div></div>`:''}
+            ${i.dates.length?`<div class="inc-timeline"><div class="tl-label">📅 발생 이력</div><div class="tl-chips">${i.dates.map(d=>`<span class="t-chip">${d}</span>`).join('')}</div></div>`:''}
+        </div>`;
+    }).join(''):'<div class="empty-state"><div class="icon">✅</div><p>해당 조건의 발생 이력이 없습니다</p></div>';
+}
+
+// ====== 조치 이력 ======
+let actFilter='all'; // 'all', 'done', 'pending'
+function setActFilter(f){actFilter=f;renderActs();}
+function renderActs(){
+    let incs=isA?INC:INC.filter(i=>i.airline===cc);
+    const af1=document.getElementById('actFrom')?.value||'',af2=document.getElementById('actTo')?.value||'';
+    if(af1&&af2) incs=incs.filter(i=>inR(i.lastDate,af1,af2));
+    const total=incs.length;
+    const doneList=[],pendList=[];
+    incs.forEach(i=>{
+        const k=`${i.mine} | ${i.other}`;
+        const act=ACTS.find(a=>a.pair===k&&(isA||a.airline===cc));
+        if(act) doneList.push({inc:i,act:act}); else pendList.push({inc:i,act:null});
+    });
+    const ac=actFilter;
+    document.getElementById('actSum').innerHTML=`
+        <div class="act-sum-card${ac==='all'?' active':''}" onclick="setActFilter('all')"><div class="as-num" style="color:var(--primary);">${total}</div><div class="as-label">발생건수</div></div>
+        <div class="act-sum-card${ac==='done'?' active':''}" onclick="setActFilter('done')"><div class="as-num" style="color:var(--success);">${doneList.length}</div><div class="as-label">조치완료</div></div>
+        <div class="act-sum-card${ac==='pending'?' active':''}" onclick="setActFilter('pending')"><div class="as-num" style="color:var(--danger);">${pendList.length}</div><div class="as-label">조치등록</div></div>`;
+    let items=ac==='done'?doneList:ac==='pending'?pendList:[...doneList,...pendList];
+    items.sort((a,b)=>b.inc.lastDate.localeCompare(a.inc.lastDate));
+    document.getElementById('actTbl').innerHTML=items.length?items.map(({inc:i,act})=>{
+        const pairKey=`${i.mine} | ${i.other}`;
+        if(act){
+            return`<tr>
+                <td>${act.dateTime}</td><td>${pairKey}</td><td><strong>${act.target||'-'}</strong></td><td>${act.type}</td><td>${act.dueDate}</td>
+                <td style="white-space:nowrap;padding:6px 8px;"><button class="btn btn-success btn-sm" onclick="viewDet('${act.id}')">조치완료</button></td>
+            </tr>`;
+        } else {
+            return`<tr>
+                <td>${i.lastDate}</td><td>${pairKey}</td><td>-</td><td>-</td><td>-</td>
+                <td style="white-space:nowrap;padding:6px 8px;"><button class="btn btn-primary btn-sm" onclick="openAM('${i.mine}','${i.other}','${i.lastDate}')">조치등록</button></td>
+            </tr>`;
+        }
+    }).join(''):'<tr><td colspan="6"><div class="empty-state"><div class="icon">📭</div><p>해당 항목이 없습니다</p></div></td></tr>';
+}
+function setActQ(v,el){
+    document.querySelectorAll('#panel-act .pf-qbtn').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');
+    const e=new Date();let s=new Date();if(v==='today')s=e;else s.setDate(e.getDate()-parseInt(v)+1);
+    document.getElementById('actFrom').value=fd(s);document.getElementById('actTo').value=fd(e);renderActs();
+}
+function resetActFilter(){
+    document.querySelectorAll('#panel-act .pf-qbtn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('actFrom').value='';document.getElementById('actTo').value='';
+    actFilter='all';renderActs();
+}
+function resetDashFilter(){
+    document.querySelectorAll('#panel-dash .pf-qbtn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('fFrom').value='';document.getElementById('fTo').value='';
+    sf='all';renderDash();
+}
+function setAdminQ(v,el){
+    document.querySelectorAll('#panel-admin .pf-qbtn').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');
+    const e=new Date();let s=new Date();if(v==='today')s=e;else s.setDate(e.getDate()-parseInt(v)+1);
+    document.getElementById('aFrom').value=fd(s);document.getElementById('aTo').value=fd(e);renderAdmin();
+}
+function resetAdminFilter(){
+    document.querySelectorAll('#panel-admin .pf-qbtn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('aFrom').value='';document.getElementById('aTo').value='';
+    renderAdmin();
+}
+
+function openAM(c1,c2,regDate){
+    const pair=`${c1} | ${c2}`;
+    document.getElementById('amPair').value=pair;
+    const opts=[];
+    if(!isA && cc){
+        if(c1.startsWith(cc)) opts.push(c1);
+        if(c2.startsWith(cc)) opts.push(c2);
+    } else {
+        opts.push(c1,c2);
+    }
+    if(!opts.length) opts.push(c1);
+    document.getElementById('amCS').innerHTML=opts.map(c=>`<option value="${c}">${c}</option>`).join('');
+    document.getElementById('amTp').value='';
+    document.getElementById('amRegDate').value=regDate||td();
+    document.getElementById('amDu').value=td();document.getElementById('amDt').value='';
+    document.getElementById('amModal').classList.add('active');
+}
+function closeAM(){document.getElementById('amModal').classList.remove('active');}
+function saveNewAct(){
+    const pair=document.getElementById('amPair').value,target=document.getElementById('amCS').value,tp=document.getElementById('amTp').value;
+    if(!target||!tp){alert('필수 항목(*)을 모두 입력하세요.');return;}
+    const du=document.getElementById('amDu').value||'';
+    if(!du){alert('조치완료일을 입력하세요.');return;}
+    ACTS.push({id:'A'+Date.now(),airline:cc||'ADMIN',pair:pair,target:target,type:tp,
+        dueDate:du,detail:document.getElementById('amDt').value,dateTime:document.getElementById('amRegDate').value,status:'조치완료'});
+    svActs();closeAM();renderDash();renderActs();if(isA)renderAdminAct();alert('✅ 조치가 등록되었습니다.');
+}
+
+function viewDet(id){
+    const a=ACTS.find(x=>x.id===id);if(!a)return;
+    const pairVal=a.pair||a.callsign||'';
+    const targetVal=a.target||'';
+    document.getElementById('dmBody').innerHTML=`
+        <div style="display:grid;gap:14px;">
+            <div class="form-row"><label>유사호출부호</label><input type="text" id="ed_pair" value="${pairVal}" readonly style="background:var(--surface-alt);font-weight:700;"></div>
+            <div class="form-row"><label>조치대상편명</label><input type="text" id="ed_target" value="${targetVal}"></div>
+            <div class="form-row"><label>등록일</label><input type="text" value="${a.dateTime}" readonly style="background:var(--surface-alt);"></div>
+            <div class="form-row"><label>조치유형 <span class="req">*</span></label>
+                <select id="ed_tp"><option>편명 변경</option><option>조종사 브리핑</option><option>스케줄 조정</option><option>기타</option></select></div>
+            <div class="form-row"><label>조치완료일 <span class="req">*</span></label><input type="date" id="ed_du" value="${a.dueDate||''}"></div>
+            <div class="form-row"><label>상세내용</label><textarea id="ed_dt" style="min-height:100px;">${a.detail||''}</textarea></div>
+        </div>
+        <div style="margin-top:16px;display:flex;justify-content:space-between;">
+            <button class="btn btn-danger btn-sm" onclick="delAct('${a.id}')">🗑️ 삭제</button>
+            <div style="display:flex;gap:8px;"><button class="btn btn-secondary" onclick="closeDM()">취소</button><button class="btn btn-primary" onclick="svEd('${a.id}')">저장</button></div>
+        </div>`;
+    document.getElementById('ed_tp').value=a.type;
+    document.getElementById('dmModal').classList.add('active');
+}
+function svEd(id){
+    const idx=ACTS.findIndex(x=>x.id===id);if(idx===-1)return;
+    const tp=document.getElementById('ed_tp').value;
+    if(!tp){alert('조치유형을 선택하세요.');return;}
+    const du=document.getElementById('ed_du').value||'';
+    if(!du){alert('조치완료일을 입력하세요.');return;}
+    ACTS[idx]={...ACTS[idx],pair:document.getElementById('ed_pair').value,target:document.getElementById('ed_target').value,type:tp,
+        dueDate:du,detail:document.getElementById('ed_dt').value,status:'조치완료'};
+    svActs();closeDM();renderDash();renderActs();if(isA)renderAdminAct();alert('✅ 수정되었습니다.');
+}
+function closeDM(){document.getElementById('dmModal').classList.remove('active');}
+function delAct(id){if(!confirm('삭제하시겠습니까?'))return;const idx=ACTS.findIndex(x=>x.id===id);if(idx!==-1)ACTS.splice(idx,1);svActs();renderDash();renderActs();if(isA)renderAdminAct();closeDM();}
+
+// ====== 관리자 ======
+function renderAdmin(){
+    const f=document.getElementById('aFrom')?.value||'',t=document.getElementById('aTo')?.value||'';
+    const rows=[];
+    Object.entries(AL).forEach(([c,info])=>{
+        let incs=INC.filter(i=>i.airline===c);
+        if(f&&t)incs=incs.filter(i=>inR(i.lastDate,f,t));
+        let acts=ACTS.filter(a=>a.airline===c);
+        if(f&&t)acts=acts.filter(a=>inR(a.dateTime,f,t));
+        const tChange=acts.filter(a=>a.type==='편명 변경').length;
+        const tBrief=acts.filter(a=>a.type==='조종사 브리핑').length;
+        const tSched=acts.filter(a=>a.type==='스케줄 조정').length;
+        const tEtc=acts.filter(a=>a.type==='기타').length;
+        const pend=incs.length-acts.length;
+        rows.push({n:info.n,total:incs.length,tChange,tBrief,tSched,tEtc,pend});
+    });
+    let filteredIncs=[...INC];if(f&&t)filteredIncs=filteredIncs.filter(i=>inR(i.lastDate,f,t));
+    let filteredActs=[...ACTS];if(f&&t)filteredActs=filteredActs.filter(a=>inR(a.dateTime,f,t));
+    const totalIncs=filteredIncs.length;
+    const doneCount=filteredActs.length;
+    const pendCount=totalIncs-doneCount;
+    document.getElementById('adminStats').innerHTML=`
+        <div class="admin-stat"><div class="asl">등록항공사</div><div class="asn">${Object.keys(AL).length}</div></div>
+        <div class="admin-stat"><div class="asl">발생건수</div><div class="asn" style="color:var(--danger);">${totalIncs}</div></div>
+        <div class="admin-stat"><div class="asl">조치완료</div><div class="asn" style="color:var(--success);">${doneCount}</div></div>
+        <div class="admin-stat"><div class="asl">조치등록</div><div class="asn" style="color:var(--primary);">${pendCount}</div></div>`;
+    document.getElementById('adminTbl').innerHTML=rows.filter(r=>r.total>0).map(r=>`<tr>
+        <td><strong>${r.n}</strong></td><td style="font-weight:700;">${r.total}</td>
+        <td>${r.tChange||'-'}</td><td>${r.tBrief||'-'}</td><td>${r.tSched||'-'}</td><td>${r.tEtc||'-'}</td>
+        <td><span class="badge badge-info">${r.pend}</span></td>
+    </tr>`).join('')||'<tr><td colspan="7"><div class="empty-state"><p>데이터 없음</p></div></td></tr>';
+    renderAdminAct();
+}
+function renderAdminAct(){
+    const fv=document.getElementById('adminAF').value;
+    const f=document.getElementById('aFrom')?.value||'',t=document.getElementById('aTo')?.value||'';
+    let a=fv==='all'?[...ACTS]:ACTS.filter(x=>x.airline===fv);
+    if(f&&t)a=a.filter(x=>inR(x.dateTime,f,t));
+    document.getElementById('adminActTbl').innerHTML=a.length?a.map(x=>`<tr>
+        <td><strong>${AL[x.airline]?.n||x.airline}</strong></td><td>${x.dateTime}</td><td>${x.dueDate||'-'}</td>
+        <td>${x.pair||x.callsign||'-'}</td><td><strong>${x.target||'-'}</strong></td><td>${x.type}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="viewDet('${x.id}')">보기</button></td>
+    </tr>`).join(''):'<tr><td colspan="7"><div class="empty-state"><p>조치 이력 없음</p></div></td></tr>';
+}
+
+// ====== 엑셀 ======
+function expInc(){
+    const d=getI();if(!d.length){alert('없음');return;}
+    const ws=XLSX.utils.json_to_sheet(d.map(i=>({'편명1':i.mine,'편명2':i.other,'관제사 오류':i.atcCount,'조종사 오류':i.pilotCount,'오류미발생':i.noneCount,'발생건수':i.atcCount+i.pilotCount+i.noneCount,'유사성':i.similarity,'오류가능성':i.risk,'최근발생일':i.lastDate})));
+    ws['!cols']=[{wch:14},{wch:14},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:14}];
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'발생현황');XLSX.writeFile(wb,`${cn||'전체'}_발생현황_${td()}.xlsx`);
+}
+function expAct(){
+    let incs=isA?INC:INC.filter(i=>i.airline===cc);if(!incs.length){alert('없음');return;}
+    const ws=XLSX.utils.json_to_sheet(incs.map(i=>{
+        const pairKey=`${i.mine} | ${i.other}`;
+        const act=ACTS.find(a=>a.pair===pairKey&&(isA||a.airline===cc));
+        return{'등록일':act?act.dateTime:i.lastDate,'유사호출부호':pairKey,'조치대상편명':act?act.target||'':'-','조치유형':act?act.type:'-','조치완료일':act?act.dueDate||'-':'-','조치현황':act?'조치완료':'미등록','상세내용':act?act.detail||'':''};
+    }));
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'조치이력');XLSX.writeFile(wb,`${cn||'전체'}_조치이력_${td()}.xlsx`);
+}
+function expAll(){
+    if(!ACTS.length){alert('없음');return;}
+    const ws=XLSX.utils.json_to_sheet(ACTS.map(x=>({'항공사':AL[x.airline]?.n||x.airline,'등록일':x.dateTime,'조치완료일':x.dueDate||'-','유사호출부호':x.pair||x.callsign||'','조치대상편명':x.target||'','조치유형':x.type,'상세내용':x.detail||''})));
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'전체');XLSX.writeFile(wb,`전체_조치이력_${td()}.xlsx`);
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(document.getElementById('amModal').classList.contains('active'))closeAM();else if(document.getElementById('dmModal').classList.contains('active'))closeDM();}});
+
+</script>
+</body>
+</html>

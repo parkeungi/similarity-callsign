@@ -120,17 +120,19 @@ export async function POST(request: NextRequest) {
     );
 
     // refreshToken은 httpOnly 쿠키에 저장
+    // 📌 개발 환경(localhost:3002 HTTP)에서는 secure: false, 프로덕션에서는 secure: true
     response.cookies.set('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
       maxAge: 7 * 24 * 60 * 60,
       path: '/',
     });
 
     // user 쿠키 설정 (라우트 보호 및 세션 확인용)
     // 📌 passwordChangeRequired 추가: 미들웨어에서 강제 리다이렉트 판단용
-    const userCookieValue = encodeURIComponent(JSON.stringify({
+    // 📌 Next.js cookies.set()이 자동 인코딩하므로 JSON 문자열만 전달
+    response.cookies.set('user', JSON.stringify({
       id: sanitizedUser.id,
       email: sanitizedUser.email,
       role: sanitizedUser.role,
@@ -138,11 +140,10 @@ export async function POST(request: NextRequest) {
       airline_id: sanitizedUser.airline_id,
       airline: sanitizedUser.airline,
       passwordChangeRequired: needsPasswordChange,
-    }));
-    response.cookies.set('user', userCookieValue, {
+    }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
       maxAge: 7 * 24 * 60 * 60,
       path: '/',
     });
