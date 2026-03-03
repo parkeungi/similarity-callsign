@@ -128,7 +128,12 @@ export async function GET(
         cs.created_at as callsign_created_at,
         cs.first_occurred_at,
         cs.last_occurred_at,
-        0 as is_virtual
+        0 as is_virtual,
+        (SELECT GROUP_CONCAT(occurred_time, ',')
+         FROM callsign_occurrences
+         WHERE callsign_id = cs.id
+         ORDER BY occurred_time DESC
+         LIMIT 10) as occurrence_dates
       FROM actions a
       LEFT JOIN airlines al ON a.airline_id = al.id
       LEFT JOIN callsigns cs ON a.callsign_id = cs.id
@@ -198,7 +203,12 @@ export async function GET(
           cs.created_at as callsign_created_at,
           cs.first_occurred_at,
           cs.last_occurred_at,
-          1 as is_virtual
+          1 as is_virtual,
+          (SELECT GROUP_CONCAT(occurred_time, ',')
+           FROM callsign_occurrences
+           WHERE callsign_id = cs.id
+           ORDER BY occurred_time DESC
+           LIMIT 10) as occurrence_dates
         FROM callsigns cs
         JOIN airlines al ON cs.airline_id = al.id
         LEFT JOIN (
@@ -282,6 +292,8 @@ export async function GET(
         isVirtual: Boolean(row.is_virtual),
         airlineCode: row.cs_airline_code,
         otherAirlineCode: row.other_airline_code,
+        occurrence_dates: row.occurrence_dates || undefined,
+        occurrenceDates: row.occurrence_dates || undefined,
       })),
       pagination: {
         page,

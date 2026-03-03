@@ -170,6 +170,9 @@ export interface Action {
   callsign?: Callsign; // Callsign 객체
   registeredUser?: User; // User 객체
 
+  // 발생이력 (callsign_occurrences 조인)
+  occurrence_dates?: string; // "2026-02-28T11:37:00,2026-02-27T08:22:00,..." 형태
+
   // API 응답용 camelCase 필드
   airlineId?: string;
   callsignId?: string;
@@ -187,6 +190,7 @@ export interface Action {
   reviewedAt?: string;
   reviewComment?: string;
   isVirtual?: boolean;
+  occurrenceDates?: string; // camelCase 버전
 }
 
 /**
