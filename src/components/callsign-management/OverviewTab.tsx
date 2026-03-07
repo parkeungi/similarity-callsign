@@ -237,6 +237,7 @@ export function OverviewTab() {
           }`}
         >
           <div className="text-4xl font-bold text-blue-600">{statusCounts.all}</div>
+          <div className="text-sm font-semibold text-blue-600 mt-2">전체 {statusCounts.all}건</div>
         </button>
 
         {/* 조치완료 */}
@@ -252,6 +253,7 @@ export function OverviewTab() {
           }`}
         >
           <div className="text-4xl font-bold text-green-600">{statusCounts.complete}</div>
+          <div className="text-sm font-semibold text-green-600 mt-2">완료 {statusCounts.complete}건</div>
         </button>
 
         {/* 부분완료 */}
@@ -267,6 +269,7 @@ export function OverviewTab() {
           }`}
         >
           <div className="text-4xl font-bold text-amber-600">{statusCounts.partial}</div>
+          <div className="text-sm font-semibold text-amber-600 mt-2">부분완료 {statusCounts.partial}건</div>
         </button>
 
         {/* 진행중 */}
@@ -282,6 +285,7 @@ export function OverviewTab() {
           }`}
         >
           <div className="text-4xl font-bold text-gray-600">{statusCounts.in_progress}</div>
+          <div className="text-sm font-semibold text-gray-600 mt-2">진행중 {statusCounts.in_progress}건</div>
         </button>
       </div>
 
