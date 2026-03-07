@@ -48,7 +48,8 @@ export function OverviewTab() {
   const callsignsQuery = useCallsignsWithActions({
     riskLevel: selectedRiskLevel || undefined,
     airlineId: selectedAirlineId || undefined,
-    myActionStatus: selectedActionStatus || undefined,
+    // 카드 클릭으로 선택한 필터 (selectedStatusFilter)를 API에 전달
+    myActionStatus: selectedStatusFilter !== 'all' ? selectedStatusFilter : (selectedActionStatus || undefined),
     actionType: selectedActionType || undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
