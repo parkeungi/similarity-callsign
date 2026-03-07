@@ -158,19 +158,24 @@ export function AdminOccurrenceTab() {
       ? filteredByDate
       : filteredByDate.filter((i) => i.errorType === errorTypeFilter);
 
-    if (actionStatusFilter === 'completed') {
-      filtered = filtered.filter((i) => i.actionStatus === 'completed');
-    } else if (actionStatusFilter === 'in_progress') {
-      filtered = filtered.filter((i) => i.actionStatus !== 'completed');
-    } else if (actionStatusFilter === 'no_action') {
-      filtered = filtered.filter((i) => !i.actionStatus || i.actionStatus === 'no_action');
-    }
+    // 카드 클릭(selectedStatus)을 우선적으로 적용, 없으면 actionStatusFilter 사용
+    const primaryFilter = selectedStatus !== 'all' ? selectedStatus : actionStatusFilter;
 
-    // 상태 필터 (카드 클릭)
-    if (selectedStatus === 'completed') {
+    if (primaryFilter === 'completed') {
       filtered = filtered.filter((i) => i.actionStatus === 'completed');
-    } else if (selectedStatus === 'inProgress') {
-      filtered = filtered.filter((i) => i.actionStatus === 'in_progress' || !i.actionStatus);
+    } else if (primaryFilter === 'in_progress') {
+      // 진행중: 미완료 + no_action 모두 포함
+      filtered = filtered.filter((i) =>
+        i.actionStatus === 'in_progress' ||
+        i.actionStatus === 'no_action' ||
+        !i.actionStatus
+      );
+    } else if (primaryFilter === 'no_action') {
+      // 미조치: 아직 조치가 없는 경우
+      filtered = filtered.filter((i) => !i.actionStatus || i.actionStatus === 'no_action');
+    } else if (primaryFilter === 'partial') {
+      // 발생현황은 부분완료 개념이 없음 (다른 항공사 정보 불가) → 항상 빈 결과
+      filtered = [];
     }
 
     // 검색 필터
@@ -267,7 +272,13 @@ export function AdminOccurrenceTab() {
       occurrencesQueryData: occurrencesQuery.data?.length,
     });
     const completed = sourceData.filter((i) => i.actionStatus === 'completed').length;
-    const inProgress = sourceData.filter((i) => i.actionStatus === 'in_progress' || !i.actionStatus).length;
+    const inProgress = sourceData.filter((i) =>
+      i.actionStatus === 'in_progress' ||
+      i.actionStatus === 'no_action' ||
+      !i.actionStatus
+    ).length;
+    // 부분완료: 발생현황은 한 항공사 관점이므로 부분완료 개념이 없음 (항상 0)
+    const partial = 0;
 
     const errorTypeCounts = {
       '관제사오류': 0,
@@ -289,6 +300,7 @@ export function AdminOccurrenceTab() {
     return {
       total,
       completed,
+      partial,
       inProgress,
       ...errorTypeCounts,
       atcPercentage: total > 0 ? Math.round((errorTypeCounts['관제사오류'] / total) * 100) : 0,
@@ -347,7 +359,7 @@ export function AdminOccurrenceTab() {
                 : 'bg-white border-amber-300 hover:bg-amber-50'
             }`}
           >
-            <p className="text-3xl font-black text-amber-600">0</p>
+            <p className="text-3xl font-black text-amber-600">{stats.partial}</p>
             <p className="text-xs font-bold text-gray-600 mt-2">부분완료</p>
           </button>
           {/* 진행중 */}
