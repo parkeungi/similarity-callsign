@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useCreateAction, useUpdateAction } from '@/hooks/useActions';
+import { useState, useEffect } from 'react';
+import { useCreateAction, useUpdateAction, useAction } from '@/hooks/useActions';
 import { Callsign } from '@/types/action';
 
 interface ActionModalProps {
@@ -58,8 +58,22 @@ export function ActionModal({
 
   const createMutation = useCreateAction();
   const updateMutation = useUpdateAction();
+  const actionDetailQuery = useAction(actionId);
 
-  const isLoading = createMutation.isPending || updateMutation.isPending;
+  const isLoading = createMutation.isPending || updateMutation.isPending || actionDetailQuery.isLoading;
+
+  // actionId가 있으면 상세 정보로 폼 초기화
+  useEffect(() => {
+    if (actionId && actionDetailQuery.data) {
+      setActionType(actionDetailQuery.data.action_type || '');
+      setDescription(actionDetailQuery.data.description || '');
+      setProcessedDate(
+        actionDetailQuery.data.completed_at?.split('T')[0] ||
+        new Date().toISOString().split('T')[0]
+      );
+      setStatus(actionDetailQuery.data.status as 'in_progress' | 'completed');
+    }
+  }, [actionId, actionDetailQuery.data]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

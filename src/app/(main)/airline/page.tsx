@@ -405,12 +405,13 @@ export default function AirlinePage() {
         </div>
       </main>
 
-      {/* 조치 등록 모달 */}
+      {/* 조치 등록/수정 모달 */}
       {isActionModalOpen && selectedIncident && callsignsData && (
         <ActionModal
           airlineId={airlineId || ''}
           callsigns={callsignsData.data}
           selectedCallsign={callsignsData.data.find((cs) => cs.callsign_pair === selectedIncident.pair)}
+          actionId={selectedIncident.actionId || undefined}
           onClose={handleCloseActionModal}
           onSuccess={handleActionSuccess}
         />
