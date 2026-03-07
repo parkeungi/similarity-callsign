@@ -53,7 +53,7 @@ export function AirlineOccurrenceTab({
   onOpenActionModal,
 }: AirlineOccurrenceTabProps) {
   const [sortOrder, setSortOrder] = useState<SortOrder>('priority');
-  const [actionStatusFilter, setActionStatusFilter] = useState<ActionStatusFilter>('all');
+  const [actionStatusFilter, setActionStatusFilter] = useState<ActionStatusFilter>('in_progress');
 
   // 날짜 필터링된 incidents
   const filteredByDate = useMemo(() => {
