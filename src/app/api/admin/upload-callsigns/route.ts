@@ -352,7 +352,7 @@ export async function POST(request: NextRequest) {
             isNewCallsign = true;
 
             try {
-              // 1. Callsign INSERT (file_upload_id는 NULL로 처리)
+              // 1. Callsign INSERT (초기 상태: 조치 미등록)
               const insertResult = await query(
                 `INSERT INTO callsigns
                   (airline_id, airline_code, callsign_pair, my_callsign, other_callsign,
@@ -362,7 +362,7 @@ export async function POST(request: NextRequest) {
                    max_concurrent_traffic, coexistence_minutes, error_probability, atc_recommendation,
                    error_type, sub_error, risk_level, occurrence_count, file_upload_id, uploaded_at, status,
                    my_action_status, other_action_status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'in_progress', 'in_progress', 'in_progress')`,
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'in_progress', 'no_action', 'no_action')`,
                 [
                   airlineId,
                   rowData.airline_code,

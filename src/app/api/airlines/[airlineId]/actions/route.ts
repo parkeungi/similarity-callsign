@@ -27,6 +27,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query, transaction } from '@/lib/db';
+import { syncCallsignStatus } from '@/lib/db/sync-callsign-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -477,7 +478,7 @@ export async function POST(
       existingActionId = existingActionResult.rows[0].id;
     }
 
-    // Step 2: action UPDATE (취소된 행도 복현 가능)
+    // Step 2: action UPDATE 및 callsigns 동기화
     // ⚠️ CRITICAL FIX: await 추가 (트랜잭션 완료 대기)
     await transaction((trx) => {
       // 1. action 업데이트 (상태, 조치 정보, 취소 플래그 복원)
@@ -496,55 +497,13 @@ export async function POST(
         [actionType, description || null, managerName || null, plannedDueDate || null, completedTimestamp, actionStatus, nowIso, existingActionId]
       );
 
-      // 2. callsigns 테이블 업데이트
-      // - my_action_status, other_action_status: 조치 상태 업데이트
-      // - status: 호출부호 전체 처리 상태
-      // (W-6 FIX: 같은 항공사는 양쪽 동시 업데이트, 외국항공사는 자동완료)
-
-      const isMy = callsignData.airline_code === airlineCode;
-      const isSameAirline = callsignData.airline_code === callsignData.other_airline_code;
-      const isForeignAirline = !otherAirlineCode || !domesticAirlines.has(otherAirlineCode);
-
-      // W-11 FIX: isMy 판별에 따라 정확하게 상태 업데이트
-      // - isMy=true: 현재 항공사가 'my'이면 → myStatus 업데이트, otherStatus 유지
-      // - isMy=false: 현재 항공사가 'other'이면 → otherStatus 업데이트, myStatus 유지
-      let myStatus = isMy ? actionStatus : (callsignData.my_action_status || 'no_action');
-      let otherStatus = isMy ? (callsignData.other_action_status || 'no_action') : actionStatus;
-
-      // 같은 항공사: 한쪽이 조치되면 양쪽 모두 동일 상태로 동기화
-      // (한쪽이 completed이면 양쪽 모두 completed)
-      if (isSameAirline) {
-        const isBothCompleted = myStatus === 'completed' || otherStatus === 'completed';
-        myStatus = isBothCompleted ? 'completed' : myStatus;
-        otherStatus = isBothCompleted ? 'completed' : otherStatus;
-      }
-
-      // 외국항공사: 자사 조치 시 상대도 자동완료
-      // (국내 항공사가 조치했으면 외항사도 자동완료)
-      if (isForeignAirline && isMy && actionStatus === 'completed') {
-        otherStatus = 'completed';
-      }
-
-      // 최종 callsigns 상태 계산
-      const myCompleted = myStatus === 'completed';
-      const otherCompleted = otherStatus === 'completed';
-      let newCallsignStatus = 'in_progress';
-
-      if (isSameAirline) {
-        // 같은 항공사: 한쪽만 완료해도 완료
-        newCallsignStatus = (myCompleted || otherCompleted) ? 'completed' : 'in_progress';
-      } else if (isForeignAirline) {
-        // 외국항공사 (자사나 상대 중 하나): 한쪽만 완료해도 완료
-        newCallsignStatus = (myCompleted || otherCompleted) ? 'completed' : 'in_progress';
-      } else {
-        // 국내 항공사 간: 양쪽 모두 완료해야 완료
-        newCallsignStatus = (myCompleted && otherCompleted) ? 'completed' : 'in_progress';
-      }
-
-      trx(
-        `UPDATE callsigns SET status = ?, my_action_status = ?, other_action_status = ? WHERE id = ?`,
-        [newCallsignStatus, myStatus, otherStatus, callsignId]
-      );
+      // 2. callsigns 동기화 (중앙화된 함수 사용)
+      // Phase 1: syncCallsignStatus 함수로 my_action_status, other_action_status, status 자동 계산
+      syncCallsignStatus(trx, {
+        callsignId,
+        actingAirlineCode: airlineCode,
+        newActionStatus: actionStatus
+      });
     });
 
     // Step 3: 업데이트된 조치 조회

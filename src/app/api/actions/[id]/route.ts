@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query, transaction } from '@/lib/db';
+import { syncCallsignStatus } from '@/lib/db/sync-callsign-status';
 
 export async function GET(
   request: NextRequest,
@@ -192,11 +193,11 @@ export async function PATCH(
       const airlineCheck = await query('SELECT code FROM airlines WHERE id = ?', [airlineId]);
       const isMy = airlineCheck.rows[0]?.code === airlineCode;
 
-      // 트랜잭션: action UPDATE + callsigns 상태 업데이트
+      // 트랜잭션: action UPDATE + callsigns 상태 동기화
       const result = await transaction(async (trx) => {
         // 1. 조치 취소: status를 in_progress로 변경, is_cancelled 플래그 추가
         const nowIso = new Date().toISOString();
-        await trx(
+        trx(
           `UPDATE actions SET
             status = ?,
             is_cancelled = 1,
@@ -207,42 +208,13 @@ export async function PATCH(
           ['in_progress', payload.userId, nowIso, nowIso, id]
         );
 
-        // 2. callsigns 상태 동기화
-        // - 자사 상태: 'in_progress' (취소됨)
-        // - 전체 상태: 상대 항공사 상태를 확인하여 계산
-        const statusColumnName = isMy ? 'my_action_status' : 'other_action_status';
-        const otherStatusColumnName = isMy ? 'other_action_status' : 'my_action_status';
-
-        // ⚠️ CRITICAL FIX: SQL 인젝션 방지 (컬럼명 화이트리스트 검증)
-        const validColumns = ['my_action_status', 'other_action_status'];
-        if (!validColumns.includes(statusColumnName) || !validColumns.includes(otherStatusColumnName)) {
-          throw new Error('유효하지 않은 컬럼명입니다.');
-        }
-
-        // 상대 항공사 상태 확인
-        const callsignStatusResult = await trx(
-          `SELECT ${otherStatusColumnName} FROM callsigns WHERE id = ?`,
-          [callsignId]
-        );
-
-        // callsigns 전체 상태 계산 (CRITICAL-4 FIX)
-        // 자신이 취소(in_progress)했으므로, 상대 상태와 관계없이 in_progress
-        // (양쪽 모두 completed일 때만 전체 completed)
-        let newCallsignStatus = 'in_progress';
-        if (callsignStatusResult.rows.length > 0) {
-          const otherStatus = callsignStatusResult.rows[0][otherStatusColumnName];
-          // 상대가 완료했어도, 자신이 취소했으면 전체는 in_progress
-          if (otherStatus === 'completed') {
-            newCallsignStatus = 'in_progress';
-          } else {
-            newCallsignStatus = 'in_progress';
-          }
-        }
-
-        await trx(
-          `UPDATE callsigns SET ${statusColumnName} = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-          ['in_progress', newCallsignStatus, callsignId]
-        );
+        // 2. callsigns 동기화 (중앙화된 함수 사용)
+        // Phase 1: syncCallsignStatus 함수로 my_action_status, other_action_status, status 자동 계산
+        syncCallsignStatus(trx, {
+          callsignId,
+          actingAirlineCode: airlineCode,
+          newActionStatus: 'in_progress'  // 취소 = in_progress
+        });
 
         // 3. 업데이트된 조치 조회
         const updatedAction = await trx('SELECT * FROM actions WHERE id = ?', [id]);
@@ -337,47 +309,14 @@ export async function PATCH(
         const updated = await trx('SELECT * FROM actions WHERE id = ?', [id]);
         if (updated.rows.length > 0) {
           const newStatus = updated.rows[0].status;
-          const statusColumnName = isMy ? 'my_action_status' : 'other_action_status';
-          const otherStatusColumnName = isMy ? 'other_action_status' : 'my_action_status';
 
-          // 3. callsigns 상태 동기화
-          // - my_action_status/other_action_status: 업데이트된 action의 status로 설정
-          // - status: 항공사 조합별 완료 조건 적용 (CLAUDE.md 매트릭스)
-          const callsignStatusResult = await trx(
-            `SELECT airline_code, other_airline_code, ${otherStatusColumnName} FROM callsigns WHERE id = ?`,
-            [callsignId]
-          );
-
-          let newCallsignStatus = 'in_progress';
-          if (callsignStatusResult.rows.length > 0) {
-            const callsignRow = callsignStatusResult.rows[0];
-            const otherStatus = callsignRow[otherStatusColumnName];
-            const otherAirlineCode = isMy
-              ? callsignRow.other_airline_code
-              : callsignRow.airline_code;
-
-            // 항공사 조합별 완료 조건
-            const isSameAirline = callsignRow.airline_code === callsignRow.other_airline_code;
-            const isForeignAirline = !domesticAirlines.has(otherAirlineCode);
-
-            if (isSameAirline && newStatus === 'completed') {
-              // 같은 항공사: 한쪽만 완료 → complete
-              newCallsignStatus = 'completed';
-            } else if (isForeignAirline && isMy && newStatus === 'completed') {
-              // 국내-외항사: 국내항공사만 완료 → complete
-              newCallsignStatus = 'completed';
-            } else if (!isSameAirline && !isForeignAirline && newStatus === 'completed' && otherStatus === 'completed') {
-              // 국내-국내: 양쪽 모두 완료 → complete
-              newCallsignStatus = 'completed';
-            } else {
-              newCallsignStatus = 'in_progress';
-            }
-          }
-
-          await trx(
-            `UPDATE callsigns SET status = ?, ${statusColumnName} = ? WHERE id = ?`,
-            [newCallsignStatus, newStatus, callsignId]
-          );
+          // 3. callsigns 동기화 (중앙화된 함수 사용)
+          // Phase 1: syncCallsignStatus 함수로 my_action_status, other_action_status, status 자동 계산
+          syncCallsignStatus(trx, {
+            callsignId,
+            actingAirlineCode: airlineCode,
+            newActionStatus: newStatus
+          });
         }
         return updated;
       }
@@ -485,32 +424,15 @@ export async function DELETE(
     // 동시에 callsigns 상태 업데이트
     await transaction(async (trx) => {
       // 1. action 삭제
-      await trx('DELETE FROM actions WHERE id = ?', [id]);
+      trx('DELETE FROM actions WHERE id = ?', [id]);
 
-      // 2. callsign 상태 업데이트
-      const statusColumnName = isMy ? 'my_action_status' : 'other_action_status';
-      const otherStatusColumnName = isMy ? 'other_action_status' : 'my_action_status';
-
-      // - 해당 항공사 상태를 'no_action'으로 초기화
-      // - callsigns.status 재계산: 양쪽 모두 no_action이면 'in_progress', 아니면 'completed'
-      const callsignStatus = await trx(
-        `SELECT ${otherStatusColumnName} FROM callsigns WHERE id = ?`,
-        [callsignId]
-      );
-
-      let newCallsignStatus = 'in_progress';
-      if (callsignStatus.rows.length > 0) {
-        const otherStatus = callsignStatus.rows[0][otherStatusColumnName];
-        // 상대 항공사가 조치를 등록했으면 여전히 'in_progress' (자신이 처리 안 했으므로)
-        if (otherStatus !== 'no_action') {
-          newCallsignStatus = 'in_progress';  // 한쪽만 조치 있으면 진행 중
-        }
-      }
-
-      await trx(
-        `UPDATE callsigns SET status = ?, ${statusColumnName} = ? WHERE id = ?`,
-        [newCallsignStatus, 'no_action', callsignId]
-      );
+      // 2. callsigns 동기화 (중앙화된 함수 사용)
+      // Phase 1: syncCallsignStatus 함수로 my_action_status, other_action_status, status 자동 계산
+      syncCallsignStatus(trx, {
+        callsignId,
+        actingAirlineCode: airlineCode,
+        newActionStatus: 'no_action'  // 삭제 = no_action
+      });
     });
 
     return NextResponse.json(
