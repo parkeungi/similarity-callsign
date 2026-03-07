@@ -479,11 +479,11 @@ export async function POST(
     }
 
     // Step 2: action UPDATE 및 callsigns 동기화
-    // ⚠️ CRITICAL FIX: await 추가 (트랜잭션 완료 대기)
-    await transaction((trx) => {
+    // ⚠️ CRITICAL FIX: async 추가 + return 추가 (트랜잭션 완료 대기)
+    await transaction(async (trx) => {
       // 1. action 업데이트 (상태, 조치 정보, 취소 플래그 복원)
       const nowIso = new Date().toISOString();
-      trx(
+      await trx(
         `UPDATE actions SET
           action_type = ?,
           description = ?,
@@ -499,11 +499,20 @@ export async function POST(
 
       // 2. callsigns 동기화 (중앙화된 함수 사용)
       // Phase 1: syncCallsignStatus 함수로 my_action_status, other_action_status, status 자동 계산
+      // 📌 FIX: 미리 조회한 callsignData 전달 (트랜잭션 내 재조회 방지)
       syncCallsignStatus(trx, {
         callsignId,
         actingAirlineCode: airlineCode,
-        newActionStatus: actionStatus
+        newActionStatus: actionStatus,
+        callsignData: {
+          airline_code: callsignData.airline_code,
+          other_airline_code: callsignData.other_airline_code,
+          my_action_status: callsignData.my_action_status,
+          other_action_status: callsignData.other_action_status,
+        }
       });
+
+      return true; // 트랜잭션 성공
     });
 
     // Step 3: 업데이트된 조치 조회
@@ -544,7 +553,14 @@ export async function POST(
       { status: 201 }
     );
   } catch (error) {
-    console.error('조치 생성 오류:', error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('[POST /api/airlines/[airlineId]/actions] 조치 생성 오류:', {
+      airlineId,
+      callsignId: body?.callsign_id,
+      actionType: body?.action_type,
+      errorMessage: errorMsg,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     // W-10 FIX: 500 에러에서 내부 상세 메시지 제거
     return NextResponse.json(
       { error: '조치 생성 중 오류가 발생했습니다.' },

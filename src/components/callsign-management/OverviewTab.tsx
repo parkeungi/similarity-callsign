@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { useCallsignsWithActions } from '@/hooks/useActions';
@@ -114,6 +114,14 @@ export function OverviewTab() {
   // 필터 적용 여부 확인
   const hasFilters = selectedRiskLevel || selectedAirlineId || selectedActionStatus;
 
+  // 상태 카드 숫자 캐시 (로딩 중에도 유지)
+  const cachedStatusCountsRef = useRef<{
+    all: number;
+    complete: number;
+    partial: number;
+    in_progress: number;
+  } | null>(null);
+
   useEffect(() => {
     if (!pagination) return;
     if (pagination.totalPages === 0) {
@@ -174,6 +182,12 @@ export function OverviewTab() {
       otherCallsign: selectedCallsignForDetail.other_callsign ?? '-',
       errorType: selectedCallsignForDetail.error_type ?? '-',
       subError: selectedCallsignForDetail.sub_error ?? '-',
+      // 새로 추가된 필드
+      actionDescription: selectedCallsignForDetail.action_description ?? null,
+      occurrenceDates: selectedCallsignForDetail.occurrence_dates ?? null,
+      atcCount: selectedCallsignForDetail.atc_count ?? 0,
+      pilotCount: selectedCallsignForDetail.pilot_count ?? 0,
+      unknownCount: selectedCallsignForDetail.unknown_count ?? 0,
     };
   }, [selectedCallsignForDetail]);
 
@@ -189,25 +203,28 @@ export function OverviewTab() {
   };
 
   // 상태별 카운팅 - 전체 데이터 기반 (페이지네이션 무시)
+  // 카드 숫자 안정화: summary 로딩 중에도 캐시된 값 유지
   const statusCounts = useMemo(() => {
-    // summary가 있으면 (필터 적용 여부 관계없이) API 계산값 사용
+    // summary가 있으면 API 계산값 사용하고 캐시에 저장
     if (summary) {
-      return {
+      const counts = {
         all: summary.total,
         complete: summary.completed,
         partial: summary.partial ?? 0,
         in_progress: summary.in_progress,
       };
+      cachedStatusCountsRef.current = counts;
+      return counts;
     }
 
-    // summary 없음: 전체 데이터 기반 카운팅 (fallback)
-    return {
-      all: totalItems,
-      complete: rows.filter(r => r.final_status === 'complete').length,
-      partial: rows.filter(r => r.final_status === 'partial').length,
-      in_progress: rows.filter(r => r.final_status === 'in_progress').length,
+    // 로딩 중: 캐시된 값 반환 (없으면 기본값)
+    return cachedStatusCountsRef.current || {
+      all: 0,
+      complete: 0,
+      partial: 0,
+      in_progress: 0,
     };
-  }, [summary, totalItems, rows]);
+  }, [summary]);
 
   if (callsignsQuery.isLoading) {
     return (
@@ -802,6 +819,54 @@ export function OverviewTab() {
                 <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.subError}</p>
               </div>
             </div>
+
+            {/* 조치내용 섹션 */}
+            {callsignDetailMeta.actionDescription && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs font-semibold text-blue-600 mb-3 uppercase tracking-wide">📝 조치내용</p>
+                <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{callsignDetailMeta.actionDescription}</p>
+              </div>
+            )}
+
+            {/* 오류유형별 집계 */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+                <p className="text-xs font-semibold text-red-600 mb-2 uppercase tracking-wide">관제사오류</p>
+                <p className="text-2xl font-black text-red-600">{callsignDetailMeta.atcCount}</p>
+                <p className="text-xs text-red-500 mt-1 font-semibold">건</p>
+              </div>
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                <p className="text-xs font-semibold text-yellow-700 mb-2 uppercase tracking-wide">조종사오류</p>
+                <p className="text-2xl font-black text-yellow-600">{callsignDetailMeta.pilotCount}</p>
+                <p className="text-xs text-yellow-600 mt-1 font-semibold">건</p>
+              </div>
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+                <p className="text-xs font-semibold text-green-700 mb-2 uppercase tracking-wide">오류미발생</p>
+                <p className="text-2xl font-black text-green-600">{callsignDetailMeta.unknownCount}</p>
+                <p className="text-xs text-green-600 mt-1 font-semibold">건</p>
+              </div>
+            </div>
+
+            {/* 발생이력 섹션 */}
+            {callsignDetailMeta.occurrenceDates && (
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                <p className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">🕐 발생이력</p>
+                <div className="flex flex-wrap gap-2">
+                  {callsignDetailMeta.occurrenceDates
+                    .split(',')
+                    .filter((d: string) => d.trim())
+                    .slice(0, 15)
+                    .map((time: string, idx: number) => (
+                      <span
+                        key={idx}
+                        className="inline-block bg-slate-200 text-slate-700 px-3 py-1.5 rounded-full text-xs font-semibold"
+                      >
+                        {time.trim()}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

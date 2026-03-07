@@ -4,6 +4,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { Callsign } from '@/types/action';
 import * as XLSX from 'xlsx';
+import { ActionDetailModal } from '../ActionDetailModal';
 
 interface AirlineCallsignListTabProps {
   callsigns: Callsign[];
@@ -34,6 +35,8 @@ export function AirlineCallsignListTab({
   const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'risk' | 'occurrence' | 'priority'>('priority');
   const [isExporting, setIsExporting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'pending'>('all');
+  const [selectedCallsign, setSelectedCallsign] = useState<Callsign | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   // API가 이미 airline_code로 필터링하므로 모든 데이터가 현재 항공사의 호출부호
   const airlineCallsigns = useMemo(() => {
@@ -398,7 +401,14 @@ export function AirlineCallsignListTab({
                     const statusMeta = getActionStatusMeta(actionStatus);
 
                     return (
-                      <tr key={callsign.id} className="hover:bg-gray-50 transition-colors">
+                      <tr
+                        key={callsign.id}
+                        className="hover:bg-blue-50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedCallsign(callsign);
+                          setIsDetailModalOpen(true);
+                        }}
+                      >
                         {/* 등록일 */}
                         <td className="px-6 py-5 text-gray-500 font-medium text-[13px]">
                           {callsign.uploaded_at
@@ -544,6 +554,19 @@ export function AirlineCallsignListTab({
           </div>
         )}
       </div>
+
+      {/* 상세보기 모달 */}
+      {isDetailModalOpen && selectedCallsign && (
+        <ActionDetailModal
+          callsign={selectedCallsign}
+          isOpen={isDetailModalOpen}
+          onClose={() => setIsDetailModalOpen(false)}
+          onEdit={() => {
+            // 부모 컴포넌트로 이벤트 전파를 위해 나중에 구현
+            setIsDetailModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

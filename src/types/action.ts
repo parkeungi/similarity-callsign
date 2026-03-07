@@ -75,6 +75,13 @@ export interface Callsign {
   action_status?: 'no_action' | 'pending' | 'in_progress' | 'completed';
   action_type?: string | null;
   action_completed_at?: string | null;
+  action_description?: string | null; // 조치 설명/내용
+
+  // 발생이력 및 오류유형 집계 (관리자 API용)
+  occurrence_dates?: string; // "2026-02-28 11:37,2026-02-27 08:22,..." 형태
+  atc_count?: number; // 관제사오류 건수
+  pilot_count?: number; // 조종사오류 건수
+  unknown_count?: number; // 오류미발생 건수
 
   // 양쪽 항공사 조치 상태 정보 (관리자 API)
   my_airline_id?: string;
@@ -116,6 +123,7 @@ export interface Callsign {
   actionStatus?: 'no_action' | 'pending' | 'in_progress' | 'completed';
   actionType?: string | null;
   actionCompletedAt?: string | null;
+  actionDescription?: string | null; // camelCase 버전
   // 양쪽 항공사 조치 상태 (camelCase 버전)
   myAirlineId?: string;
   myActionStatus?: 'no_action' | 'pending' | 'in_progress' | 'completed';
@@ -129,6 +137,10 @@ export interface Callsign {
   latestActionResponsibleStaff?: string | null;
   latestActionUpdatedAt?: string | null;
   atcRecommendation?: string;
+  occurrenceDates?: string; // camelCase 버전
+  atcCount?: number; // camelCase 버전
+  pilotCount?: number; // camelCase 버전
+  unknownCount?: number; // camelCase 버전
 }
 
 /**

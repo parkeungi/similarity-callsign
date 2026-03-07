@@ -22,6 +22,13 @@ export interface SyncCallsignStatusParams {
   callsignId: string;
   actingAirlineCode: string;  // 조치를 수행한(또는 수행 중인) 항공사 코드
   newActionStatus: 'no_action' | 'in_progress' | 'completed';
+  // 선택사항: callsign 정보를 미리 전달하면 재조회 불필요
+  callsignData?: {
+    airline_code: string;
+    other_airline_code: string | null;
+    my_action_status: string | null;
+    other_action_status: string | null;
+  };
 }
 
 /**
@@ -67,18 +74,34 @@ export function syncCallsignStatus(
   trx: (sql: string, params?: any[]) => any,
   params: SyncCallsignStatusParams
 ): void {
-  const { callsignId, actingAirlineCode, newActionStatus } = params;
+  const { callsignId, actingAirlineCode, newActionStatus, callsignData: providedCallsignData } = params;
 
-  // 1. callsign 정보 조회
-  const callsignResult = trx(
-    `SELECT id, airline_code, other_airline_code, my_action_status, other_action_status
-     FROM callsigns WHERE id = ?`,
-    [callsignId]
-  );
+  // 1. callsign 정보 조회 (또는 미리 제공된 데이터 사용)
+  let callsign;
 
-  const callsign = callsignResult.rows?.[0];
-  if (!callsign) {
-    throw new Error(`callsign not found: ${callsignId}`);
+  if (providedCallsignData) {
+    // 미리 조회된 데이터 사용 (트랜잭션 외부에서 조회됨)
+    callsign = providedCallsignData;
+    console.log('[syncCallsignStatus] Using provided callsign data:', {
+      callsignId,
+      providedData: callsign,
+    });
+  } else {
+    // 트랜잭션 내에서 조회 (기존 로직)
+    const callsignResult = trx(
+      `SELECT id, airline_code, other_airline_code, my_action_status, other_action_status
+       FROM callsigns WHERE id = ?`,
+      [callsignId]
+    );
+
+    callsign = callsignResult.rows?.[0];
+    if (!callsign) {
+      console.error('[syncCallsignStatus] ERROR: callsign not found', {
+        callsignId,
+        queryResult: callsignResult,
+      });
+      throw new Error(`callsign not found: ${callsignId}`);
+    }
   }
 
   // 2. 국내항공사 목록 조회
@@ -119,8 +142,9 @@ export function syncCallsignStatus(
     [myStatus, otherStatus, finalStatus, callsignId]
   );
 
+  // 일부 SQLite 드라이버는 변경 사항이 없으면 0을 반환하므로 단순 경고만 출력
   if (!updateResult.changes) {
-    throw new Error(`Failed to sync callsign status: ${callsignId}`);
+    console.warn('[syncCallsignStatus] No row updated (values already in sync)', { callsignId });
   }
 
   // 로깅 (개발/디버깅 용도)

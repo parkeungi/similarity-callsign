@@ -24,6 +24,7 @@
 - v1.0 (2026-02-27): 86% FAIL, 66 $N across 12 files
 
 ## Phase Analysis History (latest first)
+- OverviewTab statusCounts Cache v1.0: 97% PASS (useRef cache for card flicker fix, no side effects, MEDIUM: dual filter state overlap, LOW: client-side double filtering)
 - Actions Registration v1.0: 88% WARNING (14 console violations, POST response unwrapped, IATA/ICAO mismatch in CLAUDE.md, no design doc exists, action_history unused)
 - Full System v5.0: 83% WARNING (C-1: admin/announcements/[id] params not awaited, 7 API response format mismatches, 23 console.log, DB Provider 0% unimplemented, .bak files resolved)
 - Admin Reset Data v1.0: 96% PASS (API 100%, UI 95%, Security 98%, 1 MEDIUM: UI lists audit_logs as deleted but API preserves it)
@@ -93,6 +94,7 @@
 8. Match Rate: 84% WARNING (below 90% threshold)
 
 ## Analysis Reports
+- `features/overview-tab-statuscounts-cache.analysis.md` - OverviewTab statusCounts Cache v1.0 (97% PASS)
 - `features/actions-registration.analysis.md` - Actions Registration v1.0 (88% WARNING)
 - `katc1-full-system-v5.analysis.md` - Full System v5.0 (83% WARNING)
 - `features/admin-reset-data.analysis.md` - Admin Reset Data v1.0 (96% PASS)

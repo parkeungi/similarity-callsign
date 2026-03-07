@@ -51,121 +51,130 @@ export function AnnouncementDetailModal({
     : null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200 shadow-slate-900/20"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* 헤더 */}
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-start">
+        <div className="flex items-start justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold text-gray-900">{announcement.title}</h2>
-            <div className="flex items-center gap-3 mt-2">
+            <h2 className="text-xl font-bold text-slate-800 leading-tight pr-4">{announcement.title}</h2>
+            <div className="flex items-center gap-3 mt-3">
               <span
-                className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                  colors.badge
-                }`}
+                className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${colors.badge
+                  }`}
               >
                 {getLevelLabel(announcement.level)}
               </span>
               <span
-                className={`text-xs font-medium ${
-                  isActive ? 'text-green-700' : 'text-gray-500'
-                }`}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                  }`}
               >
-                {isActive ? '활성' : '종료'}
+                <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                {isActive ? '활성중' : '기한종료'}
               </span>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+            className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-full transition-colors flex-shrink-0"
+            aria-label="닫기"
           >
-            ✕
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
 
         {/* 콘텐츠 */}
-        <div className="px-6 py-4 space-y-6">
+        <div className="p-6 overflow-y-auto custom-scrollbar flex flex-col gap-6">
           {/* 메타정보 */}
-          <div className="grid grid-cols-2 gap-4 pb-4 border-b">
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">시작일</p>
-              <p className="text-sm text-gray-900">
-                {new Date(announcement.startDate).toLocaleString('ko-KR', {
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-slate-50/50 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-center">
+              <span className="text-xs font-medium text-slate-500 mb-1.5">시작일</span>
+              <div className="text-sm font-bold text-slate-800">
+                {new Date(announcement.startDate).toLocaleDateString('ko-KR', {
                   year: 'numeric',
                   month: '2-digit',
                   day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
                 })}
-              </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">종료일</p>
-              <p className="text-sm text-gray-900">
-                {new Date(announcement.endDate).toLocaleString('ko-KR', {
+            <div className="bg-slate-50/50 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-center">
+              <span className="text-xs font-medium text-slate-500 mb-1.5">종료일</span>
+              <div className="text-sm font-bold text-slate-800">
+                {new Date(announcement.endDate).toLocaleDateString('ko-KR', {
                   year: 'numeric',
                   month: '2-digit',
                   day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
                 })}
-              </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">작성일</p>
-              <p className="text-sm text-gray-900">
-                {new Date(announcement.createdAt).toLocaleDateString('ko-KR')}
-              </p>
+            <div className="bg-slate-50/50 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-center">
+              <span className="text-xs font-medium text-slate-500 mb-1.5">작성일</span>
+              <div className="text-sm font-bold text-slate-800">
+                {new Date(announcement.createdAt).toLocaleDateString('ko-KR', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                })}
+              </div>
             </div>
             {isAdmin && (
-              <div>
-                <p className="text-xs font-medium text-gray-500 mb-1">조회수</p>
-                <p className="text-sm text-gray-900">
+              <div className="bg-slate-50/50 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-center">
+                <span className="text-xs font-medium text-slate-500 mb-1.5">조회수</span>
+                <div className="text-sm font-bold text-blue-600">
                   {(announcement as AdminAnnouncementResponse).viewCount || 0}명
-                </p>
+                </div>
               </div>
             )}
           </div>
 
+          {/* 부분 구분선 */}
+          <div className="h-px w-full bg-slate-100"></div>
+
           {/* 대상 항공사 */}
-          {targetAirlines && targetAirlines.length > 0 && (
-            <div className="pb-4 border-b">
-              <p className="text-xs font-medium text-gray-500 mb-2">대상항공사</p>
+          <div>
+            <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+              대상항공사
+            </h3>
+            {targetAirlines && targetAirlines.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {targetAirlines.map(code => (
                   <span
                     key={code}
-                    className="inline-block bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium"
+                    className="inline-flex items-center bg-blue-50 text-blue-700 px-3 py-1.5 rounded-md text-xs font-bold border border-blue-200"
                   >
                     {code}
                   </span>
                 ))}
               </div>
-            </div>
-          )}
-          {!targetAirlines && (
-            <div className="pb-4 border-b">
-              <p className="text-xs font-medium text-gray-500 mb-2">대상항공사</p>
-              <p className="text-sm text-gray-600">모든 항공사</p>
-            </div>
-          )}
+            ) : (
+              <p className="text-sm font-medium text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100 inline-block">👨‍✈️ 모든 항공사 대상</p>
+            )}
+          </div>
 
           {/* 내용 */}
-          <div className="pb-4 border-b">
-            <p className="text-xs font-medium text-gray-500 mb-2">내용</p>
-            <div className="bg-gray-50 rounded p-4 text-sm text-gray-900 whitespace-pre-wrap">
+          <div>
+            <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+              상세 내용
+            </h3>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed min-h-[120px]">
               {announcement.content}
             </div>
           </div>
 
           {/* 작성자 정보 (관리자만) */}
           {isAdmin && (
-            <div className="pb-4 border-b text-xs text-gray-500">
+            <div className="mt-2 bg-slate-50/50 rounded-lg p-3 text-[11px] font-medium text-slate-500 border border-slate-100 flex flex-col gap-1">
               <p>
-                작성자: {announcement.createdByEmail || announcement.createdBy}
+                <span className="text-slate-400 mr-2">작성자:</span> {announcement.createdByEmail || announcement.createdBy}
               </p>
               {announcement.updatedBy && (
                 <p>
-                  마지막 수정: {announcement.updatedBy}
+                  <span className="text-slate-400 mr-2">최종 수정:</span> {announcement.updatedBy}
                 </p>
               )}
             </div>
@@ -173,10 +182,10 @@ export function AnnouncementDetailModal({
         </div>
 
         {/* 하단 버튼 */}
-        <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex gap-2 justify-end">
+        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex gap-2 justify-end rounded-b-xl">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded border text-gray-700 hover:bg-gray-100 font-medium transition"
+            className="px-5 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors shadow-sm focus:outline-none"
           >
             닫기
           </button>
@@ -184,14 +193,14 @@ export function AnnouncementDetailModal({
             <>
               <button
                 onClick={() => onEdit?.(announcement)}
-                className="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white font-medium transition"
+                className="px-5 py-2 bg-white border border-blue-200 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-50 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 수정
               </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium transition"
+                className="px-5 py-2 bg-rose-600 rounded-lg text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
               >
                 {isDeleting ? '삭제 중...' : '삭제'}
               </button>
@@ -209,11 +218,11 @@ export function AnnouncementDetailModal({
 function getLevelLabel(level: string): string {
   switch (level) {
     case 'warning':
-      return '🚨 경고';
+      return '경고';
     case 'success':
-      return '✅ 완료';
+      return '완료';
     case 'info':
     default:
-      return '📢 일반';
+      return '일반';
   }
 }

@@ -62,40 +62,52 @@ export function AnnouncementModal() {
   const colors = ANNOUNCEMENT_LEVEL_COLORS[toShow.level];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
       <div
-        className={`rounded-lg border-2 p-6 max-w-md shadow-lg ${colors.bg} ${colors.border}`}
+        className={`bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh] border shadow-slate-900/20 ${colors.border}`}
       >
         {/* 헤더 */}
-        <div className="mb-4">
-          <h2 className={`text-lg font-bold mb-1 ${colors.text}`}>
-            {getAnnouncementEmoji(toShow.level)} {toShow.title}
-          </h2>
-          <p className="text-xs text-gray-500">
-            {new Date(toShow.startDate).toLocaleDateString('ko-KR')} ~{' '}
-            {new Date(toShow.endDate).toLocaleDateString('ko-KR')}
-          </p>
+        <div className={`px-6 py-4 border-b flex items-center justify-between ${colors.bg}`}>
+          <div>
+            <h2 className={`text-lg font-bold mb-1 flex items-center gap-2 ${colors.text}`}>
+              <span>{getAnnouncementEmoji(toShow.level)}</span>
+              <span>{toShow.title}</span>
+            </h2>
+            <p className="text-xs font-medium text-slate-500 opacity-80">
+              {new Date(toShow.startDate).toLocaleDateString('ko-KR')} ~{' '}
+              {new Date(toShow.endDate).toLocaleDateString('ko-KR')}
+            </p>
+          </div>
+          <button
+            onClick={handleDismiss}
+            className={`opacity-70 hover:opacity-100 transition-opacity p-1.5 rounded-full ${colors.text} hover:bg-black/5`}
+            aria-label="닫기"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
         </div>
 
         {/* 내용 */}
-        <p className={`text-sm mb-6 line-clamp-4 ${colors.text}`}>
-          {toShow.content}
-        </p>
+        <div className="p-6 overflow-y-auto custom-scrollbar">
+          <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap max-h-48 overflow-y-auto">
+            {toShow.content}
+          </p>
+        </div>
 
         {/* 버튼 */}
-        <div className="flex gap-2">
+        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex gap-2 justify-end rounded-b-xl">
           <button
             onClick={handleDismiss}
-            className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-900 px-4 py-2 rounded font-medium transition"
+            className="px-5 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors shadow-sm focus:outline-none"
           >
             닫기
           </button>
           <Link
             href={`/announcements/${toShow.id}`}
             onClick={handleDetail}
-            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium text-center transition"
+            className="px-5 py-2 bg-blue-600 rounded-lg text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
-            자세히
+            자세히 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
           </Link>
         </div>
       </div>
