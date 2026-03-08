@@ -193,7 +193,8 @@ export function useAirlineCallsigns(
     riskLevel?: string;
     page?: number;
     limit?: number;
-  }
+  },
+  options?: { enabled?: boolean }
 ) {
   const accessToken = useAuthStore((s) => s.accessToken);
   const page = filters?.page || 1;
@@ -227,7 +228,7 @@ export function useAirlineCallsigns(
       const data = (await response.json()) as CallsignListResponse;
       return data;
     },
-    enabled: !!accessToken && !!airlineId,
+    enabled: !!accessToken && !!airlineId && (options?.enabled ?? true),
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });
@@ -238,7 +239,8 @@ export function useAirlineCallsigns(
  */
 export function useAirlineActionStats(
   airlineId?: string,
-  filters?: { dateFrom?: string; dateTo?: string }
+  filters?: { dateFrom?: string; dateTo?: string },
+  options?: { enabled?: boolean }
 ) {
   const accessToken = useAuthStore((s) => s.accessToken);
 
@@ -274,7 +276,7 @@ export function useAirlineActionStats(
       const data = (await response.json()) as ActionStatisticsResponse;
       return data;
     },
-    enabled: !!accessToken && !!airlineId,
+    enabled: !!accessToken && !!airlineId && (options?.enabled ?? true),
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
   });

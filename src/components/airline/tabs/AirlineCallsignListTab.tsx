@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Callsign } from '@/types/action';
 import * as XLSX from 'xlsx';
 import { DateRangeFilterState } from '@/types/airline';
+import { ActionDetailModal } from '@/components/airline/ActionDetailModal';
 
 interface AirlineCallsignListTabProps {
   callsigns: Callsign[];

@@ -40,7 +40,10 @@ export const announcementQueryKeys = {
  * 활성 공지사항 조회
  * GET /api/announcements
  */
-export function useActiveAnnouncements() {
+export function useActiveAnnouncements(
+  filters?: Record<string, never>,
+  options?: { enabled?: boolean }
+) {
   const { accessToken } = useAuthStore();
 
   return useQuery<ActiveAnnouncementsResponse>({
@@ -61,7 +64,7 @@ export function useActiveAnnouncements() {
     },
     staleTime: 30 * 1000,      // 30초
     gcTime: 5 * 60 * 1000,     // 5분
-    enabled: !!accessToken,
+    enabled: !!accessToken && (options?.enabled ?? true),
   });
 }
 

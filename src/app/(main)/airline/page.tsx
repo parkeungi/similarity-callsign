@@ -114,14 +114,20 @@ export default function AirlinePage() {
 
   const { data: callsignsData, isLoading: callsignsLoading } = useAirlineCallsigns(airlineId, {
     limit: 1000,
+  }, {
+    enabled: activeTab === 'occurrence' || activeTab === 'action-history' || activeTab === 'statistics'
   });
 
   const { data: actionStats, isLoading: actionStatsLoading } = useAirlineActionStats(airlineId, {
     dateFrom: statsDateFilter.startDate,
     dateTo: statsDateFilter.endDate,
+  }, {
+    enabled: activeTab === 'statistics'
   });
 
-  const { data: activeAnnouncementsData, isLoading: activeAnnouncementsLoading } = useActiveAnnouncements();
+  const { data: activeAnnouncementsData, isLoading: activeAnnouncementsLoading } = useActiveAnnouncements({}, {
+    enabled: activeTab === 'announcements'
+  });
 
   const { data: announcementHistoryData } = useAnnouncementHistory({
     status: 'active',
@@ -248,18 +254,22 @@ export default function AirlinePage() {
 
   const handleActionSuccess = useCallback(() => {
     modal.closeModal();
-    queryClient.invalidateQueries({ queryKey: ['airline-actions'], exact: false });
-    queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
-    queryClient.invalidateQueries({ queryKey: ['airline-action-stats'], exact: false });
-  }, [modal, queryClient]);
+    // 정확한 queryKey로 invalidate (정확한 조치 목록만 갱신)
+    queryClient.invalidateQueries({
+      queryKey: ['airline-actions', airlineId],
+      exact: true
+    });
+  }, [modal, queryClient, airlineId]);
 
   const handleActionDetailSuccess = useCallback(() => {
     modal.closeModal();
     setActionPage(1);
-    queryClient.invalidateQueries({ queryKey: ['airline-actions'], exact: false });
-    queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
-    queryClient.invalidateQueries({ queryKey: ['airline-action-stats'], exact: false });
-  }, [modal, queryClient]);
+    // 정확한 queryKey로 invalidate (정확한 조치 목록만 갱신)
+    queryClient.invalidateQueries({
+      queryKey: ['airline-actions', airlineId],
+      exact: true
+    });
+  }, [modal, queryClient, airlineId]);
 
   const handleOpenActionDetail = useCallback((actionId: string) => {
     if (!actionsData) return;
@@ -274,18 +284,13 @@ export default function AirlinePage() {
     setActionPage(1);
   }, [actionSearchInput]);
 
-  const handleLimitChange = useCallback((limit: number) => {
-    setActionLimit(limit);
-    setActionPage(1);
-    queryClient.invalidateQueries({ queryKey: ['airline-actions'], exact: false });
-  }, [queryClient]);
-
-  const formatDisplayDate = useCallback((value?: string | null) => {
+  // 순수 함수 - useCallback 제거 (의존성 없음)
+  const formatDisplayDate = (value?: string | null): string => {
     if (!value) return '-';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '-';
     return date.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
-  }, []);
+  };
 
   const navItems: Array<{ id: AirlineTabType; label: string; icon: LucideIcon; color: 'primary' | 'info' | 'success' | 'orange' }> = [
     { id: 'occurrence', label: '발생현황', icon: BarChart3, color: 'primary' },
