@@ -241,7 +241,7 @@ export function AirlineStatisticsTab({
             ) : (
                 <>
                     {/* Row 1: KPI Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* Completion Rate */}
                         <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity duration-500">
@@ -270,6 +270,23 @@ export function AirlineStatisticsTab({
                                 <div className="flex items-baseline gap-2">
                                     <span className="text-4xl font-black text-slate-800 tracking-tight">{totalActions.toLocaleString()}</span>
                                     <span className="text-lg font-bold text-slate-400">건</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Pending Actions */}
+                        <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity duration-500">
+                                <svg className="w-20 h-20 text-rose-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                                </svg>
+                            </div>
+                            <div className="relative z-10 flex flex-col h-full justify-between gap-4">
+                                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Pending Actions<br /><span className="text-xs font-medium text-slate-400">미완료 조치</span></h3>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-4xl font-black text-rose-600 tracking-tight">{statusCounts.waiting + statusCounts.in_progress}</span>
+                                    <span className="text-lg font-bold text-rose-400">건</span>
+                                    <span className="text-sm font-medium text-slate-400 ml-2">(대기 중 {statusCounts.waiting}건)</span>
                                 </div>
                             </div>
                         </div>
@@ -353,8 +370,8 @@ export function AirlineStatisticsTab({
                         </div>
                     </div>
 
-                    {/* Row 3: 4 Donut/Bar Charts for Analysis */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Row 3: 3 Donut/Bar Charts for Analysis */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                         {/* Route Trend */}
                         <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 flex flex-col h-[280px]">
@@ -443,30 +460,6 @@ export function AirlineStatisticsTab({
                                     </>
                                 ) : (
                                     <div className="text-slate-400 text-xs">데이터 없음</div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Action Type Bar Chart */}
-                        <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 flex flex-col h-[280px]">
-                            <h4 className="text-sm font-bold text-slate-800 mb-2">조치 유형 <span className="text-xs font-normal text-slate-400 ml-1">Type</span></h4>
-                            <div className="flex-1 w-full relative pt-2">
-                                {typeDistribution.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={typeDistribution} layout="vertical" margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
-                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
-                                            <XAxis type="number" hide />
-                                            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 10, fontWeight: 600 }} width={70} />
-                                            <Tooltip
-                                                cursor={{ fill: '#F1F5F9' }}
-                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)' }}
-                                                formatter={(value: any) => [`${value}건`, '건수']}
-                                            />
-                                            <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={16} fill={COLORS.blue} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">데이터 없음</div>
                                 )}
                             </div>
                         </div>

@@ -561,6 +561,55 @@ export function AdminOccurrenceTab() {
                     </span>
                   </div>
                 </div>
+
+                {/* 오류 유형별 집계 */}
+                {incident.errorTypeSummary && incident.errorTypeSummary.length > 0 && (
+                  <div className="mb-2 pb-2 border-b border-gray-200">
+                    <div className="text-[11px] font-semibold text-gray-500 mb-1">📊 오류유형</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {incident.errorTypeSummary.map((summary, i) => {
+                        const errorTypeColor =
+                          summary.errorType === '관제사오류' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                          summary.errorType === '조종사오류' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                          'bg-emerald-50 text-emerald-700 border-emerald-200';
+                        return (
+                          <span
+                            key={i}
+                            className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded font-semibold border ${errorTypeColor}`}
+                          >
+                            <span>{getErrorTypeLabel(summary.errorType)}</span>
+                            <span className="font-black">({summary.count}건)</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 발생 이력 타임라인 (날짜+시간) */}
+                {incident.occurrences && incident.occurrences.length > 0 && (
+                  <div>
+                    <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (날짜·시간)</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {incident.occurrences.map((occurrence, i) => {
+                        const dateStr = occurrence.occurredDate
+                          ? occurrence.occurredDate.split('-').slice(1).join('-')
+                          : '-';
+                        const timeStr = occurrence.occurredTime && occurrence.occurredTime !== '00:00:00'
+                          ? occurrence.occurredTime.substring(0, 5)
+                          : '00:00';
+                        return (
+                          <span
+                            key={i}
+                            className="inline-block text-[11px] bg-blue-50 text-blue-800 px-2.5 py-0.5 rounded font-mono border border-blue-200"
+                          >
+                            {dateStr} <span className="text-blue-500 font-bold">{timeStr}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
