@@ -123,10 +123,19 @@ export function AirlineStatisticsTab({
     // 4. Time of Day Trend (시간대별 발생 추이)
     const timeOfDayStats = useMemo(() => {
         const counts = new Array(24).fill(0);
+        const start = statsStartDate ? new Date(statsStartDate) : null;
+        const end = statsEndDate ? new Date(statsEndDate) : null;
+
         visibleIncidents.forEach(inc => {
             if (inc.occurrences) {
                 inc.occurrences.forEach(occ => {
-                    if (occ.occurredTime && occ.occurredTime !== '00:00:00') {
+                    const occDate = occ.occurredDate ? new Date(occ.occurredDate) : null;
+                    let isWithinRange = true;
+                    if (occDate && start && end) {
+                        isWithinRange = occDate >= start && occDate <= end;
+                    }
+
+                    if (isWithinRange && occ.occurredTime && occ.occurredTime !== '00:00:00') {
                         const hourStr = occ.occurredTime.split(':')[0];
                         const hour = parseInt(hourStr, 10);
                         if (!isNaN(hour) && hour >= 0 && hour < 24) {
@@ -140,7 +149,7 @@ export function AirlineStatisticsTab({
             name: `${hour.toString().padStart(2, '0')}시`,
             count
         }));
-    }, [visibleIncidents]);
+    }, [visibleIncidents, statsStartDate, statsEndDate]);
 
     // 5. Route Trend (노선별 발생 분포)
     const routeStats = useMemo(() => {
@@ -165,17 +174,17 @@ export function AirlineStatisticsTab({
     // Action Stats Parsing
     const totalActions = actionStats?.total ?? 0;
     const completionRate = actionStats?.completionRate ?? 0;
-    const avgCompletionDays = actionStats?.averageCompletionDays ?? 0;
 
-    const typeDistribution = actionStats?.typeDistribution ?? [];
+    // 발생건수는 incidents 배열에서 각 incident의 count의 합계로 계산
+    const totalOccurrences = useMemo(() => {
+        return visibleIncidents.reduce((sum, inc) => sum + (inc.count || 0), 0);
+    }, [visibleIncidents]);
+
+    // 조치율 = (조치 건수 / 발생 건수) * 100
+    const calculatedActionRate = totalOccurrences > 0 ? (totalActions / totalOccurrences) * 100 : 0;
+
     const monthlyTrend = actionStats?.monthlyTrend ?? [];
     const statusCounts = actionStats?.statusCounts ?? { waiting: 0, in_progress: 0, completed: 0 };
-
-    const statusPieData = [
-        { name: '대기 중', value: statusCounts.waiting, color: COLORS.amber },
-        { name: '진행 중', value: statusCounts.in_progress, color: COLORS.blue },
-        { name: '완료', value: statusCounts.completed, color: COLORS.emerald },
-    ].filter(item => item.value > 0);
 
     const formatDonutLabel = ({ percent }: { percent?: number }) => {
         if (!percent || percent === 0) return '';
@@ -242,18 +251,19 @@ export function AirlineStatisticsTab({
                 <>
                     {/* Row 1: KPI Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Completion Rate */}
+
+                        {/* Total Count */}
                         <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity duration-500">
-                                <svg className="w-20 h-20 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                                <svg className="w-20 h-20 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 9h-2V7h-2v5H6v2h2v5h2v-5h2v-2z" />
                                 </svg>
                             </div>
                             <div className="relative z-10 flex flex-col h-full justify-between gap-4">
-                                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Completion Rate<br /><span className="text-xs font-medium text-slate-400">조치 완료율</span></h3>
+                                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total Incidents<br /><span className="text-xs font-medium text-slate-400">총 발생 건수</span></h3>
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-4xl font-black text-emerald-600 tracking-tight">{completionRate.toFixed(1)}</span>
-                                    <span className="text-lg font-bold text-emerald-600/60">%</span>
+                                    <span className="text-4xl font-black text-slate-800 tracking-tight">{totalOccurrences.toLocaleString()}</span>
+                                    <span className="text-lg font-bold text-slate-400">건</span>
                                 </div>
                             </div>
                         </div>
@@ -266,30 +276,30 @@ export function AirlineStatisticsTab({
                                 </svg>
                             </div>
                             <div className="relative z-10 flex flex-col h-full justify-between gap-4">
-                                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total Actions<br /><span className="text-xs font-medium text-slate-400">총 조치 건수</span></h3>
+                                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total Actions<br /><span className="text-xs font-medium text-slate-400">총 누적 조치 건수</span></h3>
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-4xl font-black text-slate-800 tracking-tight">{totalActions.toLocaleString()}</span>
-                                    <span className="text-lg font-bold text-slate-400">건</span>
+                                    <span className="text-4xl font-black text-indigo-600 tracking-tight">{totalActions.toLocaleString()}</span>
+                                    <span className="text-lg font-bold text-indigo-400">건</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Pending Actions */}
+                        {/* Action Rate */}
                         <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity duration-500">
-                                <svg className="w-20 h-20 text-rose-500" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                                <svg className="w-20 h-20 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                                 </svg>
                             </div>
                             <div className="relative z-10 flex flex-col h-full justify-between gap-4">
-                                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Pending Actions<br /><span className="text-xs font-medium text-slate-400">미완료 조치</span></h3>
+                                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Action Rate<br /><span className="text-xs font-medium text-slate-400">조치율 (발생 대비)</span></h3>
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-4xl font-black text-rose-600 tracking-tight">{statusCounts.waiting + statusCounts.in_progress}</span>
-                                    <span className="text-lg font-bold text-rose-400">건</span>
-                                    <span className="text-sm font-medium text-slate-400 ml-2">(대기 중 {statusCounts.waiting}건)</span>
+                                    <span className="text-4xl font-black text-emerald-600 tracking-tight">{calculatedActionRate.toFixed(1)}</span>
+                                    <span className="text-lg font-bold text-emerald-500/60">%</span>
                                 </div>
                             </div>
                         </div>
+
                     </div>
 
                     {/* Row 2: Monthly Trends & Top 5 */}
