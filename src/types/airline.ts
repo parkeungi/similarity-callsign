@@ -186,6 +186,41 @@ export interface ActionFilterState {
 }
 
 /**
+ * 페이지네이션 상태 (발생현황 탭용)
+ */
+export interface PaginationState {
+  page: number;
+  limit: number;
+  onPageChange: (page: number) => void;
+  onLimitChange: (limit: number) => void;
+}
+
+/**
+ * 검색 상태 (발생현황 탭용)
+ */
+export interface SearchState {
+  input: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+}
+
+/**
+ * 필터 상태 (발생현황 탭용)
+ */
+export interface FiltersState {
+  errorType: 'all' | ErrorType;
+  onChange: (filter: 'all' | ErrorType) => void;
+}
+
+/**
+ * 내보내기 설정 (발생현황 탭용)
+ */
+export interface ExportConfig {
+  isLoading: boolean;
+  onExport: () => void;
+}
+
+/**
  * 위험도별 색상 매핑
  */
 export const RISK_COLOR_MAP: Record<RiskLevel, string> = {

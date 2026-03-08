@@ -339,26 +339,36 @@ export default function AirlinePage() {
               <AirlineOccurrenceTab
                 incidents={incidents}
                 airlineCode={airlineCode}
-                startDate={incidentsDateFilter.startDate}
-                endDate={incidentsDateFilter.endDate}
-                activeRange={incidentsDateFilter.activeRange}
-                errorTypeFilter={errorTypeFilter}
-                isExporting={isExporting}
-                incidentsPage={occurrencePage}
-                incidentsLimit={occurrenceLimit}
-                incidentsSearchInput={occurrenceSearchInput}
-                onPageChange={setOccurrencePage}
-                onLimitChange={(limit) => {
-                  setOccurrenceLimit(limit);
-                  setOccurrencePage(1);
+                dateFilter={{
+                  startDate: incidentsDateFilter.startDate,
+                  endDate: incidentsDateFilter.endDate,
+                  activeRange: incidentsDateFilter.activeRange,
+                  onStartDateChange: incidentsDateFilter.handleStartDateChange,
+                  onEndDateChange: incidentsDateFilter.handleEndDateChange,
+                  onApplyQuickRange: incidentsDateFilter.applyQuickRange,
                 }}
-                onSearchInputChange={setOccurrenceSearchInput}
-                onSearchSubmit={() => setOccurrencePage(1)}
-                onStartDateChange={incidentsDateFilter.handleStartDateChange}
-                onEndDateChange={incidentsDateFilter.handleEndDateChange}
-                onApplyQuickRange={incidentsDateFilter.applyQuickRange}
-                onErrorTypeFilterChange={setErrorTypeFilter}
-                onExport={handleExportIncidents}
+                pagination={{
+                  page: occurrencePage,
+                  limit: occurrenceLimit,
+                  onPageChange: setOccurrencePage,
+                  onLimitChange: (limit) => {
+                    setOccurrenceLimit(limit);
+                    setOccurrencePage(1);
+                  },
+                }}
+                search={{
+                  input: occurrenceSearchInput,
+                  onChange: setOccurrenceSearchInput,
+                  onSubmit: () => setOccurrencePage(1),
+                }}
+                filters={{
+                  errorType: errorTypeFilter,
+                  onChange: setErrorTypeFilter,
+                }}
+                exportConfig={{
+                  isLoading: isExporting,
+                  onExport: handleExportIncidents,
+                }}
                 onOpenActionModal={handleOpenActionModal}
               />
             )}

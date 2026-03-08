@@ -1,52 +1,49 @@
 'use client';
 
 import React from 'react';
-import { DateRangeType } from '@/types/airline';
+import {
+  DateRangeFilterState,
+  PaginationState,
+  SearchState,
+  ExportConfig
+} from '@/types/airline';
 
 type ActionStatusFilter = 'all' | 'no_action' | 'in_progress' | 'completed';
 type SortOrder = 'risk' | 'count' | 'latest' | 'priority';
 
 interface IncidentFiltersProps {
-  startDate: string;
-  endDate: string;
-  activeRange: DateRangeType;
-  isExporting: boolean;
-  incidentsLimit: number;
-  incidentsSearchInput: string;
+  dateFilter: DateRangeFilterState & {
+    onStartDateChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onEndDateChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onApplyQuickRange: (type: 'today' | '1w' | '2w' | '1m') => void;
+  };
+  pagination: PaginationState;
+  search: SearchState;
+  exportConfig: ExportConfig;
   allFilteredIncidentsCount: number;
   actionStatusFilter?: ActionStatusFilter;
   sortOrder?: SortOrder;
-  onSearchInputChange: (value: string) => void;
-  onSearchSubmit: () => void;
-  onLimitChange: (limit: number) => void;
-  onStartDateChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onEndDateChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onApplyQuickRange: (type: 'today' | '1w' | '2w' | '1m') => void;
-  onExport: () => void;
   onSortOrderChange?: (order: SortOrder) => void;
   onActionStatusFilterChange?: (filter: ActionStatusFilter) => void;
 }
 
 export function IncidentFilters({
-  startDate,
-  endDate,
-  activeRange,
-  isExporting,
-  incidentsLimit,
-  incidentsSearchInput,
+  dateFilter,
+  pagination,
+  search,
+  exportConfig,
   allFilteredIncidentsCount,
   actionStatusFilter,
   sortOrder,
-  onSearchInputChange,
-  onSearchSubmit,
-  onLimitChange,
-  onStartDateChange,
-  onEndDateChange,
-  onApplyQuickRange,
-  onExport,
   onSortOrderChange,
   onActionStatusFilterChange,
 }: IncidentFiltersProps) {
+  // Props에서 필요한 값들 추출
+  const { startDate, endDate, activeRange, onStartDateChange, onEndDateChange, onApplyQuickRange } = dateFilter;
+  const { limit: incidentsLimit, onLimitChange } = pagination;
+  const { input: incidentsSearchInput, onChange: onSearchInputChange, onSubmit: onSearchSubmit } = search;
+  const { isLoading: isExporting, onExport } = exportConfig;
+
   const showSort = Boolean(sortOrder && onSortOrderChange);
   const showStatusFilter = Boolean(actionStatusFilter && onActionStatusFilterChange);
 

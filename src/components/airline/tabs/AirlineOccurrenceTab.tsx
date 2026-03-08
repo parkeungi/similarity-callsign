@@ -1,29 +1,30 @@
 'use client';
 
 import React, { useMemo, useState, useCallback } from 'react';
-import { Incident, DateRangeType, RISK_LEVEL_ORDER, ErrorType } from '@/types/airline';
+import {
+  Incident,
+  DateRangeFilterState,
+  PaginationState,
+  SearchState,
+  FiltersState,
+  ExportConfig,
+  RISK_LEVEL_ORDER,
+  ErrorType
+} from '@/types/airline';
 import { IncidentFilters } from './IncidentFilters';
 
 interface AirlineOccurrenceTabProps {
   incidents: Incident[];
   airlineCode: string;
-  startDate: string;
-  endDate: string;
-  activeRange: DateRangeType;
-  errorTypeFilter: 'all' | ErrorType;
-  isExporting: boolean;
-  incidentsPage: number;
-  incidentsLimit: number;
-  incidentsSearchInput: string;
-  onPageChange: (page: number) => void;
-  onLimitChange: (limit: number) => void;
-  onSearchInputChange: (value: string) => void;
-  onSearchSubmit: () => void;
-  onStartDateChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onEndDateChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onApplyQuickRange: (type: 'today' | '1w' | '2w' | '1m') => void;
-  onErrorTypeFilterChange: (filter: 'all' | ErrorType) => void;
-  onExport: () => void;
+  dateFilter: DateRangeFilterState & {
+    onStartDateChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onEndDateChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onApplyQuickRange: (type: 'today' | '1w' | '2w' | '1m') => void;
+  };
+  pagination: PaginationState;
+  search: SearchState;
+  filters: FiltersState;
+  exportConfig: ExportConfig;
   onOpenActionModal: (incident: Incident) => void;
 }
 
@@ -33,25 +34,19 @@ type ActionStatusFilter = 'all' | 'no_action' | 'in_progress' | 'completed';
 export function AirlineOccurrenceTab({
   incidents,
   airlineCode,
-  startDate,
-  endDate,
-  activeRange,
-  errorTypeFilter,
-  isExporting,
-  incidentsPage,
-  incidentsLimit,
-  incidentsSearchInput,
-  onPageChange,
-  onLimitChange,
-  onSearchInputChange,
-  onSearchSubmit,
-  onStartDateChange,
-  onEndDateChange,
-  onApplyQuickRange,
-  onErrorTypeFilterChange,
-  onExport,
+  dateFilter,
+  pagination,
+  search,
+  filters,
+  exportConfig,
   onOpenActionModal,
 }: AirlineOccurrenceTabProps) {
+  // Props에서 필요한 값들 추출
+  const { startDate, endDate, activeRange, onStartDateChange, onEndDateChange, onApplyQuickRange } = dateFilter;
+  const { page: incidentsPage, limit: incidentsLimit, onPageChange, onLimitChange } = pagination;
+  const { input: incidentsSearchInput, onChange: onSearchInputChange, onSubmit: onSearchSubmit } = search;
+  const { errorType: errorTypeFilter, onChange: onErrorTypeFilterChange } = filters;
+  const { isLoading: isExporting, onExport } = exportConfig;
   const [sortOrder, setSortOrder] = useState<SortOrder>('priority');
   const [actionStatusFilter, setActionStatusFilter] = useState<ActionStatusFilter>('in_progress');
 
@@ -290,24 +285,34 @@ export function AirlineOccurrenceTab({
 
       {/* 필터 바 */}
       <IncidentFilters
-        startDate={startDate}
-        endDate={endDate}
-        activeRange={activeRange}
-        isExporting={isExporting}
-        incidentsLimit={incidentsLimit}
-        incidentsSearchInput={incidentsSearchInput}
+        dateFilter={{
+          startDate,
+          endDate,
+          activeRange,
+          onStartDateChange,
+          onEndDateChange,
+          onApplyQuickRange,
+        }}
+        pagination={{
+          page: incidentsPage,
+          limit: incidentsLimit,
+          onPageChange,
+          onLimitChange,
+        }}
+        search={{
+          input: incidentsSearchInput,
+          onChange: onSearchInputChange,
+          onSubmit: onSearchSubmit,
+        }}
+        exportConfig={{
+          isLoading: isExporting,
+          onExport,
+        }}
         allFilteredIncidentsCount={allFilteredIncidents.length}
         actionStatusFilter={actionStatusFilter}
         sortOrder={sortOrder}
         onSortOrderChange={setSortOrder}
         onActionStatusFilterChange={setActionStatusFilter}
-        onSearchInputChange={onSearchInputChange}
-        onSearchSubmit={onSearchSubmit}
-        onLimitChange={onLimitChange}
-        onStartDateChange={onStartDateChange}
-        onEndDateChange={onEndDateChange}
-        onApplyQuickRange={onApplyQuickRange}
-        onExport={onExport}
       />
 
       {/* 발생현황 카드 그리드 */}
