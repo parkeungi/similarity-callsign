@@ -170,6 +170,8 @@ export default function AirlinePage() {
       firstDate: cs.first_occurred_at ? new Date(cs.first_occurred_at).toISOString().split('T')[0] : null,
       lastDate: cs.last_occurred_at ? new Date(cs.last_occurred_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       dates: [],
+      departureAirport: cs.departure_airport1 || cs.departureAirport || null,
+      arrivalAirport: cs.arrival_airport1 || cs.arrivalAirport || null,
       // 발생 이력 상세 정보
       occurrences: cs.occurrences || [],
       errorTypeSummary: cs.errorTypeSummary || [],
@@ -320,11 +322,10 @@ export default function AirlinePage() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full group flex items-center gap-4 px-4 py-4 rounded-none text-sm font-bold tracking-tight transition-all text-left border-l-4 ${
-                    isActive
+                  className={`w-full group flex items-center gap-4 px-4 py-4 rounded-none text-sm font-bold tracking-tight transition-all text-left border-l-4 ${isActive
                       ? 'bg-navy text-white shadow-[0_10px_20px_rgba(30,58,95,0.2)] border-rose-700'
                       : 'text-gray-500 hover:bg-gray-50 border-transparent hover:border-gray-200'
-                  }`}
+                    }`}
                 >
                   <NanoIcon icon={item.icon} color={item.color} size="sm" isActive={isActive} />
                   <span className={`transition-all duration-300 ${isActive ? 'translate-x-1' : 'group-hover:translate-x-1'}`}>

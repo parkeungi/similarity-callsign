@@ -98,6 +98,7 @@ export async function GET(
       `SELECT
          c.id, c.airline_id, c.airline_code, c.callsign_pair, c.my_callsign, c.other_callsign,
          c.other_airline_code, c.error_type, c.sub_error, c.risk_level, c.similarity,
+         c.departure_airport1, c.arrival_airport1,
          c.file_upload_id, c.uploaded_at, c.status, c.created_at, c.updated_at,
          COALESCE(c.occurrence_count, 0) as occurrence_count,
          c.first_occurred_at,
@@ -127,7 +128,7 @@ export async function GET(
 
     if (callsignIds.length > 0) {
       const placeholders = callsignIds.map(() => '?').join(',');
-      
+
       // 조치 상태 조회 (취소되지 않은 조치만)
       const actionsResult = await query(
         `SELECT id, callsign_id, status, action_type, completed_at
@@ -205,7 +206,7 @@ export async function GET(
         const latestAction = actionStatusMap[callsign.id];
         const occurrences = occurrencesMap[callsign.id] || [];
         const errorTypeSummary = errorTypeSummaryMap[callsign.id] || [];
-        
+
         return {
           id: callsign.id,
           airline_id: callsign.airline_id,
@@ -226,6 +227,9 @@ export async function GET(
           uploaded_at: callsign.uploaded_at,
           created_at: callsign.created_at,
           updated_at: callsign.updated_at,
+          // 방공 정보
+          departure_airport1: callsign.departure_airport1,
+          arrival_airport1: callsign.arrival_airport1,
           // 발생 이력 상세 정보
           occurrences,
           errorTypeSummary,
@@ -251,6 +255,8 @@ export async function GET(
           uploadedAt: callsign.uploaded_at,
           createdAt: callsign.created_at,
           updatedAt: callsign.updated_at,
+          departureAirport: callsign.departure_airport1,
+          arrivalAirport: callsign.arrival_airport1,
           actionId: latestAction?.id || null,
           actionStatus: latestAction?.status || 'no_action',
           actionType: latestAction?.action_type || null,

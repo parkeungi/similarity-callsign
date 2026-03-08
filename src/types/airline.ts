@@ -59,6 +59,8 @@ export interface Incident {
   firstDate: string | null;
   lastDate: string | null;
   dates: string[];        // 발생 이력 날짜 배열
+  departureAirport?: string | null;
+  arrivalAirport?: string | null;
   // 발생 이력 상세 정보 (callsign_occurrences에서 가져옴)
   occurrences?: OccurrenceDetail[];      // 발생 이력 상세 (날짜+시간+오류유형)
   errorTypeSummary?: ErrorTypeSummary[]; // 오류 유형별 집계

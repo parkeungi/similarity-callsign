@@ -67,6 +67,12 @@ export interface Callsign {
   file_upload_id?: string;
   uploaded_at?: string;
 
+  // 공항 정보
+  departure_airport1?: string | null;
+  arrival_airport1?: string | null;
+  departureAirport?: string | null;
+  arrivalAirport?: string | null;
+
   created_at: string;
   updated_at: string;
 
@@ -79,6 +85,8 @@ export interface Callsign {
 
   // 발생이력 및 오류유형 집계 (관리자 API용)
   occurrence_dates?: string; // "2026-02-28 11:37,2026-02-27 08:22,..." 형태
+  occurrences?: any[];
+  errorTypeSummary?: any[];
   atc_count?: number; // 관제사오류 건수
   pilot_count?: number; // 조종사오류 건수
   unknown_count?: number; // 오류미발생 건수

@@ -120,22 +120,46 @@ export function AirlineStatisticsTab({
             .slice(0, 5);
     }, [visibleIncidents]);
 
-    // 4. Error Type Ratio (ATC vs PILOT vs None)
-    const errorTypeStats = useMemo(() => {
-        const counts: Record<string, number> = {
-            '관제사 오류': 0,
-            '조종사 오류': 0,
-            '오류 미발생': 0,
-        };
+    // 4. Time of Day Trend (시간대별 발생 추이)
+    const timeOfDayStats = useMemo(() => {
+        const counts = new Array(24).fill(0);
         visibleIncidents.forEach(inc => {
-            const type = inc.errorType || '오류 미발생';
-            if (counts[type] !== undefined) counts[type]++;
+            if (inc.occurrences) {
+                inc.occurrences.forEach(occ => {
+                    if (occ.occurredTime && occ.occurredTime !== '00:00:00') {
+                        const hourStr = occ.occurredTime.split(':')[0];
+                        const hour = parseInt(hourStr, 10);
+                        if (!isNaN(hour) && hour >= 0 && hour < 24) {
+                            counts[hour]++;
+                        }
+                    }
+                });
+            }
         });
-        return [
-            { name: '관제사 (ATC)', value: counts['관제사 오류'], color: COLORS.rose },
-            { name: '조종사 (PILOT)', value: counts['조종사 오류'], color: COLORS.amber },
-            { name: '미발생 (None)', value: counts['오류 미발생'], color: COLORS.emerald },
-        ].filter(item => item.value > 0);
+        return counts.map((count, hour) => ({
+            name: `${hour.toString().padStart(2, '0')}시`,
+            count
+        }));
+    }, [visibleIncidents]);
+
+    // 5. Route Trend (노선별 발생 분포)
+    const routeStats = useMemo(() => {
+        const counts: Record<string, number> = {};
+        visibleIncidents.forEach(inc => {
+            const dep = inc.departureAirport || '미상';
+            const arr = inc.arrivalAirport || '미상';
+            if (dep === '미상' && arr === '미상') {
+                counts['기타'] = (counts['기타'] || 0) + inc.count;
+                return;
+            }
+            const route = `${dep}-${arr}`;
+            counts[route] = (counts[route] || 0) + inc.count;
+        });
+        return Object.entries(counts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5) // 상위 5개 노선만 표시
+            .filter(item => item.count > 0);
     }, [visibleIncidents]);
 
     // Action Stats Parsing
@@ -332,97 +356,47 @@ export function AirlineStatisticsTab({
                     {/* Row 3: 4 Donut/Bar Charts for Analysis */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
-                        {/* Status Distribution */}
+                        {/* Route Trend */}
                         <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 flex flex-col h-[280px]">
-                            <h4 className="text-sm font-bold text-slate-800 mb-2">상태별 분포 <span className="text-xs font-normal text-slate-400 ml-1">Status</span></h4>
-                            <div className="flex-1 flex flex-col items-center justify-center relative">
-                                {statusPieData.length > 0 ? (
-                                    <>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
-                                                <Pie
-                                                    data={statusPieData}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={45}
-                                                    outerRadius={75}
-                                                    paddingAngle={2}
-                                                    dataKey="value"
-                                                    labelLine={false}
-                                                    label={formatDonutLabel}
-                                                >
-                                                    {statusPieData.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip
-                                                    formatter={(value: any) => [`${value}건`, '상태']}
-                                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgb(0 0 0 / 0.1)' }}
-                                                />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                        <div className="flex flex-col gap-1 w-full mt-2">
-                                            {statusPieData.map((entry, i) => (
-                                                <div key={i} className="flex items-center justify-between text-[11px] font-medium">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }}></div>
-                                                        <span className="text-slate-600">{entry.name}</span>
-                                                    </div>
-                                                    <span className="text-slate-800">{entry.value}건</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </>
+                            <h4 className="text-sm font-bold text-slate-800 mb-2">노선별 발생 추이 <span className="text-xs font-normal text-slate-400 ml-1">Routes</span></h4>
+                            <div className="flex-1 w-full relative pt-2">
+                                {routeStats.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={routeStats} layout="vertical" margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
+                                            <XAxis type="number" hide />
+                                            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 10, fontWeight: 600 }} width={70} />
+                                            <Tooltip
+                                                cursor={{ fill: '#F1F5F9' }}
+                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)' }}
+                                                formatter={(value: any) => [`${value}건`, '발생 건수']}
+                                            />
+                                            <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={16} fill={COLORS.amber} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
                                 ) : (
-                                    <div className="text-slate-400 text-xs">데이터 없음</div>
+                                    <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">데이터 없음</div>
                                 )}
                             </div>
                         </div>
 
-                        {/* Error Type Analysis */}
+                        {/* Time of Day Trend */}
                         <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 flex flex-col h-[280px]">
-                            <h4 className="text-sm font-bold text-slate-800 mb-2">오류 요인 <span className="text-xs font-normal text-slate-400 ml-1">Errors</span></h4>
-                            <div className="flex-1 flex flex-col items-center justify-center relative">
-                                {errorTypeStats.length > 0 ? (
-                                    <>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
-                                                <Pie
-                                                    data={errorTypeStats}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={45}
-                                                    outerRadius={75}
-                                                    paddingAngle={2}
-                                                    dataKey="value"
-                                                    labelLine={false}
-                                                    label={formatDonutLabel}
-                                                >
-                                                    {errorTypeStats.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip
-                                                    formatter={(value: any) => [`${value}건`, '발생']}
-                                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgb(0 0 0 / 0.1)' }}
-                                                />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                        <div className="flex flex-col gap-1 w-full mt-2">
-                                            {errorTypeStats.map((entry, i) => (
-                                                <div key={i} className="flex items-center justify-between text-[11px] font-medium">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }}></div>
-                                                        <span className="text-slate-600">{entry.name}</span>
-                                                    </div>
-                                                    <span className="text-slate-800">{entry.value}건</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="text-slate-400 text-xs">데이터 없음</div>
-                                )}
+                            <h4 className="text-sm font-bold text-slate-800 mb-2">시간대별 발생 추이 <span className="text-xs font-normal text-slate-400 ml-1">Time</span></h4>
+                            <div className="flex-1 w-full relative pt-2">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={timeOfDayStats} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} interval={3} tick={{ fill: '#64748B', fontSize: 10 }} dy={5} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 10 }} />
+                                        <Tooltip
+                                            cursor={{ fill: '#F1F5F9' }}
+                                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)' }}
+                                            formatter={(value: any) => [`${value}건`, '발생 건수']}
+                                        />
+                                        <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={8} fill={COLORS.rose} />
+                                    </BarChart>
+                                </ResponsiveContainer>
                             </div>
                         </div>
 

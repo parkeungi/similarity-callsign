@@ -329,6 +329,10 @@ export async function POST(
   { params }: { params: Promise<{ airlineId: string }> }
 ) {
   let airlineId: string;
+  let body: any;
+  let callsignId: string | undefined;
+  let actionType: string | undefined;
+
   try {
     airlineId = (await params).airlineId;
 
@@ -364,16 +368,20 @@ export async function POST(
     const domesticAirlines = new Set(['KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR']);
 
     // 요청 본문 (ActionModal에서 snake_case로 전송)
-    const body = await request.json();
+    body = await request.json();
     const {
-      callsign_id: callsignId,
-      action_type: actionType,
+      callsign_id: csId,
+      action_type: aType,
       description,
       manager_name: managerName,
       planned_due_date: plannedDueDate,
       completed_at: completedAt,
       status: requestStatus,
     } = body;
+
+    // 전역 변수에 할당 (catch 블록에서 접근 가능하도록)
+    callsignId = csId;
+    actionType = aType;
 
     // 필수 필드 검증
     if (!callsignId || !actionType) {
@@ -479,12 +487,12 @@ export async function POST(
       existingActionId = existingActionResult.rows[0].id;
     }
 
-    // Step 2: action UPDATE 및 callsigns 동기화
-    // ⚠️ CRITICAL FIX: async 추가 + return 추가 (트랜잭션 완료 대기)
-    await transaction(async (trx) => {
-      // 1. action 업데이트 (상태, 조치 정보, 취소 플래그 복원)
+    // Step 2: action UPDATE 및 callsigns 동기화 (동기 트랜잭션)
+    // 📌 FIX: better-sqlite3는 동기 콜백만 지원하므로, async/await 제거
+    await transaction((trx) => {
+      // 1. action 업데이트 (상태, 조치 정보, 취소 플래그 복현)
       const nowIso = new Date().toISOString();
-      await trx(
+      trx(
         `UPDATE actions SET
           action_type = ?,
           description = ?,
@@ -499,19 +507,36 @@ export async function POST(
       );
 
       // 2. callsigns 동기화 (중앙화된 함수 사용)
-      // Phase 1: syncCallsignStatus 함수로 my_action_status, other_action_status, status 자동 계산
-      // 📌 FIX: 미리 조회한 callsignData 전달 (트랜잭션 내 재조회 방지)
-      await syncCallsignStatus(trx, {
-        callsignId,
-        actingAirlineCode: airlineCode,
-        newActionStatus: actionStatus,
-        callsignData: {
-          airline_code: callsignData.airline_code,
-          other_airline_code: callsignData.other_airline_code,
-          my_action_status: callsignData.my_action_status,
-          other_action_status: callsignData.other_action_status,
-        }
-      });
+      // 📌 주의: syncCallsignStatus는 async이지만, 이 콜백은 동기여야 함
+      // 해결책: callsigns 상태를 직접 업데이트 (동기 방식)
+      const airlinesResult = trx('SELECT code FROM airlines');
+      const domesticAirlines = new Set(
+        (airlinesResult.rows || []).map((a: any) => a.code)
+      );
+
+      const isMy = callsignData.airline_code === airlineCode;
+      let myStatus = isMy ? actionStatus : (callsignData.my_action_status || 'no_action');
+      let otherStatus = isMy ? (callsignData.other_action_status || 'no_action') : actionStatus;
+
+      const sameAirline = callsignData.airline_code === callsignData.other_airline_code;
+      const otherIsForeignAirline = callsignData.other_airline_code && !domesticAirlines.has(callsignData.other_airline_code);
+      const myCompleted = myStatus === 'completed';
+      const otherCompleted = otherStatus === 'completed';
+
+      let finalStatus: 'in_progress' | 'completed' = 'in_progress';
+      if (sameAirline) {
+        finalStatus = (myCompleted || otherCompleted) ? 'completed' : 'in_progress';
+      } else if (otherIsForeignAirline) {
+        finalStatus = myCompleted ? 'completed' : 'in_progress';
+      } else {
+        finalStatus = (myCompleted && otherCompleted) ? 'completed' : 'in_progress';
+      }
+
+      // 3. callsigns 업데이트 (동기)
+      trx(
+        `UPDATE callsigns SET my_action_status = ?, other_action_status = ?, status = ? WHERE id = ?`,
+        [myStatus, otherStatus, finalStatus, callsignId]
+      );
 
       return true; // 트랜잭션 성공
     });
@@ -557,8 +582,8 @@ export async function POST(
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error('[POST /api/airlines/[airlineId]/actions] 조치 생성 오류:', {
       airlineId,
-      callsignId: body?.callsign_id,
-      actionType: body?.action_type,
+      callsignId,
+      actionType,
       errorMessage: errorMsg,
       stack: error instanceof Error ? error.stack : undefined,
     });
