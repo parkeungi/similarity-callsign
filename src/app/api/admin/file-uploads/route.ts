@@ -54,22 +54,22 @@ export async function GET(request: NextRequest) {
 
     // 상태 필터
     if (status && ['pending', 'processing', 'completed', 'failed'].includes(status)) {
-      sql += ` AND status = ?`;
+      sql += ` AND fu.status = ?`;
       params.push(status);
     }
 
     // 정렬 및 페이지네이션 (최신 순)
-    sql += ` ORDER BY uploaded_at DESC LIMIT ? OFFSET ?`;
+    sql += ` ORDER BY fu.uploaded_at DESC LIMIT ? OFFSET ?`;
     params.push(limit, offset);
 
     const result = await query(sql, params);
 
     // 전체 개수 조회
-    let countSql = `SELECT COUNT(*) as total FROM file_uploads WHERE 1=1`;
+    let countSql = `SELECT COUNT(*) as total FROM file_uploads fu WHERE 1=1`;
     const countParams: any[] = [];
 
     if (status && ['pending', 'processing', 'completed', 'failed'].includes(status)) {
-      countSql += ` AND status = ?`;
+      countSql += ` AND fu.status = ?`;
       countParams.push(status);
     }
 

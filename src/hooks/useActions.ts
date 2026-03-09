@@ -9,6 +9,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
+import { supabaseClient } from '@/lib/supabase/client';
 import {
   Action,
   Callsign,
@@ -148,37 +149,19 @@ export function useCallsigns(filters?: {
   page?: number;
   limit?: number;
 }) {
-  const accessToken = useAuthStore((s) => s.accessToken);
   const page = filters?.page || 1;
   const limit = filters?.limit ?? 10;
 
   return useQuery({
     queryKey: ['callsigns', filters?.airlineId, filters?.riskLevel, page, limit],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
-      const params = new URLSearchParams();
-      if (filters?.airlineId) params.append('airlineId', filters.airlineId);
-      if (filters?.riskLevel) params.append('riskLevel', filters.riskLevel);
-      params.append('page', String(page));
-      params.append('limit', String(limit));
-
-      const response = await fetch(`/api/callsigns?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+      return fetchCallsignsFromSupabase({
+        airlineId: filters?.airlineId,
+        riskLevel: filters?.riskLevel,
+        page,
+        limit,
       });
-
-      if (!response.ok) {
-        throw new Error('호출부호 목록 조회 실패');
-      }
-
-      const data = (await response.json()) as CallsignListResponse;
-      return data;
     },
-    enabled: !!accessToken,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });
@@ -207,6 +190,10 @@ export function useAirlineCallsigns(
         throw new Error('인증 토큰이 없습니다.');
       }
 
+      if (!airlineId) {
+        throw new Error('항공사 ID가 필요합니다.');
+      }
+
       const params = new URLSearchParams();
       if (filters?.riskLevel) params.append('riskLevel', filters.riskLevel);
       params.append('page', String(page));
@@ -222,7 +209,10 @@ export function useAirlineCallsigns(
       );
 
       if (!response.ok) {
-        throw new Error('항공사별 호출부호 조회 실패');
+        if (response.status === 401) {
+          throw new Error('인증이 필요합니다.');
+        }
+        throw new Error('호출부호 목록 조회 실패');
       }
 
       const data = (await response.json()) as CallsignListResponse;
@@ -232,6 +222,186 @@ export function useAirlineCallsigns(
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });
+}
+
+type CallsignQueryParams = {
+  airlineId?: string;
+  riskLevel?: string;
+  page: number;
+  limit: number;
+};
+
+async function fetchCallsignsFromSupabase({
+  airlineId,
+  riskLevel,
+  page,
+  limit,
+}: CallsignQueryParams): Promise<CallsignListResponse> {
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
+  let query = supabaseClient
+    .from('callsigns')
+    .select(
+      `
+        id,
+        airline_id,
+        airline_code,
+        callsign_pair,
+        my_callsign,
+        other_callsign,
+        other_airline_code,
+        error_type,
+        sub_error,
+        risk_level,
+        similarity,
+        sector,
+        atc_recommendation,
+        occurrence_count,
+        last_occurred_at,
+        file_upload_id,
+        uploaded_at,
+        created_at,
+        updated_at,
+        status,
+        my_action_status,
+        other_action_status,
+        actions!actions_callsign_id_fkey (
+          id,
+          status,
+          manager_name,
+          updated_at,
+          registered_at
+        )
+      `,
+      { count: 'exact' }
+    )
+    .range(from, to)
+    .order('risk_level', { ascending: false })
+    .order('occurrence_count', { ascending: false });
+
+  if (airlineId) {
+    query = query.eq('airline_id', airlineId);
+  }
+
+  if (riskLevel) {
+    query = query.eq('risk_level', riskLevel);
+  }
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    console.error('[useCallsigns] Supabase fetch error', error);
+    throw new Error('호출부호 목록 조회 실패');
+  }
+
+  const normalized = (data || []).map(transformCallsignRow);
+
+  const summary = buildCallsignSummary(normalized);
+  const total = count ?? normalized.length;
+  const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+
+  return {
+    data: normalized,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+    },
+    summary,
+  };
+}
+
+function transformCallsignRow(row: any): Callsign & {
+  latest_action_id?: string | null;
+  latest_action_status?: string | null;
+  latest_action_manager_name?: string | null;
+  latest_action_updated_at?: string | null;
+  final_status?: 'completed' | 'partial' | 'in_progress';
+} {
+  const latestAction = row.actions?.[0];
+  const finalStatus = calculateFinalStatus(row);
+
+  const mapped = {
+    ...row,
+    latest_action_id: latestAction?.id ?? null,
+    latest_action_status: latestAction?.status ?? null,
+    latest_action_manager_name: latestAction?.manager_name ?? null,
+    latest_action_updated_at: latestAction?.updated_at ?? null,
+    final_status: finalStatus,
+    airlineId: row.airline_id,
+    airlineCode: row.airline_code,
+    callsignPair: row.callsign_pair,
+    myCallsign: row.my_callsign,
+    otherCallsign: row.other_callsign,
+    otherAirlineCode: row.other_airline_code,
+    errorType: row.error_type,
+    subError: row.sub_error,
+    riskLevel: row.risk_level,
+    occurrenceCount: row.occurrence_count,
+    lastOccurredAt: row.last_occurred_at,
+    fileUploadId: row.file_upload_id,
+    uploadedAt: row.uploaded_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    latestActionId: latestAction?.id ?? null,
+    latestActionStatus: latestAction?.status ?? null,
+    latestActionManager: latestAction?.manager_name ?? null,
+    latestActionUpdatedAt: latestAction?.updated_at ?? null,
+  };
+
+  delete (mapped as any).actions;
+  return mapped;
+}
+
+function calculateFinalStatus(row: any): 'completed' | 'partial' | 'in_progress' {
+  const myStatus = row.my_action_status || 'no_action';
+  const otherStatus = row.other_action_status || 'no_action';
+  const myCompleted = myStatus === 'completed';
+  const otherCompleted = otherStatus === 'completed';
+  const sameAirline = row.other_airline_code && row.other_airline_code === row.airline_code;
+  const isForeignCounterparty = row.other_airline_code && !sameAirline;
+
+  if (!row.other_airline_code || sameAirline) {
+    return myCompleted || otherCompleted ? 'completed' : 'in_progress';
+  }
+
+  if (isForeignCounterparty) {
+    return myCompleted ? 'completed' : 'in_progress';
+  }
+
+  if (myCompleted && otherCompleted) {
+    return 'completed';
+  }
+  if (myCompleted || otherCompleted) {
+    return 'partial';
+  }
+  return 'in_progress';
+}
+
+function buildCallsignSummary(rows: Array<{ final_status?: string }>) {
+  const summary = {
+    total: rows.length,
+    completed: 0,
+    partial: 0,
+    in_progress: 0,
+  };
+
+  rows.forEach((row) => {
+    switch (row.final_status) {
+      case 'completed':
+        summary.completed += 1;
+        break;
+      case 'partial':
+        summary.partial += 1;
+        break;
+      default:
+        summary.in_progress += 1;
+    }
+  });
+
+  return summary;
 }
 
 /**
@@ -355,11 +525,10 @@ export function useCreateAction() {
       return (await response.json()) as Action;
     },
     onSuccess: () => {
-      // 조치 목록, 통계 캐시만 무효화 (호출부호 목록은 유지)
-      // airline-callsigns 캐시를 무효화하면 데이터가 재조회되면서
-      // 로컬 incidents 데이터와 불일치가 발생하므로 제거
       queryClient.invalidateQueries({ queryKey: ['airline-actions'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['airline-action-stats'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['callsigns-with-actions'], exact: false });
     },
   });
 }
@@ -403,10 +572,11 @@ export function useUpdateAction() {
       return (await response.json()) as Action;
     },
     onSuccess: () => {
-      // 조치 목록, 상세, 통계 캐시만 무효화 (호출부호 목록은 유지)
       queryClient.invalidateQueries({ queryKey: ['airline-actions'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['action'] });
       queryClient.invalidateQueries({ queryKey: ['airline-action-stats'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['callsigns-with-actions'], exact: false });
     },
   });
 }
@@ -446,9 +616,10 @@ export function useDeleteAction() {
       return response.json();
     },
     onSuccess: () => {
-      // 조치 목록, 통계 캐시만 무효화 (호출부호 목록은 유지)
       queryClient.invalidateQueries({ queryKey: ['airline-actions'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['airline-action-stats'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['callsigns-with-actions'], exact: false });
     },
   });
 }

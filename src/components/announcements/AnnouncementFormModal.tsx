@@ -21,16 +21,16 @@ interface Props {
  */
 export function AnnouncementFormModal({ announcement, onClose, onSuccess }: Props) {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-6">
+      <div className="bg-slate-900 rounded-none border border-slate-800 shadow-2xl shadow-black/50 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
         {/* 헤더 */}
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900">
+        <div className="sticky top-0 bg-slate-800/50 border-b border-slate-800 px-6 py-4 flex justify-between items-center z-10">
+          <h2 className="text-xl font-bold text-slate-100">
             {announcement ? '공지사항 수정' : '공지사항 작성'}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+            className="text-slate-400 hover:text-slate-200 text-2xl leading-none"
           >
             ✕
           </button>

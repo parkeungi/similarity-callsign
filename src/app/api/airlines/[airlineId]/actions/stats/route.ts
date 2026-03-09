@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { dateDiffInDays, monthBucket } from '@/lib/db/sql-helpers';
 
 function toDateOnlyString(date: Date) {
   return date.toISOString().split('T')[0];
@@ -84,7 +85,7 @@ export async function GET(
     const completionRate = total > 0 ? Math.round((completedCount / total) * 100) : 0;
 
     const avgResult = await query(
-      `SELECT AVG(CAST((julianday(completed_at) - julianday(registered_at)) AS REAL)) AS avg_days
+      `SELECT AVG(${dateDiffInDays('completed_at', 'registered_at')}) AS avg_days
        FROM actions
        WHERE airline_id = ?
          AND status = 'completed'
@@ -112,11 +113,11 @@ export async function GET(
     }));
 
     const monthlyResult = await query(
-      `SELECT strftime('%Y-%m', registered_at) AS month, COUNT(*) AS count
+      `SELECT ${monthBucket('registered_at')} AS month, COUNT(*) AS count
        FROM actions
        WHERE airline_id = ?
          AND DATE(registered_at) BETWEEN DATE(?) AND DATE(?)
-       GROUP BY month
+       GROUP BY 1
        ORDER BY month DESC
        LIMIT 6`,
       [airlineId, fromDateString, toDateString]

@@ -13,6 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 PORT=3000
+DB_RUNTIME_MODE="supabase"
 
 # 함수: 헤더 출력
 print_header() {
@@ -67,31 +68,110 @@ clear_cache() {
   echo -e "${YELLOW}💡 팁: 브라우저에서 Ctrl+Shift+Delete로 캐시를 비우면 더 완벽합니다${NC}"
 }
 
+# 공용 함수: 기존 .env.local 백업
+backup_env_file() {
+  if [ -f .env.local ]; then
+    local backup_file=".env.local.bak-$(date +%s)"
+    cp .env.local "$backup_file"
+    echo -e "${YELLOW}⚠️  기존 .env.local을 ${backup_file} 로 백업했습니다.${NC}"
+  fi
+}
+
+# 공용 함수: 민감 정보 마스킹 출력
+mask_value() {
+  local value="$1"
+  local length=${#value}
+  if [ "$length" -le 4 ]; then
+    echo "***"
+  else
+    local prefix=${value:0:4}
+    local suffix=${value: -2}
+    echo "${prefix}***${suffix}"
+  fi
+}
+
 # 함수: SQLite 환경 설정
 setup_sqlite() {
   echo -e "\n${BLUE}📝 SQLite 환경 설정 중...${NC}"
+  backup_env_file
+  DB_RUNTIME_MODE="sqlite"
 
-  # .env.local 생성
-  cat > .env.local << 'EOF'
-# SQLite Database (로컬 개발용)
+  cat > .env.local <<'EOF'
+DB_PROVIDER=sqlite
 DB_PATH=./data/katc1.db
-
-# API
 NEXT_PUBLIC_API_URL=http://localhost:3000
 NEXT_PUBLIC_BKEND_PROJECT_ID=
-
-# JWT
 JWT_SECRET=dev-secret-key-for-local-only
-
-# Session
 SESSION_SECRET=dev-session-secret-for-local-only
 EOF
 
   echo -e "${GREEN}✓ .env.local 설정 완료 (SQLite)${NC}"
-
-  # data 디렉토리 생성
   mkdir -p ./data
   echo -e "${GREEN}✓ 데이터 디렉토리 준비 완료${NC}"
+  echo -e "${BLUE}환경 요약:${NC}"
+  echo -e "  DB_PROVIDER: sqlite"
+  echo -e "  DB_PATH: ./data/katc1.db"
+}
+
+# 함수: Supabase 환경 설정
+setup_supabase() {
+  echo -e "\n${BLUE}📝 Supabase 환경 설정 중...${NC}"
+  backup_env_file
+  DB_RUNTIME_MODE="supabase"
+
+  read -rp "DATABASE_URL (Supabase Postgres) : " DATABASE_URL_INPUT
+  read -rp "NEXT_PUBLIC_SUPABASE_URL        : " SUPABASE_URL_INPUT
+  read -rp "NEXT_PUBLIC_SUPABASE_ANON_KEY   : " SUPABASE_ANON_INPUT
+  read -sp "SUPABASE_SERVICE_ROLE_KEY (optional, Enter 생략 가능): " SUPABASE_SERVICE_ROLE_INPUT
+  echo ""
+
+  if [[ -z "$DATABASE_URL_INPUT" || -z "$SUPABASE_URL_INPUT" || -z "$SUPABASE_ANON_INPUT" ]]; then
+    echo -e "${RED}❌ 필수 값이 비어있습니다. Supabase 모드 설정을 중단합니다.${NC}"
+    exit 1
+  fi
+
+  cat > .env.local <<EOF
+DB_PROVIDER=postgresql
+DATABASE_URL=${DATABASE_URL_INPUT}
+NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL_INPUT}
+NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_INPUT}
+SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_INPUT}
+NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_BKEND_PROJECT_ID=
+JWT_SECRET=dev-secret-key-for-local-only
+SESSION_SECRET=dev-session-secret-for-local-only
+EOF
+
+  echo -e "${GREEN}✓ .env.local 설정 완료 (Supabase)${NC}"
+  echo -e "${BLUE}환경 요약:${NC}"
+  echo -e "  DB_PROVIDER: postgresql"
+  echo -e "  DATABASE_URL: $(mask_value "$DATABASE_URL_INPUT")"
+  echo -e "  NEXT_PUBLIC_SUPABASE_URL: $SUPABASE_URL_INPUT"
+  echo -e "  NEXT_PUBLIC_SUPABASE_ANON_KEY: $(mask_value "$SUPABASE_ANON_INPUT")"
+  if [ -n "$SUPABASE_SERVICE_ROLE_INPUT" ]; then
+    echo -e "  SUPABASE_SERVICE_ROLE_KEY: $(mask_value "$SUPABASE_SERVICE_ROLE_INPUT")"
+  else
+    echo -e "  SUPABASE_SERVICE_ROLE_KEY: (empty)"
+  fi
+  echo -e "${YELLOW}추가 확인:${NC} psql \"$DATABASE_URL_INPUT\" -c '\\dt'"
+}
+
+# 함수: DB 모드 선택
+select_db_mode() {
+  echo -e "\n${BLUE}DB 모드를 선택하세요:${NC}"
+  echo -e "  1) SQLite (기본)"
+  echo -e "  2) Supabase (PostgreSQL)"
+  read -rp "선택 (1/2) [1]: " DB_MODE
+  case "$DB_MODE" in
+    2)
+      echo "Supabase 모드로 진행합니다."
+      setup_supabase
+      ;;
+    *)
+      echo "SQLite 모드로 진행합니다."
+      setup_sqlite
+      ;;
+  esac
 }
 
 # 함수: Next.js 개발 서버 시작
@@ -103,6 +183,7 @@ start_next_dev() {
     npm install
   fi
 
+  export WATCHPACK_POLLING=true
   echo -e "\n${GREEN}════════════════════════════════════════${NC}"
   echo -e "${GREEN}✓ 개발 서버 시작!${NC}"
   echo -e "${GREEN}════════════════════════════════════════${NC}"
@@ -114,7 +195,11 @@ start_next_dev() {
   echo -e "   사용자: kal-user@katc.com / User1234"
   echo ""
   echo -e "${YELLOW}데이터베이스:${NC}"
-  echo -e "   SQLite: ./data/katc1.db"
+  if [ "$DB_RUNTIME_MODE" = "supabase" ]; then
+    echo -e "   Supabase Postgres (DB_PROVIDER=postgresql)"
+  else
+    echo -e "   SQLite: ./data/katc1.db"
+  fi
   echo ""
   echo -e "${YELLOW}중지하려면 Ctrl+C를 누르세요${NC}\n"
 
@@ -142,8 +227,12 @@ main() {
   # 2️⃣ 캐시 초기화
   clear_cache
 
-  # 3️⃣ SQLite 설정
-  setup_sqlite
+  # 3️⃣ 데이터베이스 모드 설정 (Supabase 자동 선택)
+  if [ -f .env.local ] && grep -q "DB_PROVIDER=postgresql" .env.local; then
+    echo -e "\n${GREEN}✓ 기존 Supabase 설정 사용 (.env.local)${NC}"
+  else
+    setup_supabase
+  fi
 
   # 4️⃣ Next.js 시작
   start_next_dev

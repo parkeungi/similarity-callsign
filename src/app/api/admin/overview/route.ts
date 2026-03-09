@@ -58,30 +58,30 @@ export async function GET(request: NextRequest) {
 
         -- 항공사1 조치 상태 및 조치유형
         (SELECT status FROM actions
-         WHERE callsign_id = c.id AND airline_id = a1.id AND COALESCE(is_cancelled, 0) = 0
+         WHERE callsign_id = c.id AND airline_id = a1.id AND COALESCE(is_cancelled, false) = false
          ORDER BY registered_at DESC LIMIT 1) as airline1_action_status,
 
         (SELECT action_type FROM actions
-         WHERE callsign_id = c.id AND airline_id = a1.id AND COALESCE(is_cancelled, 0) = 0
+         WHERE callsign_id = c.id AND airline_id = a1.id AND COALESCE(is_cancelled, false) = false
          ORDER BY registered_at DESC LIMIT 1) as airline1_action_type,
 
         -- 항공사2 조치 상태 및 조치유형
         (SELECT status FROM actions
-         WHERE callsign_id = c.id AND airline_id = a2.id AND COALESCE(is_cancelled, 0) = 0
+         WHERE callsign_id = c.id AND airline_id = a2.id AND COALESCE(is_cancelled, false) = false
          ORDER BY registered_at DESC LIMIT 1) as airline2_action_status,
 
         (SELECT action_type FROM actions
-         WHERE callsign_id = c.id AND airline_id = a2.id AND COALESCE(is_cancelled, 0) = 0
+         WHERE callsign_id = c.id AND airline_id = a2.id AND COALESCE(is_cancelled, false) = false
          ORDER BY registered_at DESC LIMIT 1) as airline2_action_type,
 
         -- 항공사1 조치 완료일
         (SELECT completed_at FROM actions
-         WHERE callsign_id = c.id AND airline_id = a1.id AND status = 'completed' AND COALESCE(is_cancelled, 0) = 0
+         WHERE callsign_id = c.id AND airline_id = a1.id AND status = 'completed' AND COALESCE(is_cancelled, false) = false
          ORDER BY registered_at DESC LIMIT 1) as airline1_completed_at,
 
         -- 항공사2 조치 완료일
         (SELECT completed_at FROM actions
-         WHERE callsign_id = c.id AND airline_id = a2.id AND status = 'completed' AND COALESCE(is_cancelled, 0) = 0
+         WHERE callsign_id = c.id AND airline_id = a2.id AND status = 'completed' AND COALESCE(is_cancelled, false) = false
          ORDER BY registered_at DESC LIMIT 1) as airline2_completed_at
 
       FROM callsigns c

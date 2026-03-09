@@ -58,7 +58,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen w-full flex relative overflow-hidden bg-[#030712] font-sans">
+    <div className="min-h-screen w-full flex flex-col relative overflow-hidden bg-[#030712] font-sans">
       {/* 프리미엄 배경 레이어 */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
@@ -88,7 +88,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="relative z-30 -top-[50px] w-full flex-1 flex flex-col lg:flex-row items-center justify-between gap-16 lg:gap-32 px-10 pb-20 lg:pb-32">
+      <main className="relative z-30 w-full flex-1 flex flex-col lg:flex-row items-center justify-between gap-16 lg:gap-32 px-10 pt-20 pb-20 lg:pb-32">
 
         {/* 왼쪽 메인 슬로건 영역 */}
         <div className="flex-1 text-left animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-200 fill-mode-both lg:self-end">
@@ -220,20 +220,28 @@ export default function Home() {
         </div>
       </main>
 
-      {/* 푸터 정보 */}
-      <footer className="absolute bottom-12 left-12 right-12 z-20 flex justify-between items-end opacity-20 pointer-events-none hover:opacity-100 transition-opacity duration-300">
-        <div className="flex gap-10 font-mono text-[10px] text-white/60 tracking-[0.2em] text-left uppercase">
-          <div className="flex flex-col">
-            <span className="text-white/30 mb-1">Sector</span>
-            <span>RKRR / Incheon</span>
+      {/* 푸터 */}
+      <footer className="relative z-20 py-5 bg-gray-800 text-gray-300 border-t border-gray-700">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-wrap gap-6 items-center justify-center">
+            <div className="text-sm font-medium text-white">
+              Callsign Safety Management Platform | Korea Airports Corporation
+            </div>
+            <div className="flex gap-5 text-sm">
+              <span className="text-gray-400">Aviation Safety Division</span>
+              <div>
+                <span className="text-gray-400">T.</span>
+                <span className="font-medium ml-1">1588-2311</span>
+              </div>
+              <div>
+                <span className="text-gray-400">E.</span>
+                <span className="font-medium ml-1">info@airport.kr</span>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="text-white/30 mb-1">Status</span>
-            <span className="text-blue-400">Live Data Active</span>
+          <div className="border-t border-gray-600 mt-3 pt-3 text-xs text-gray-400 text-center">
+            © 2026 Korea Airports Corporation. All Rights Reserved.
           </div>
-        </div>
-        <div className="font-mono text-[10px] text-white/80 text-right tracking-widest uppercase">
-          © 2026 Korea Airports Corporation. All Rights Reserved.
         </div>
       </footer>
     </div>

@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { buildStorageTimestamp } from '@/lib/occurrence-format';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,19 +34,19 @@ interface ExcelRow {
   same_airline_code?: string;
   same_callsign_length?: string;
   same_number_position?: string;
-  same_number_count?: number;
-  same_number_ratio?: number;
+  same_number_count?: number | null;
+  same_number_ratio?: number | null;
   similarity?: string;
   // 관제 정보
-  max_concurrent_traffic?: number;
-  coexistence_minutes?: number;
-  error_probability?: number;
+  max_concurrent_traffic?: number | null;
+  coexistence_minutes?: number | null;
+  error_probability?: number | null;
   atc_recommendation?: string;
   // 오류 정보
   error_type?: string;
   sub_error?: string;
   risk_level?: string;
-  occurrence_count?: number;
+  occurrence_count?: number | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -167,17 +168,30 @@ export async function POST(request: NextRequest) {
           const sameAirlineCode = row[13] ? String(row[13]).trim() : undefined;
           const sameCallsignLength = row[14] ? String(row[14]).trim() : undefined;
           const sameNumberPosition = row[15] ? String(row[15]).trim() : undefined;
-          const sameNumberCount = row[16] !== undefined ? Number(row[16]) : undefined;
-          const sameNumberRatio = row[17] !== undefined ? Number(row[17]) : undefined;
+          // NaN 방지 헬퍼: 빈 셀/비숫자 → null
+          const toInt = (v: any): number | null => {
+            if (v === undefined || v === null || v === '') return null;
+            const n = Number(v);
+            return isNaN(n) ? null : Math.round(n);
+          };
+          const toFloat = (v: any): number | null => {
+            if (v === undefined || v === null || v === '') return null;
+            const n = Number(v);
+            return isNaN(n) ? null : n;
+          };
+
+          const sameNumberCount = toInt(row[16]);
+          const sameNumberRatio = toFloat(row[17]);
           const similarity = row[18] ? String(row[18]).trim() : undefined;
-          const maxConcurrentTraffic = row[19] !== undefined ? Number(row[19]) : undefined;
-          const coexistenceMinutes = row[20] !== undefined ? Number(row[20]) : undefined;
-          const errorProbability = row[21] !== undefined ? Number(row[21]) : undefined;
+          const maxConcurrentTraffic = toInt(row[19]);
+          const coexistenceMinutes = toInt(row[20]);
+          const errorProbability = toFloat(row[21]);
           const atcRecommendation = row[22] ? String(row[22]).trim() : undefined;
           const errorType = row[23] ? String(row[23]).trim() : undefined;
           const subError = row[24] ? String(row[24]).trim() : undefined;
-          // 발생건수 추출 (컬럼 25로 가정, 없으면 0)
-          const occurrenceCount = row[25] !== undefined ? Number(row[25]) : 0;
+          // 발생건수 추출 (컬럼 25로 가정, 없으면 최소 1건으로 처리)
+          const occurrenceCountRaw = toInt(row[25]);
+          const occurrenceCount = occurrenceCountRaw && occurrenceCountRaw > 0 ? occurrenceCountRaw : 1;
 
           // 항공사 코드가 우리 시스템의 항공사 코드에 매핑되는지 확인
           // 우리 시스템에서 관리하는 국내 항공사만 필터링
@@ -348,7 +362,7 @@ export async function POST(request: NextRequest) {
               ]
             );
           } else {
-            // 삽입 (Callsign + Actions 직접 처리 - better-sqlite3는 동기 DB)
+            // 삽입 (신규 Callsign + Actions 처리)
             isNewCallsign = true;
 
             try {
@@ -409,85 +423,100 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Step 2: 발생 날짜 및 시간 추출 (시작일시 row[1], 시작시간 row[2] 사용)
-          let occurredDate: string;
-          let occurredTime: string = '00:00:00'; // 기본값
-
-          if (!row[1]) {
-            // 비어있으면 오늘 날짜
-            occurredDate = new Date().toISOString().split('T')[0];
-          } else {
-            const dateValue = row[1];
-            const dateNum = typeof dateValue === 'number' ? dateValue : parseFloat(String(dateValue));
-
-            if (!isNaN(dateNum) && dateNum > 0) {
-              // Excel 날짜 일련번호 변환 (1900-01-01 기준)
-              // Excel은 1900-01-01을 1로 취급하되, 1900년 2월 29일 버그가 있음 (실제로 존재하지 않음)
-              // 따라서 1900 또는 1901 기준으로 계산
-              const excelEpoch = new Date(1900, 0, 1); // 1900-01-01
-              const daysOffset = Math.floor(dateNum) - 1; // Excel의 1 = 1900-01-01
-              const actualDate = new Date(excelEpoch.getTime() + daysOffset * 24 * 60 * 60 * 1000);
-
-              // YYYY-MM-DD 형식으로 변환
-              const year = actualDate.getFullYear();
-              const month = String(actualDate.getMonth() + 1).padStart(2, '0');
-              const day = String(actualDate.getDate()).padStart(2, '0');
-              occurredDate = `${year}-${month}-${day}`;
-            } else {
-              // 숫자가 아니거나 포맷이 다르면 문자열로 처리
-              const dateStr = String(dateValue).trim();
-              if (dateStr.includes('/')) {
-                const parts = dateStr.split('/');
-                if (parts.length === 3) {
-                  // "MM/DD/YYYY" -> "YYYY-MM-DD"
-                  occurredDate = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
-                } else {
-                  occurredDate = new Date().toISOString().split('T')[0];
-                }
-              } else if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                // 이미 "YYYY-MM-DD" 형식
-                occurredDate = dateStr;
-              } else {
-                // 포맷을 인식 못하면 오늘 날짜
-                occurredDate = new Date().toISOString().split('T')[0];
+          // Step 2: 발생 날짜 및 시간 추출 (시작일시 row[1], 종료일시(row[2])는 보조용)
+          const parseExcelDateTime = (value: any): Date | null => {
+            if (value instanceof Date && !Number.isNaN(value.getTime())) {
+              return value;
+            }
+            if (typeof value === 'number') {
+              // Excel serial (with fractional part for time)
+              const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+              return new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+            }
+            if (typeof value === 'string') {
+              const trimmed = value.trim();
+              if (!trimmed) return null;
+              const parsed = Date.parse(trimmed);
+              if (!Number.isNaN(parsed)) {
+                return new Date(parsed);
               }
             }
-          }
+            return null;
+          };
 
-          // 시간 정보 추출 (row[2])
-          if (row[2]) {
-            const timeValue = row[2];
-            const timeStr = String(timeValue).trim();
-
-            // "HH:MM:SS" 또는 "HH:MM" 형식 확인
-            if (timeStr.match(/^\d{1,2}:\d{2}(:\d{2})?$/)) {
-              const parts = timeStr.split(':');
+          const parseTimeValue = (value: any): string | null => {
+            if (value === undefined || value === null || value === '') return null;
+            if (typeof value === 'number') {
+              const totalMinutes = Math.round(value * 24 * 60);
+              const hours = Math.floor(totalMinutes / 60) % 24;
+              const minutes = totalMinutes % 60;
+              return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            }
+            const str = String(value).trim();
+            if (!str) return null;
+            if (str.match(/^\d{1,2}:\d{2}(:\d{2})?$/)) {
+              const parts = str.split(':');
               const hour = parts[0].padStart(2, '0');
               const minute = parts[1].padStart(2, '0');
-              const second = parts[2]?.padStart(2, '0') || '00';
-              occurredTime = `${hour}:${minute}:${second}`;
-            } else if (typeof timeValue === 'number' && timeValue > 0 && timeValue < 1) {
-              // Excel 시간 소수 (0.5 = 12:00:00)
-              const hours = Math.floor(timeValue * 24);
-              const minutes = Math.floor((timeValue * 24 * 60) % 60);
-              const seconds = Math.floor((timeValue * 24 * 60 * 60) % 60);
-              occurredTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+              return `${hour}:${minute}`;
+            }
+            const parsed = Date.parse(str);
+            if (!Number.isNaN(parsed)) {
+              const parsedDate = new Date(parsed);
+              return `${String(parsedDate.getHours()).padStart(2, '0')}:${String(parsedDate.getMinutes()).padStart(2, '0')}`;
+            }
+            return null;
+          };
+
+          const formatMinutes = (date: Date): string => {
+            return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+          };
+
+          const startDateTime = parseExcelDateTime(row[1]);
+          let occurredDate = startDateTime
+            ? startDateTime.toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0];
+          let occurredTime = startDateTime
+            ? formatMinutes(startDateTime)
+            : '00:00';
+
+          // 보조 시간 컬럼(row[2]) 사용 (예: 종료일시에만 시간이 있는 파일)
+          if ((!startDateTime || occurredTime === '00:00') && row[2]) {
+            const fallbackTime = parseTimeValue(row[2]);
+            if (fallbackTime) {
+              occurredTime = fallbackTime;
             }
           }
+
+          const { date: normalizedDate, timestamp } = buildStorageTimestamp(
+            occurredDate,
+            occurredTime
+          );
 
           // Step 3: callsign_occurrences 테이블에 발생 이력 저장
           // 같은 callsign이 같은 날짜+시간에 나타나면 스킵 (UNIQUE constraint)
           try {
+            // PostgreSQL TIMESTAMP 컬럼에는 전체 datetime 문자열 필요
             await query(
               `INSERT INTO callsign_occurrences
                 (callsign_id, occurred_date, occurred_time, error_type, sub_error, file_upload_id)
                VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT (callsign_id, occurred_date, occurred_time) DO NOTHING`,
-              [callsignId, occurredDate, occurredTime, rowData.error_type, rowData.sub_error, uploadId]
+              [
+                callsignId,
+                normalizedDate,
+                timestamp,
+                rowData.error_type,
+                rowData.sub_error,
+                uploadId,
+              ]
             );
           } catch (occurrenceError) {
             // 발생 이력 저장 실패해도 호출부호는 이미 저장되었으므로 진행
-            console.warn(`발생 이력 저장 실패 (callsignId: ${callsignId}, date: ${occurredDate}, time: ${occurredTime}):`, occurrenceError);
+            console.warn(
+              `발생 이력 저장 실패 (callsignId: ${callsignId}, date: ${normalizedDate}, time: ${occurredTime}):`,
+              occurrenceError
+            );
           }
 
           if (isNewCallsign) {

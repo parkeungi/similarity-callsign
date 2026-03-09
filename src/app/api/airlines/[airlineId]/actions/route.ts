@@ -78,7 +78,7 @@ export async function GET(
     // "전체" 또는 "진행중" 필터에서 포함 (완료 필터에서는 제외)
     const allowVirtualEntries = !status || status === 'in_progress';
 
-    const actionConditions: string[] = ['a.airline_id = ?', 'COALESCE(a.is_cancelled, 0) = 0'];
+    const actionConditions: string[] = ['a.airline_id = ?', 'COALESCE(a.is_cancelled, false) = false'];
     const actionParams: any[] = [airlineId];
 
     if (status && ['pending', 'in_progress', 'completed'].includes(status)) {
@@ -130,14 +130,15 @@ export async function GET(
         cs.first_occurred_at,
         cs.last_occurred_at,
         0 as is_virtual,
-        (SELECT GROUP_CONCAT(occurred_time, ',')
-         FROM callsign_occurrences
-         WHERE callsign_id = cs.id
-         ORDER BY occurred_time DESC
-         LIMIT 10) as occurrence_dates,
-        (SELECT COUNT(*) FROM callsign_occurrences WHERE callsign_id = cs.id AND error_type = '관제사오류') as atc_count,
-        (SELECT COUNT(*) FROM callsign_occurrences WHERE callsign_id = cs.id AND error_type = '조종사오류') as pilot_count,
-        (SELECT COUNT(*) FROM callsign_occurrences WHERE callsign_id = cs.id AND error_type = '오류미발생') as unknown_count
+        (SELECT STRING_AGG(
+          TO_CHAR(occurred_date, 'MM-DD') || ' ' || COALESCE(TO_CHAR(occurred_time, 'HH24:MI'), ''),
+          ',' ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST
+        ) FROM (
+          SELECT occurred_date, occurred_time FROM callsign_occurrences WHERE callsign_id = cs.id ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST LIMIT 10
+        ) _occ) as occurrence_dates,
+        (SELECT json_object_agg(error_type, cnt) FROM (
+          SELECT error_type, COUNT(*) as cnt FROM callsign_occurrences WHERE callsign_id = cs.id GROUP BY error_type
+        ) t) as error_type_counts
       FROM actions a
       LEFT JOIN airlines al ON a.airline_id = al.id
       LEFT JOIN callsigns cs ON a.callsign_id = cs.id
@@ -208,20 +209,21 @@ export async function GET(
           cs.first_occurred_at,
           cs.last_occurred_at,
           1 as is_virtual,
-          (SELECT GROUP_CONCAT(occurred_time, ',')
-           FROM callsign_occurrences
-           WHERE callsign_id = cs.id
-           ORDER BY occurred_time DESC
-           LIMIT 10) as occurrence_dates,
-          (SELECT COUNT(*) FROM callsign_occurrences WHERE callsign_id = cs.id AND error_type = '관제사오류') as atc_count,
-          (SELECT COUNT(*) FROM callsign_occurrences WHERE callsign_id = cs.id AND error_type = '조종사오류') as pilot_count,
-          (SELECT COUNT(*) FROM callsign_occurrences WHERE callsign_id = cs.id AND error_type = '오류미발생') as unknown_count
+          (SELECT STRING_AGG(
+            TO_CHAR(occurred_date, 'MM-DD') || ' ' || COALESCE(TO_CHAR(occurred_time, 'HH24:MI'), ''),
+            ',' ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST
+          ) FROM (
+            SELECT occurred_date, occurred_time FROM callsign_occurrences WHERE callsign_id = cs.id ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST LIMIT 10
+          ) _occ) as occurrence_dates,
+          (SELECT json_object_agg(error_type, cnt) FROM (
+            SELECT error_type, COUNT(*) as cnt FROM callsign_occurrences WHERE callsign_id = cs.id GROUP BY error_type
+          ) t) as error_type_counts
         FROM callsigns cs
         JOIN airlines al ON cs.airline_id = al.id
         LEFT JOIN (
           SELECT DISTINCT callsign_id, airline_id
           FROM actions
-          WHERE status IN ('pending', 'in_progress') AND COALESCE(is_cancelled, 0) = 0
+          WHERE status IN ('pending', 'in_progress') AND COALESCE(is_cancelled, false) = false
         ) active_actions
           ON active_actions.callsign_id = cs.id
           AND active_actions.airline_id = cs.airline_id
@@ -301,12 +303,7 @@ export async function GET(
         otherAirlineCode: row.other_airline_code,
         occurrence_dates: row.occurrence_dates || undefined,
         occurrenceDates: row.occurrence_dates || undefined,
-        atcCount: row.atc_count || 0,
-        pilotCount: row.pilot_count || 0,
-        unknownCount: row.unknown_count || 0,
-        atc_count: row.atc_count || 0,
-        pilot_count: row.pilot_count || 0,
-        unknown_count: row.unknown_count || 0,
+        error_type_counts: row.error_type_counts || {},
       })),
       pagination: {
         page,
@@ -440,7 +437,7 @@ export async function POST(
 
       // 상대 항공사의 현재 조치 상태 조회 (W-5 FIX)
       const otherActionCheck = await query(
-        'SELECT status FROM actions WHERE callsign_id = ? AND airline_id = ? AND COALESCE(is_cancelled, 0) = 0 ORDER BY registered_at DESC LIMIT 1',
+        'SELECT status FROM actions WHERE callsign_id = ? AND airline_id = ? AND COALESCE(is_cancelled, false) = false ORDER BY registered_at DESC LIMIT 1',
         [callsignId, otherAirlineId]
       );
       if (otherActionCheck.rows.length > 0) {
@@ -458,7 +455,7 @@ export async function POST(
     // COALESCE(is_cancelled, 0)=0인 행 우선, 그 다음 is_cancelled=1 (취소된 행)을 조회
     const existingActionResult = await query(
       `SELECT id FROM actions WHERE airline_id = ? AND callsign_id = ?
-       ORDER BY COALESCE(is_cancelled, 0) ASC, registered_at DESC LIMIT 1`,
+       ORDER BY COALESCE(is_cancelled, false) ASC, registered_at DESC LIMIT 1`,
       [airlineId, callsignId]
     );
 
@@ -487,12 +484,11 @@ export async function POST(
       existingActionId = existingActionResult.rows[0].id;
     }
 
-    // Step 2: action UPDATE 및 callsigns 동기화 (동기 트랜잭션)
-    // 📌 FIX: better-sqlite3는 동기 콜백만 지원하므로, async/await 제거
-    await transaction((trx) => {
+    // Step 2: action UPDATE 및 callsigns 동기화 (async 트랜잭션 - PostgreSQL 전용)
+    await transaction(async (trx) => {
       // 1. action 업데이트 (상태, 조치 정보, 취소 플래그 복현)
       const nowIso = new Date().toISOString();
-      trx(
+      await trx(
         `UPDATE actions SET
           action_type = ?,
           description = ?,
@@ -500,23 +496,21 @@ export async function POST(
           planned_due_date = ?,
           completed_at = ?,
           status = ?,
-          is_cancelled = 0,
+          is_cancelled = false,
           updated_at = ?
          WHERE id = ?`,
         [actionType, description || null, managerName || null, plannedDueDate || null, completedTimestamp, actionStatus, nowIso, existingActionId]
       );
 
-      // 2. callsigns 동기화 (중앙화된 함수 사용)
-      // 📌 주의: syncCallsignStatus는 async이지만, 이 콜백은 동기여야 함
-      // 해결책: callsigns 상태를 직접 업데이트 (동기 방식)
-      const airlinesResult = trx('SELECT code FROM airlines');
+      // 2. 국내 항공사 목록 조회 (완료 조건 계산용)
+      const airlinesResult = await trx('SELECT code FROM airlines');
       const domesticAirlines = new Set(
         (airlinesResult.rows || []).map((a: any) => a.code)
       );
 
       const isMy = callsignData.airline_code === airlineCode;
-      let myStatus = isMy ? actionStatus : (callsignData.my_action_status || 'no_action');
-      let otherStatus = isMy ? (callsignData.other_action_status || 'no_action') : actionStatus;
+      const myStatus = isMy ? actionStatus : (callsignData.my_action_status || 'no_action');
+      const otherStatus = isMy ? (callsignData.other_action_status || 'no_action') : actionStatus;
 
       const sameAirline = callsignData.airline_code === callsignData.other_airline_code;
       const otherIsForeignAirline = callsignData.other_airline_code && !domesticAirlines.has(callsignData.other_airline_code);
@@ -532,13 +526,13 @@ export async function POST(
         finalStatus = (myCompleted && otherCompleted) ? 'completed' : 'in_progress';
       }
 
-      // 3. callsigns 업데이트 (동기)
-      trx(
+      // 3. callsigns 상태 업데이트
+      await trx(
         `UPDATE callsigns SET my_action_status = ?, other_action_status = ?, status = ? WHERE id = ?`,
         [myStatus, otherStatus, finalStatus, callsignId]
       );
 
-      return true; // 트랜잭션 성공
+      return true;
     });
 
     // Step 3: 업데이트된 조치 조회

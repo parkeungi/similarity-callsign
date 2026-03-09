@@ -65,8 +65,9 @@ export async function GET(request: NextRequest) {
       params.push(dateFrom);
     }
     if (dateTo) {
-      sql += ` AND uploaded_at <= datetime(?, '+1 day')`;
-      params.push(dateTo);
+      const exclusiveDateTo = getExclusiveDateTo(dateTo);
+      sql += ` AND uploaded_at < ?`;
+      params.push(exclusiveDateTo);
     }
 
     sql += ` GROUP BY risk_level`;
@@ -102,4 +103,17 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function getExclusiveDateTo(dateStr: string): string {
+  let base = new Date(dateStr);
+  if (Number.isNaN(base.getTime())) {
+    base = new Date(`${dateStr}T00:00:00Z`);
+  }
+  if (Number.isNaN(base.getTime())) {
+    throw new Error('유효하지 않은 dateTo 값입니다.');
+  }
+  base.setUTCHours(0, 0, 0, 0);
+  base.setUTCDate(base.getUTCDate() + 1);
+  return base.toISOString();
 }

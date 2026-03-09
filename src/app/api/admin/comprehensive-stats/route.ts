@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { dayBucket, hourBucket, monthBucket, fullTime } from '@/lib/db/sql-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,30 +24,30 @@ export async function GET(request: NextRequest) {
         let conditions = '';
         const params: string[] = [];
         if (dateFrom) {
-            conditions += ' AND c.uploaded_at >= ?';
+            conditions += ' AND DATE(c.uploaded_at) >= DATE(?)';
             params.push(dateFrom);
         }
         if (dateTo) {
-            conditions += " AND c.uploaded_at <= datetime(?, '+1 day')";
+            conditions += ' AND DATE(c.uploaded_at) <= DATE(?)';
             params.push(dateTo);
         }
 
         // 1. 월별 트렌드
         const monthlySql = `
-      SELECT strftime('%Y-%m', c.uploaded_at) as month, COUNT(*) as count 
+      SELECT ${monthBucket('c.uploaded_at')} as month, COUNT(*) as count 
       FROM callsigns c 
       WHERE 1=1 ${conditions} 
-      GROUP BY month 
+      GROUP BY 1 
       ORDER BY month ASC
     `;
         const monthlyTrend = (await query(monthlySql, params)).rows;
 
         // 2. 일별 트렌드 (최근 30일 등 짧은 기간일 때 주로 사용)
         const dailySql = `
-      SELECT strftime('%m-%d', c.uploaded_at) as day, COUNT(*) as count 
+      SELECT ${dayBucket('c.uploaded_at')} as day, COUNT(*) as count 
       FROM callsigns c 
       WHERE 1=1 ${conditions} 
-      GROUP BY day 
+      GROUP BY 1 
       ORDER BY day ASC
     `;
         const dailyTrend = (await query(dailySql, params)).rows;
@@ -75,11 +76,11 @@ export async function GET(request: NextRequest) {
         // 5. 노선별 추이 Top 5
         // coalesce를 사용하여 null 처리
         const routeSql = `
-      SELECT COALESCE(c.departure_airport1, '미상') || '-' || COALESCE(c.arrival_airport1, '미상') as name, COUNT(*) as count 
-      FROM callsigns c 
+      SELECT COALESCE(c.departure_airport1, '미상') || '-' || COALESCE(c.arrival_airport1, '미상') as name, COUNT(*) as count
+      FROM callsigns c
       WHERE 1=1 ${conditions}
-      GROUP BY name 
-      ORDER BY count DESC 
+      GROUP BY 1
+      ORDER BY count DESC
       LIMIT 6
     `;
         // 미상-미상이 1위일 수 있으므로 6개를 뽑아 미상-미상을 제외하거나 필터링
@@ -90,11 +91,13 @@ export async function GET(request: NextRequest) {
         // 6. 시간대별 추이
         // occurrences 테이블과 조인하여 occurred_time 추출 (시간대 00, 01, ...)
         const timeSql = `
-      SELECT strftime('%H', o.occurred_time) as hour, COUNT(*) as count
+      SELECT ${hourBucket('o.occurred_time')} as hour, COUNT(*) as count
       FROM callsign_occurrences o
       JOIN callsigns c ON c.id = o.callsign_id
-      WHERE o.occurred_time IS NOT NULL AND o.occurred_time != '00:00:00' ${conditions.replace(/c\./g, 'c.')}
-      GROUP BY hour
+      WHERE o.occurred_time IS NOT NULL
+        AND ${fullTime('o.occurred_time')} != '00:00:00'
+        ${conditions.replace(/c\./g, 'c.')}
+      GROUP BY 1
       ORDER BY hour ASC
     `;
         const timeRows = (await query(timeSql, params)).rows;

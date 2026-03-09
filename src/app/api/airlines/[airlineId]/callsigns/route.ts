@@ -12,6 +12,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
 
+function normalizeOccurrenceTime(value: any): string {
+  if (!value) return '00:00';
+  const normalizeDateString = (input: string) => input.replace('T', ' ').trim();
+
+  const parsed = new Date(normalizeDateString(String(value)));
+  if (!Number.isNaN(parsed.getTime())) {
+    return `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`;
+  }
+
+  const str = String(value).trim();
+  const match = str.match(/(\d{1,2}):(\d{2})/);
+  if (match) {
+    const hour = match[1].padStart(2, '0');
+    const minute = match[2];
+    return `${hour}:${minute}`;
+  }
+  return '00:00';
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ airlineId: string }> }
@@ -63,7 +82,7 @@ export async function GET(
 
     // 항공사 코드 조회
     const airlineCodeResult = await query(
-      'SELECT id, code FROM airlines WHERE id = ?',
+      'SELECT id, code FROM airlines WHERE id = $1',
       [requestedAirlineId]
     );
 
@@ -80,19 +99,19 @@ export async function GET(
     const validRiskLevels = ['매우높음', '높음', '낮음'];
     const filteredRiskLevel = riskLevel && validRiskLevels.includes(riskLevel) ? riskLevel : null;
 
-    // 📌 해당 항공사의 호출부호만 조회 (airline_code = ?)
-    // 예: ESR 사용자 → airline_code = 'ESR'인 항공사의 호출부호만
-    // 관리자 → 요청한 항공사의 호출부호만
-
+    // PostgreSQL 파라미터 빌드
     const queryParams: (string | number)[] = [airlineCode];
     let riskLevelCondition = '';
 
     if (filteredRiskLevel) {
       queryParams.push(filteredRiskLevel);
-      riskLevelCondition = `AND risk_level = ?`;
+      riskLevelCondition = `AND risk_level = $${queryParams.length}`;
     }
 
-    queryParams.push(limit, offset);
+    queryParams.push(limit);
+    const limitIdx = queryParams.length;
+    queryParams.push(offset);
+    const offsetIdx = queryParams.length;
 
     const callsignsResult = await query(
       `SELECT
@@ -104,7 +123,7 @@ export async function GET(
          c.first_occurred_at,
          c.last_occurred_at
        FROM callsigns c
-       WHERE c.airline_code = ?
+       WHERE c.airline_code = $1
          ${riskLevelCondition}
        ORDER BY
          CASE WHEN c.status = 'in_progress' THEN 0 ELSE 1 END,
@@ -116,26 +135,26 @@ export async function GET(
          END DESC,
          COALESCE(c.occurrence_count, 0) DESC,
          c.last_occurred_at DESC
-       LIMIT ? OFFSET ?`,
+       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
     );
 
     // 각 호출부호에 대한 조치 상태 조회
     const callsignIds = callsignsResult.rows.map((cs: any) => cs.id);
-    let actionStatusMap: { [key: string]: any } = {};
-    let occurrencesMap: { [key: string]: any[] } = {};
-    let errorTypeSummaryMap: { [key: string]: any[] } = {};
+    const actionStatusMap: { [key: string]: any } = {};
+    const occurrencesMap: { [key: string]: any[] } = {};
+    const errorTypeSummaryMap: { [key: string]: any[] } = {};
 
     if (callsignIds.length > 0) {
-      const placeholders = callsignIds.map(() => '?').join(',');
+      const inPlaceholders = callsignIds.map((_: any, i: number) => `$${i + 1}`).join(',');
 
       // 조치 상태 조회 (취소되지 않은 조치만)
       const actionsResult = await query(
         `SELECT id, callsign_id, status, action_type, completed_at
          FROM actions
-         WHERE callsign_id IN (${placeholders})
-           AND airline_id = ?
-           AND COALESCE(is_cancelled, 0) = 0
+         WHERE callsign_id IN (${inPlaceholders})
+           AND airline_id = $${callsignIds.length + 1}
+           AND COALESCE(is_cancelled, false) = false
          ORDER BY registered_at DESC`,
         [...callsignIds, requestedAirlineId]
       );
@@ -148,11 +167,12 @@ export async function GET(
       }
 
       // 발생 이력 상세 조회 (callsign_occurrences 테이블) - 날짜와 시간 모두 포함
+      const occPlaceholders = callsignIds.map((_: any, i: number) => `$${i + 1}`).join(',');
       const occurrencesResult = await query(
         `SELECT callsign_id, occurred_date, occurred_time, error_type, sub_error
          FROM callsign_occurrences
-         WHERE callsign_id IN (${placeholders})
-         ORDER BY occurred_date DESC, COALESCE(occurred_time, '00:00:00') DESC`,
+         WHERE callsign_id IN (${occPlaceholders})
+         ORDER BY occurred_date DESC, COALESCE(occurred_time::text, '00:00:00') DESC`,
         callsignIds
       );
 
@@ -163,7 +183,7 @@ export async function GET(
         }
         occurrencesMap[occ.callsign_id].push({
           occurredDate: occ.occurred_date,
-          occurredTime: occ.occurred_time || '00:00:00',
+          occurredTime: normalizeOccurrenceTime(occ.occurred_time),
           errorType: occ.error_type,
           subError: occ.sub_error,
         });
@@ -174,7 +194,7 @@ export async function GET(
         const occurrences = occurrencesMap[callsignId] || [];
         const summary: { [key: string]: number } = {};
         for (const occ of occurrences) {
-          const normalizedType = occ.error_type?.replace(/\s+/g, '') || '오류미발생';
+          const normalizedType = occ.errorType?.replace(/\s+/g, '') || '미분류';
           summary[normalizedType] = (summary[normalizedType] || 0) + 1;
         }
         errorTypeSummaryMap[callsignId] = Object.entries(summary).map(([errorType, count]) => ({
@@ -184,18 +204,18 @@ export async function GET(
       }
     }
 
-    // 전체 개수 조회 (GROUP BY된 결과의 전체 개수)
+    // 전체 개수 조회
     const countParams: (string | number)[] = [airlineCode];
     let countRiskCondition = '';
     if (filteredRiskLevel) {
       countParams.push(filteredRiskLevel);
-      countRiskCondition = `AND c.risk_level = ?`;
+      countRiskCondition = `AND c.risk_level = $${countParams.length}`;
     }
 
     const countResult = await query(
       `SELECT COUNT(DISTINCT c.id) as total
        FROM callsigns c
-       WHERE c.airline_code = ?
+       WHERE c.airline_code = $1
          ${countRiskCondition}`,
       countParams
     );

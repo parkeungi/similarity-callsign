@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       FROM actions a
       LEFT JOIN airlines al ON a.airline_id = al.id
       LEFT JOIN callsigns cs ON a.callsign_id = cs.id
-      WHERE COALESCE(a.is_cancelled, 0) = 0
+      WHERE COALESCE(a.is_cancelled, false) = false
     `;
     const queryParams: any[] = [];
 
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
     const result = await query(sql, queryParams);
 
     // 전체 개수 조회 (SQLite 호환)
-    let countSql = `SELECT COUNT(*) as total FROM actions a LEFT JOIN callsigns cs ON a.callsign_id = cs.id WHERE COALESCE(a.is_cancelled, 0) = 0`;
+    let countSql = `SELECT COUNT(*) as total FROM actions a LEFT JOIN callsigns cs ON a.callsign_id = cs.id WHERE COALESCE(a.is_cancelled, false) = false`;
     const countParams: any[] = [];
 
     if (airlineId) {
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
 
     // 상태별 통계 조회 (전체 데이터 기준)
     let summaryCountParams: any[] = [];
-    let summarySql = `SELECT a.status, COUNT(*) as count FROM actions a LEFT JOIN callsigns cs ON a.callsign_id = cs.id WHERE COALESCE(a.is_cancelled, 0) = 0`;
+    let summarySql = `SELECT a.status, COUNT(*) as count FROM actions a LEFT JOIN callsigns cs ON a.callsign_id = cs.id WHERE COALESCE(a.is_cancelled, false) = false`;
 
     if (airlineId) {
       summarySql += ` AND a.airline_id = ?`;

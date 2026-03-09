@@ -111,6 +111,12 @@ export function StatisticsTab() {
 
   const sysData = sysStatsQuery.data;
 
+  // 항공사 목록 정렬 (호출부호 많은 순)
+  const sortedAirlineStats = useMemo(() => {
+    if (!airlineDetailStatsQuery.data) return [];
+    return [...airlineDetailStatsQuery.data].sort((a, b) => b.total_callsigns - a.total_callsigns);
+  }, [airlineDetailStatsQuery.data]);
+
   // 도넛 차트 포맷터
   const formatDonutLabel = ({ percent }: { percent?: number }) => {
     if (!percent || percent === 0) return '';
@@ -239,8 +245,8 @@ export function StatisticsTab() {
             {riskPieData.length > 0 ? (
               <>
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={riskPieData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={2} dataKey="value" labelLine={false} label={formatDonutLabel}>
+                  <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                    <Pie data={riskPieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} dataKey="value" labelLine={false} label={formatDonutLabel}>
                       {riskPieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
                     </Pie>
                     <Tooltip formatter={(value: any) => [`${value}건`, '위험도']} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgb(0 0 0 / 0.1)' }} />
@@ -266,8 +272,8 @@ export function StatisticsTab() {
             {errorPieData.length > 0 ? (
               <>
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={errorPieData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={2} dataKey="value" labelLine={false} label={formatDonutLabel}>
+                  <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                    <Pie data={errorPieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} dataKey="value" labelLine={false} label={formatDonutLabel}>
                       {errorPieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
                     </Pie>
                     <Tooltip formatter={(value: any) => [`${value}건`, '건수']} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgb(0 0 0 / 0.1)' }} />
@@ -311,7 +317,7 @@ export function StatisticsTab() {
             <h3 className="text-lg font-black text-slate-800 tracking-tight">항공사별 상세 통계</h3>
           </div>
         </div>
-        {airlineDetailStatsQuery.data && airlineDetailStatsQuery.data.length > 0 ? (
+        {sortedAirlineStats.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -323,7 +329,7 @@ export function StatisticsTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {airlineDetailStatsQuery.data.map((stat) => (
+                {sortedAirlineStats.map((stat) => (
                   <tr key={stat.airline_id} className="group hover:bg-slate-50/80 transition-colors">
                     <td className="px-8 py-5 font-bold text-slate-800 text-[15px]">{stat.airline_code}</td>
                     <td className="px-8 py-5 text-center font-semibold text-slate-500">{stat.total_callsigns}개</td>

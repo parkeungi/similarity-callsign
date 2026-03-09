@@ -563,6 +563,107 @@ UI 표시:
 
 ---
 
+#### 🐘 **pgsql-migrator 에이전트** (SQLite → PostgreSQL 마이그레이션)
+**목적**: SQLite 기반 코드를 PostgreSQL로 완전 마이그레이션하고, 모든 쿼리/설정/의존성을 정확하게 수정하는 시니어 개발자
+
+**자동 호출 시점**:
+```
+조건: 아래 파일 수정 또는 pgsql 마이그레이션 관련 작업 시 자동 실행
+예시:
+  - scripts/init.sql 또는 스키마 파일 수정
+  - src/lib/db.ts 또는 데이터베이스 연결 모듈 수정
+  - package.json에서 better-sqlite3 제거 / pg 추가 시
+  - "pgsql 마이그레이션", "postgres 전환" 요청 시
+```
+
+**주요 책임**:
+- SQLite 전용 문법 → PostgreSQL 문법으로 변환
+  - `INTEGER PRIMARY KEY AUTOINCREMENT` → `SERIAL PRIMARY KEY` 또는 `BIGSERIAL`
+  - `?` 플레이스홀더 → `$1, $2, $3` 플레이스홀더
+  - `DATETIME('now')` → `NOW()`
+  - `COALESCE` 호환성 확인
+  - `TEXT` / `BLOB` 타입 매핑
+  - `PRAGMA` 구문 제거
+  - `RETURNING` 절 활용 (INSERT 후 ID 반환)
+- `better-sqlite3` → `pg` (node-postgres) 또는 `@vercel/postgres` 전환
+- 동기식 SQLite API → 비동기식 Promise/async-await로 전환
+- 트랜잭션 방식 변환 (`BEGIN/COMMIT` → `pg` 트랜잭션 패턴)
+- 연결 풀(Connection Pool) 설정 (`pg.Pool`)
+- `.env` 환경 변수 업데이트 (`DATABASE_URL` 형식)
+- `scripts/init.sql` PostgreSQL 호환 스키마로 재작성
+- 전체 `src/app/api/**` 쿼리 소스 일괄 검토 및 수정
+
+**마이그레이션 체크리스트**:
+```
+[ ] 1. 패키지 교체: better-sqlite3 제거, pg/postgres 설치
+[ ] 2. DB 연결 모듈 재작성 (src/lib/db.ts)
+[ ] 3. 플레이스홀더 전환: ? → $1, $2, $3 (모든 쿼리 파일)
+[ ] 4. 동기 API → async/await 전환 (db.prepare().all() → pool.query())
+[ ] 5. AUTO_INCREMENT → SERIAL (스키마 파일)
+[ ] 6. DATETIME/TIMESTAMP 타입 정합성 확인
+[ ] 7. BOOLEAN 타입: SQLite 0/1 정수 → PostgreSQL true/false
+[ ] 8. PRAGMA 구문 전체 제거 (foreign_keys, journal_mode 등)
+[ ] 9. 트랜잭션 패턴 변환 (BEGIN/COMMIT → client.query 방식)
+[ ] 10. RETURNING 절 활용 (INSERT 후 id 반환)
+[ ] 11. 환경 변수: DATABASE_URL 설정 (.env.local, .env.example)
+[ ] 12. Render.com / Vercel Postgres 연결 문자열 설정
+[ ] 13. 전체 빌드 확인: npm run build
+[ ] 14. API 쿼리 결과 타입 재정의 (rows[0] 패턴)
+```
+
+**SQLite → PostgreSQL 변환 예시**:
+```typescript
+// ❌ SQLite (before)
+import Database from 'better-sqlite3';
+const db = new Database('data/katc1.db');
+const rows = db.prepare('SELECT * FROM users WHERE id = ?').all(id);
+
+// ✅ PostgreSQL (after)
+import { Pool } from 'pg';
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+```
+
+```sql
+-- ❌ SQLite 스키마
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at DATETIME DEFAULT (DATETIME('now'))
+);
+
+-- ✅ PostgreSQL 스키마
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**검증 프로세스**:
+```
+1. 전체 src/app/api/** 파일 스캔 → SQLite 패턴 잔존 여부 확인
+2. 쿼리 플레이스홀더 전수 검사 (? 잔존 없는지)
+3. 동기 API 잔존 여부 검사 (.prepare, .all, .get, .run)
+4. npm run build 성공 여부 확인
+5. 결과 리포트 출력
+```
+
+**보유 권한**:
+```
+도구: Read, Write, Edit, Glob, Grep, Bash
+접근 범위: src/lib/db.ts, src/app/api/**, scripts/**, package.json, .env.example
+제한사항: 인증 토큰 로직 변경 불가, UI 컴포넌트 수정 불가
+```
+
+**명령어 예시**:
+```
+"pgsql 마이그레이션 해줘"
+"sqlite를 postgres로 전환해줘"
+"db 연결 모듈 pgsql로 바꿔줘"
+"쿼리 소스 전체 pgsql 문법으로 수정해줘"
+```
+
+---
+
 ### 에이전트 선택 기준
 
 | 상황 | 할당 에이전트 |
@@ -571,9 +672,11 @@ UI 표시:
 | Airline 페이지 검증 | **✅ airline-validator** (자동 검증) |
 | Admin 페이지 수정 | 👨‍💼 admin |
 | **Actions API 수정** | **🧪 actions-test** (자동 테스트) |
+| **SQLite → PostgreSQL 마이그레이션** | **🐘 pgsql-migrator** (자동 실행) |
+| **쿼리 문법 pgsql 전환** | **🐘 pgsql-migrator** (자동 실행) |
 | API 엔드포인트 수정 | security-architect (보안 검증) |
 | 인증 시스템 수정 | 직접 처리 (에이전트 미배정) |
-| 데이터베이스 스키마 | 직접 처리 (에이전트 미배정) |
+| 데이터베이스 스키마 | 🐘 pgsql-migrator (마이그레이션 시) |
 | 코드 품질 검증 | code-analyzer |
 | Gap 분석 | gap-detector |
 

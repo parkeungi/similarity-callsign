@@ -61,6 +61,19 @@ function calculateFinalStatus(
   }
 }
 
+function getExclusiveDateTo(dateStr: string): string {
+  let base = new Date(dateStr);
+  if (Number.isNaN(base.getTime())) {
+    base = new Date(`${dateStr}T00:00:00Z`);
+  }
+  if (Number.isNaN(base.getTime())) {
+    throw new Error('유효하지 않은 dateTo 값입니다.');
+  }
+  base.setUTCHours(0, 0, 0, 0);
+  base.setUTCDate(base.getUTCDate() + 1);
+  return base.toISOString();
+}
+
 export async function GET(request: NextRequest) {
   try {
     // 인증 확인
@@ -123,60 +136,92 @@ export async function GET(request: NextRequest) {
 
     // SQL 쿼리 파라미터 구성 (페이지네이션은 필터 후 Node.js에서 처리)
     const sqlParams: (string | number)[] = [];
-    let conditions = '';
+    const whereClauses: string[] = [];
 
     if (filteredRiskLevel) {
-      if (conditions) {
-        conditions += ` AND c.risk_level = ?`;
-      } else {
-        conditions = `WHERE c.risk_level = ?`;
-      }
       sqlParams.push(filteredRiskLevel);
+      whereClauses.push(`c.risk_level = $${sqlParams.length}`);
     }
 
     if (airlineId) {
-      if (conditions) {
-        conditions += ` AND c.airline_id = ?`;
-      } else {
-        conditions = `WHERE c.airline_id = ?`;
-      }
       sqlParams.push(airlineId);
+      whereClauses.push(`c.airline_id = $${sqlParams.length}`);
     }
 
     if (dateFrom) {
-      if (conditions) {
-        conditions += ` AND c.uploaded_at >= ?`;
-      } else {
-        conditions = `WHERE c.uploaded_at >= ?`;
-      }
       sqlParams.push(dateFrom);
+      whereClauses.push(`c.uploaded_at >= $${sqlParams.length}`);
     }
 
     if (dateTo) {
-      if (conditions) {
-        conditions += ` AND c.uploaded_at <= datetime(?, '+1 day')`;
-      } else {
-        conditions = `WHERE c.uploaded_at <= datetime(?, '+1 day')`;
-      }
-      sqlParams.push(dateTo);
+      const exclusiveDateTo = getExclusiveDateTo(dateTo);
+      sqlParams.push(exclusiveDateTo);
+      whereClauses.push(`c.uploaded_at < $${sqlParams.length}`);
     }
 
+    const conditions = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
     // 호출부호 목록 조회 (callsigns + actions 조인으로 조치유형과 처리일자 포함)
-    // 취소되지 않은 조치 정보만 가져오기 (is_cancelled = 0, SQLite INTEGER 타입)
-    // 각 호출부호당 가장 최근의 조치 정보 선택 (서브쿼리 사용)
-    // ⚠️ NOTE: 발생이력, description 등은 별도 API 엔드포인트에서 조회하도록 분리
+    // 자사/타사 조치 상세정보를 airline_code 기준으로 각각 조회
     const callsignsResult = await query(
       `SELECT c.id, c.airline_id, c.airline_code, c.callsign_pair, c.my_callsign, c.other_callsign,
               c.other_airline_code, c.error_type, c.sub_error, c.risk_level, c.similarity,
               c.occurrence_count, c.first_occurred_at, c.last_occurred_at,
               c.file_upload_id, c.uploaded_at, c.status, c.created_at, c.updated_at,
               c.my_action_status, c.other_action_status,
+              -- 자사 조치 상세 (airline_code 기준)
               (SELECT a.action_type FROM actions a
-               WHERE a.callsign_id = c.id AND COALESCE(a.is_cancelled, 0) = 0
+               JOIN airlines al ON a.airline_id = al.id
+               WHERE a.callsign_id = c.id AND al.code = c.airline_code
+               AND COALESCE(a.is_cancelled, false) = false
                ORDER BY a.registered_at DESC LIMIT 1) as action_type,
               (SELECT a.completed_at FROM actions a
-               WHERE a.callsign_id = c.id AND COALESCE(a.is_cancelled, 0) = 0
-               ORDER BY a.registered_at DESC LIMIT 1) as action_completed_at
+               JOIN airlines al ON a.airline_id = al.id
+               WHERE a.callsign_id = c.id AND al.code = c.airline_code
+               AND COALESCE(a.is_cancelled, false) = false
+               ORDER BY a.registered_at DESC LIMIT 1) as action_completed_at,
+              (SELECT a.description FROM actions a
+               JOIN airlines al ON a.airline_id = al.id
+               WHERE a.callsign_id = c.id AND al.code = c.airline_code
+               AND COALESCE(a.is_cancelled, false) = false
+               ORDER BY a.registered_at DESC LIMIT 1) as my_action_description,
+              (SELECT a.manager_name FROM actions a
+               JOIN airlines al ON a.airline_id = al.id
+               WHERE a.callsign_id = c.id AND al.code = c.airline_code
+               AND COALESCE(a.is_cancelled, false) = false
+               ORDER BY a.registered_at DESC LIMIT 1) as my_manager_name,
+              -- 타사 조치 상세 (other_airline_code 기준)
+              (SELECT a.action_type FROM actions a
+               JOIN airlines al ON a.airline_id = al.id
+               WHERE a.callsign_id = c.id AND al.code = c.other_airline_code
+               AND COALESCE(a.is_cancelled, false) = false
+               ORDER BY a.registered_at DESC LIMIT 1) as other_action_type_detail,
+              (SELECT a.description FROM actions a
+               JOIN airlines al ON a.airline_id = al.id
+               WHERE a.callsign_id = c.id AND al.code = c.other_airline_code
+               AND COALESCE(a.is_cancelled, false) = false
+               ORDER BY a.registered_at DESC LIMIT 1) as other_action_description,
+              (SELECT a.manager_name FROM actions a
+               JOIN airlines al ON a.airline_id = al.id
+               WHERE a.callsign_id = c.id AND al.code = c.other_airline_code
+               AND COALESCE(a.is_cancelled, false) = false
+               ORDER BY a.registered_at DESC LIMIT 1) as other_manager_name,
+              (SELECT a.completed_at FROM actions a
+               JOIN airlines al ON a.airline_id = al.id
+               WHERE a.callsign_id = c.id AND al.code = c.other_airline_code
+               AND COALESCE(a.is_cancelled, false) = false
+               ORDER BY a.registered_at DESC LIMIT 1) as other_completed_at,
+              -- 오류유형별 발생건수 (동적)
+              (SELECT json_object_agg(error_type, cnt) FROM (
+                SELECT error_type, COUNT(*) as cnt FROM callsign_occurrences WHERE callsign_id = c.id GROUP BY error_type
+              ) t) as error_type_counts,
+              -- 발생이력 날짜+시간 목록 (MM-DD HH:MM 포맷)
+              (SELECT STRING_AGG(
+                TO_CHAR(occurred_date, 'MM-DD') || ' ' || COALESCE(TO_CHAR(occurred_time, 'HH24:MI'), ''),
+                ',' ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST
+              ) FROM (
+                SELECT occurred_date, occurred_time FROM callsign_occurrences WHERE callsign_id = c.id ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST LIMIT 15
+              ) _occ) as occurrence_dates
        FROM callsigns c
        ${conditions}
        ORDER BY
@@ -323,9 +368,16 @@ export async function GET(request: NextRequest) {
         my_airline_code: callsign.airline_code,
         my_action_status: callsign.my_action_status || 'no_action',
         other_action_status: callsign.other_action_status || 'no_action',
-        // 조치 정보 (actions 테이블)
-        action_type: callsign.action_type || '-',
+        // 자사 조치 상세 (actions 테이블)
+        action_type: callsign.action_type || null,
         action_completed_at: callsign.action_completed_at || null,
+        my_action_description: callsign.my_action_description || null,
+        my_manager_name: callsign.my_manager_name || null,
+        // 타사 조치 상세
+        other_action_type_detail: callsign.other_action_type_detail || null,
+        other_action_description: callsign.other_action_description || null,
+        other_manager_name: callsign.other_manager_name || null,
+        other_completed_at: callsign.other_completed_at || null,
         // 최종 조치 상태 (3가지)
         // - complete: 조치 완료
         //   ├─ 같은 항공사(KAL-KAL): 한쪽만 완료해도 완료
@@ -339,6 +391,9 @@ export async function GET(request: NextRequest) {
           callsign.other_airline_code,
           domesticAirlines
         ),
+        // 오류유형별 발생건수 (동적)
+        error_type_counts: callsign.error_type_counts || {},
+        occurrence_dates: callsign.occurrence_dates || null,
       })),
       pagination: {
         page,

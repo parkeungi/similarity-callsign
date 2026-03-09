@@ -28,7 +28,7 @@ export type DateRangeType = 'custom' | 'today' | '1w' | '2w' | '1m';
  */
 export interface OccurrenceDetail {
   occurredDate: string;      // 발생 날짜
-  occurredTime: string | null; // 발생 시간 (YYYY-MM-DD HH:MM:SS)
+  occurredTime: string | null; // 발생 시간 (HH:MM, 24시간제)
   errorType: string;         // 오류 유형
   subError: string;          // 세부 오류
 }

@@ -84,10 +84,84 @@ ON CONFLICT (code) DO NOTHING;
 -- bcrypt hash for '1234': $2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm
 -- ================================================================
 
+-- 관리자 계정 (2명)
 INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
 SELECT 'lsi117@airport.co.kr', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
   airlines.id, 'active', 'admin', false, false
 FROM airlines WHERE airlines.code = 'KAL'
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
+SELECT 'parkeungi21@korea.kr', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+  airlines.id, 'active', 'admin', false, false
+FROM airlines WHERE airlines.code = 'KAL'
+ON CONFLICT (email) DO NOTHING;
+
+-- 항공사 담당자 계정 (항공사별 1명, 초기 로그인 시 비밀번호 변경 필요)
+INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
+SELECT 'kal@test.com', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+  airlines.id, 'active', 'user', true, true
+FROM airlines WHERE airlines.code = 'KAL'
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
+SELECT 'aar@test.com', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+  airlines.id, 'active', 'user', true, true
+FROM airlines WHERE airlines.code = 'AAR'
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
+SELECT 'jja@test.com', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+  airlines.id, 'active', 'user', true, true
+FROM airlines WHERE airlines.code = 'JJA'
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
+SELECT 'jna@test.com', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+  airlines.id, 'active', 'user', true, true
+FROM airlines WHERE airlines.code = 'JNA'
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
+SELECT 'twb@test.com', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+  airlines.id, 'active', 'user', true, true
+FROM airlines WHERE airlines.code = 'TWB'
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
+SELECT 'abl@test.com', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+  airlines.id, 'active', 'user', true, true
+FROM airlines WHERE airlines.code = 'ABL'
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
+SELECT 'asv@test.com', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+  airlines.id, 'active', 'user', true, true
+FROM airlines WHERE airlines.code = 'ASV'
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
+SELECT 'eok@test.com', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+  airlines.id, 'active', 'user', true, true
+FROM airlines WHERE airlines.code = 'EOK'
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
+SELECT 'fgw@test.com', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+  airlines.id, 'active', 'user', true, true
+FROM airlines WHERE airlines.code = 'FGW'
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
+SELECT 'apz@test.com', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+  airlines.id, 'active', 'user', true, true
+FROM airlines WHERE airlines.code = 'APZ'
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
+SELECT 'esr@test.com', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+  airlines.id, 'active', 'user', true, true
+FROM airlines WHERE airlines.code = 'ESR'
 ON CONFLICT (email) DO NOTHING;
 
 -- ================================================================
@@ -168,6 +242,12 @@ CREATE TABLE IF NOT EXISTS callsigns (
   status VARCHAR(20) NOT NULL DEFAULT 'in_progress'
     CHECK (status IN ('in_progress', 'completed')),
 
+  -- 항공사별 조치 상태 (내 항공사 / 상대 항공사)
+  my_action_status VARCHAR(20) DEFAULT 'no_action'
+    CHECK (my_action_status IN ('no_action', 'pending', 'in_progress', 'completed')),
+  other_action_status VARCHAR(20) DEFAULT 'no_action'
+    CHECK (other_action_status IN ('no_action', 'pending', 'in_progress', 'completed')),
+
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
@@ -237,7 +317,10 @@ CREATE TABLE IF NOT EXISTS actions (
   -- 관리자 검토 (선택사항)
   reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
   reviewed_at TIMESTAMP,
-  review_comment TEXT
+  review_comment TEXT,
+
+  -- 취소 여부 (취소 시 true, 물리 삭제 금지)
+  is_cancelled BOOLEAN DEFAULT false
 );
 
 CREATE INDEX IF NOT EXISTS idx_actions_airline_id ON actions(airline_id);
@@ -325,3 +408,30 @@ CREATE INDEX IF NOT EXISTS idx_announcement_views_user_id ON announcement_views(
 CREATE INDEX IF NOT EXISTS idx_announcement_views_viewed_at ON announcement_views(viewed_at DESC);
 
 -- 샘플 데이터 제거됨 - 실제 데이터는 엑셀 업로드를 통해 등록
+
+-- ================================================================
+-- Phase 6: 조치 유형 관리 시스템
+-- ================================================================
+
+CREATE TABLE IF NOT EXISTS action_types (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(100) UNIQUE NOT NULL,       -- "편명 변경", "브리핑 시행" 등
+  description TEXT,                        -- 조치 유형 설명
+  display_order INT NOT NULL DEFAULT 0,    -- 표시 순서
+  is_active BOOLEAN NOT NULL DEFAULT true, -- 활성 여부
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_action_types_display_order ON action_types(display_order);
+CREATE INDEX IF NOT EXISTS idx_action_types_is_active ON action_types(is_active);
+
+-- 기본 조치 유형 6개 시드 데이터
+INSERT INTO action_types (name, description, display_order) VALUES
+('편명 변경',    '항공편 편명을 변경하여 유사호출부호 혼동 방지',             1),
+('브리핑 시행',  '조종사 및 관제사 대상 유사호출부호 관련 안전 브리핑 실시', 2),
+('모니터링 강화','해당 호출부호 쌍에 대한 관제 모니터링 강도 강화',          3),
+('절차 개선',    '관련 운항 및 관제 절차를 검토하고 개선',                   4),
+('시스템 개선',  '항공 시스템 또는 소프트웨어 관련 개선 조치 수행',          5),
+('기타',         '위 분류에 해당하지 않는 기타 조치',                        6)
+ON CONFLICT (name) DO NOTHING;

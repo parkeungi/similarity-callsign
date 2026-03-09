@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '@/store/authStore';
-import { useAnnouncementHistory, announcementQueryKeys } from '@/hooks/useAnnouncements';
+import { useAnnouncementHistory, useViewAnnouncement } from '@/hooks/useAnnouncements';
 import {
   ANNOUNCEMENT_LEVEL_META,
   ANNOUNCEMENT_STATUS_META,
@@ -39,8 +37,7 @@ export function AirlineAnnouncementList({
   defaultLimit = 10,
   initialStatus = 'all',
 }: AirlineAnnouncementListProps) {
-  const { accessToken } = useAuthStore();
-  const queryClient = useQueryClient();
+  const viewAnnouncement = useViewAnnouncement();
 
   // 필터 및 페이지네이션 상태
   const [searchInput, setSearchInput] = useState('');
@@ -92,24 +89,9 @@ export function AirlineAnnouncementList({
 
   // 공지사항 읽음 처리
   const handleMarkAsRead = async (announcementId: string) => {
-    if (!accessToken) return;
-
     setMarkingAsRead(announcementId);
     try {
-      const response = await fetch(`/api/announcements/${announcementId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        // 캐시 무효화하여 목록 업데이트
-        queryClient.invalidateQueries({
-          queryKey: ['announcements', 'history'],
-        });
-      }
+      await viewAnnouncement.mutateAsync(announcementId);
     } catch (error) {
       console.error('Failed to mark announcement as read:', error);
     } finally {

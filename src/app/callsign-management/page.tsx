@@ -100,12 +100,32 @@ export default function CallsignManagementPublicPage() {
             {activeTab === 'stats' && <StatisticsTab />}
             {activeTab === 'upload' && <Sidebar />}
           </main>
-          {/* 푸터 */}
-          <footer className="mt-12 pt-8 border-t border-slate-200/80 text-center text-xs text-slate-500 pb-8">
-            © 2026 Korea Airports Corporation. All Rights Reserved.
-          </footer>
         </div>
       </div>
+      {/* 푸터 */}
+      <footer className="py-5 bg-gray-800 text-gray-300 border-t border-gray-700 shrink-0">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex flex-wrap gap-6 items-center justify-center">
+            <div className="text-sm font-medium text-white">
+              Callsign Safety Management Platform | Korea Airports Corporation
+            </div>
+            <div className="flex gap-5 text-sm">
+              <span className="text-gray-400">Aviation Safety Division</span>
+              <div>
+                <span className="text-gray-400">T.</span>
+                <span className="font-medium ml-1">1588-2311</span>
+              </div>
+              <div>
+                <span className="text-gray-400">E.</span>
+                <span className="font-medium ml-1">info@airport.kr</span>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-gray-600 mt-3 pt-3 text-xs text-gray-400 text-center">
+            © 2026 Korea Airports Corporation. All Rights Reserved.
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

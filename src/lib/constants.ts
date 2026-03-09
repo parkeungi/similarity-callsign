@@ -66,6 +66,8 @@ export const ROUTES = {
   ADMIN_FILE_UPLOADS: '/admin/file-uploads',
   ADMIN_ANNOUNCEMENTS: '/admin/announcements',
   ADMIN_CALLSIGN_MANAGEMENT: '/admin/callsign-management',
+  ADMIN_SETTINGS: '/admin/settings/action-types',
+  ADMIN_SETTINGS_ACTION_TYPES: '/admin/settings/action-types',
   CALLSIGN_MANAGEMENT: '/callsign-management',
 };
 
@@ -89,6 +91,7 @@ export const AIRLINES = [
   { code: 'TWB', name_ko: '티웨이항공', name_en: "T'way Air" },
   { code: 'ABL', name_ko: '에어부산', name_en: 'Air Busan' },
   { code: 'ASV', name_ko: '에어서울', name_en: 'Air Seoul' },
+  { code: 'EOK', name_ko: '이스타항공', name_en: 'Eastar Jet' },
   { code: 'ESR', name_ko: '이스타항공', name_en: 'Eastar Jet' },
   { code: 'FGW', name_ko: '플라이강원', name_en: 'Fly Gangwon' },
   { code: 'ARK', name_ko: '에어로케이항공', name_en: 'Air Korea' },

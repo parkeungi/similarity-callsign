@@ -60,6 +60,7 @@ export async function GET(
     // 3. 공지사항 조회 (활성화된 것만, viewCount 포함)
     const { id } = await params;
 
+    const targetPattern = user.airline_code ? `%,${user.airline_code},%` : null;
     const announcementResult = await query(
       `
       SELECT
@@ -79,10 +80,10 @@ export async function GET(
         AND is_active = true
         AND (
           target_airlines IS NULL
-          OR INSTR(target_airlines, ?) > 0
+          OR (',' || COALESCE(target_airlines, '') || ',') LIKE ?
         )
       `,
-      [id, id, user.airline_code]
+      [id, id, targetPattern]
     );
 
     if (announcementResult.rows.length === 0) {

@@ -87,17 +87,21 @@ export interface Callsign {
   occurrence_dates?: string; // "2026-02-28 11:37,2026-02-27 08:22,..." 형태
   occurrences?: any[];
   errorTypeSummary?: any[];
-  atc_count?: number; // 관제사오류 건수
-  pilot_count?: number; // 조종사오류 건수
-  unknown_count?: number; // 오류미발생 건수
+  error_type_counts?: Record<string, number>; // 오류유형별 건수 (동적)
 
   // 양쪽 항공사 조치 상태 정보 (관리자 API)
   my_airline_id?: string;
   my_airline_code?: string; // 자사 항공사 코드 (airline_code와 동일, 명시성을 위해 추가)
   my_action_status?: 'no_action' | 'pending' | 'in_progress' | 'completed';
   my_action_type?: string | null;
+  my_action_description?: string | null;
+  my_manager_name?: string | null;
   other_action_status?: 'no_action' | 'pending' | 'in_progress' | 'completed';
   other_action_type?: string | null;
+  other_action_type_detail?: string | null;
+  other_action_description?: string | null;
+  other_manager_name?: string | null;
+  other_completed_at?: string | null;
   // 최종 조치 상태
   // - 상대 항공사가 국외: 자사만 조치하면 완료
   // - 상대 항공사가 국내: 양쪽 모두 조치해야 완료
@@ -192,9 +196,7 @@ export interface Action {
 
   // 발생이력 (callsign_occurrences 조인)
   occurrence_dates?: string; // "2026-02-28T11:37:00,2026-02-27T08:22:00,..." 형태
-  atc_count?: number; // 관제사오류 건수
-  pilot_count?: number; // 조종사오류 건수
-  unknown_count?: number; // 오류미발생 건수
+  error_type_counts?: Record<string, number>; // 오류유형별 건수 (동적)
 
   // API 응답용 camelCase 필드
   airlineId?: string;

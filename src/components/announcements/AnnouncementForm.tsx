@@ -143,10 +143,10 @@ export function AnnouncementForm({ announcement, onSuccess }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-white rounded-lg border p-6">
+    <form onSubmit={handleSubmit} className="space-y-4 bg-slate-900 rounded-none border border-slate-800 p-6">
       {/* 제목 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-slate-400 mb-1">
           제목 *
         </label>
         <input
@@ -154,17 +154,17 @@ export function AnnouncementForm({ announcement, onSuccess }: Props) {
           value={form.title}
           onChange={e => setForm({ ...form, title: e.target.value })}
           placeholder="공지사항 제목 입력"
-          className="w-full border rounded px-3 py-2"
+          className="w-full border border-slate-700 rounded-none px-3 py-2 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
           disabled={isLoading}
         />
         {errors.title && (
-          <p className="text-xs text-red-600 mt-1">{errors.title}</p>
+          <p className="text-xs text-rose-400 mt-1">{errors.title}</p>
         )}
       </div>
 
       {/* 내용 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-slate-400 mb-1">
           내용 *
         </label>
         <textarea
@@ -172,17 +172,17 @@ export function AnnouncementForm({ announcement, onSuccess }: Props) {
           onChange={e => setForm({ ...form, content: e.target.value })}
           placeholder="공지사항 내용 입력"
           rows={5}
-          className="w-full border rounded px-3 py-2"
+          className="w-full border border-slate-700 rounded-none px-3 py-2 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
           disabled={isLoading}
         />
         {errors.content && (
-          <p className="text-xs text-red-600 mt-1">{errors.content}</p>
+          <p className="text-xs text-rose-400 mt-1">{errors.content}</p>
         )}
       </div>
 
       {/* 긴급도 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-slate-400 mb-1">
           긴급도
         </label>
         <select
@@ -193,7 +193,7 @@ export function AnnouncementForm({ announcement, onSuccess }: Props) {
               level: e.target.value as 'warning' | 'info' | 'success',
             })
           }
-          className="w-full border rounded px-3 py-2"
+          className="w-full border border-slate-700 rounded-none px-3 py-2 bg-slate-800 text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
           disabled={isLoading}
         >
           <option value="info">📢 일반</option>
@@ -204,10 +204,10 @@ export function AnnouncementForm({ announcement, onSuccess }: Props) {
 
       {/* 대상항공사 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-slate-400 mb-2">
           대상항공사 (선택사항 - 공란 시 전체 항공사)
         </label>
-        <div className="border rounded p-3 bg-gray-50 space-y-2 max-h-48 overflow-y-auto">
+        <div className="border border-slate-700 rounded-none p-3 bg-slate-800/50 space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
           {airlines.map((airline) => (
             <label key={airline.code} className="flex items-center gap-2 cursor-pointer">
               <input
@@ -229,15 +229,15 @@ export function AnnouncementForm({ announcement, onSuccess }: Props) {
                   }
                 }}
                 disabled={isLoading}
-                className="rounded"
+                className="rounded-none bg-slate-700 border-slate-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
               />
-              <span className="text-sm text-gray-700">
+              <span className="text-sm text-slate-300">
                 {airline.code} - {airline.name_ko} ({airline.name_en})
               </span>
             </label>
           ))}
         </div>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-slate-500 mt-1">
           {form.targetAirlines.length > 0
             ? `선택됨: ${form.targetAirlines.join(', ')}`
             : '항공사를 선택하지 않으면 모든 항공사에게 공지됩니다'}
@@ -246,48 +246,48 @@ export function AnnouncementForm({ announcement, onSuccess }: Props) {
 
       {/* 시작일 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-slate-400 mb-1">
           시작일 *
         </label>
         <input
           type="datetime-local"
           value={form.startDate}
           onChange={e => setForm({ ...form, startDate: e.target.value })}
-          className="w-full border rounded px-3 py-2"
+          className="w-full border border-slate-700 rounded-none px-3 py-2 bg-slate-800 text-slate-100 [color-scheme:dark] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
           disabled={isLoading}
         />
         {errors.startDate && (
-          <p className="text-xs text-red-600 mt-1">{errors.startDate}</p>
+          <p className="text-xs text-rose-400 mt-1">{errors.startDate}</p>
         )}
       </div>
 
       {/* 종료일 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-slate-400 mb-1">
           종료일 *
         </label>
         <input
           type="datetime-local"
           value={form.endDate}
           onChange={e => setForm({ ...form, endDate: e.target.value })}
-          className="w-full border rounded px-3 py-2"
+          className="w-full border border-slate-700 rounded-none px-3 py-2 bg-slate-800 text-slate-100 [color-scheme:dark] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
           disabled={isLoading}
         />
         {errors.endDate && (
-          <p className="text-xs text-red-600 mt-1">{errors.endDate}</p>
+          <p className="text-xs text-rose-400 mt-1">{errors.endDate}</p>
         )}
       </div>
 
       {/* 날짜 범위 에러 */}
       {errors.dateRange && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+        <div className="p-3 bg-rose-900/20 border border-rose-900/50 rounded-none text-sm text-rose-400">
           {errors.dateRange}
         </div>
       )}
 
       {/* 뮤테이션 에러 */}
       {(createMutation.error || updateMutation.error) && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+        <div className="p-3 bg-rose-900/20 border border-rose-900/50 rounded-none text-sm text-rose-400">
           {(createMutation.error || updateMutation.error)?.message ||
             '오류가 발생했습니다.'}
         </div>

@@ -25,6 +25,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [airlineCode, setAirlineCode] = useState('');
+  const [role, setRole] = useState<'user' | 'admin'>('user');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -65,7 +66,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
           email,
           password,
           airlineCode,
-          role: 'user',
+          role,
         }),
       });
 
@@ -79,6 +80,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
       setPassword('');
       setPasswordConfirm('');
       setAirlineCode('');
+      setRole('user');
 
       // 사용자 목록 새로고침
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
@@ -98,19 +100,19 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
 
   return (
     <div
-      className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-6"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh] border border-slate-200 shadow-slate-900/20"
+        className="bg-slate-900 rounded-none shadow-2xl shadow-black/50 w-full max-w-md overflow-hidden flex flex-col max-h-[90vh] border border-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-          <h2 className="text-lg font-bold text-slate-800">사용자 추가</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-800/50">
+          <h2 className="text-lg font-bold text-slate-100">사용자 추가</h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-full transition-colors flex-shrink-0"
+            className="text-slate-400 hover:text-slate-200 hover:bg-slate-800 p-1.5 rounded-none transition-colors flex-shrink-0"
             aria-label="닫기"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -121,25 +123,25 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
         <div className="p-6 overflow-y-auto custom-scrollbar">
           <form onSubmit={handleSubmit} className="space-y-5">
             {success && (
-              <div className="px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm font-medium text-emerald-800">
+              <div className="px-4 py-3 rounded-none bg-emerald-900/20 border border-emerald-900/50 text-sm font-medium text-emerald-300">
                 <div className="flex items-center gap-2 mb-1">
-                  <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                  <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                   사용자가 생성되었습니다!
                 </div>
-                <div className="text-xs text-emerald-600/80 ml-6">
+                <div className="text-xs text-emerald-400 ml-6">
                   사용자는 첫 로그인 시 비밀번호를 반드시 변경해야 합니다.
                 </div>
               </div>
             )}
 
             {error && (
-              <div className="px-4 py-3 rounded-lg bg-rose-50 border border-rose-200 text-sm font-medium text-rose-800">
+              <div className="px-4 py-3 rounded-none bg-rose-900/20 border border-rose-900/50 text-sm font-medium text-rose-300">
                 {error}
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-xs font-bold text-slate-600 mb-1.5">
+              <label htmlFor="email" className="block text-xs font-bold text-slate-400 mb-1.5">
                 이메일 <span className="text-rose-500">*</span>
               </label>
               <input
@@ -150,13 +152,13 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
                 required
-                className="w-full px-3.5 py-2.5 rounded-md border border-slate-200 text-slate-800 text-sm font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-shadow"
+                className="w-full px-3.5 py-2.5 rounded-none border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 text-sm font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-shadow"
               />
             </div>
 
             <div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="password" className="text-xs font-bold text-slate-600">
+                <label htmlFor="password" className="text-xs font-bold text-slate-400">
                   초기 비밀번호 <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
@@ -168,24 +170,24 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isLoading}
                     required
-                    className="w-full pl-3.5 pr-12 py-2.5 rounded-md border border-slate-200 text-slate-800 text-sm font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-shadow"
+                    className="w-full pl-3.5 pr-12 py-2.5 rounded-none border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 text-sm font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-shadow"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-medium bg-white px-1"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 text-xs font-medium px-1"
                   >
                     {showPassword ? '숨기기' : '보이기'}
                   </button>
                 </div>
               </div>
-              <p className="text-[11px] font-medium text-slate-400 mt-1.5 ml-1">
+              <p className="text-[11px] font-medium text-slate-500 mt-1.5 ml-1">
                 8자 이상, 대문자·소문자·숫자·특수문자(!@#$%^&*) 모두 포함
               </p>
             </div>
 
             <div>
-              <label htmlFor="passwordConfirm" className="block text-xs font-bold text-slate-600 mb-1.5">
+              <label htmlFor="passwordConfirm" className="block text-xs font-bold text-slate-400 mb-1.5">
                 비밀번호 확인 <span className="text-rose-500">*</span>
               </label>
               <input
@@ -196,12 +198,12 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
                 onChange={(e) => setPasswordConfirm(e.target.value)}
                 disabled={isLoading}
                 required
-                className="w-full px-3.5 py-2.5 rounded-md border border-slate-200 text-slate-800 text-sm font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-shadow"
+                className="w-full px-3.5 py-2.5 rounded-none border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 text-sm font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-shadow"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="airlineCode" className="text-xs font-bold text-slate-600">
+              <label htmlFor="airlineCode" className="text-xs font-bold text-slate-400">
                 소속 항공사 <span className="text-rose-500">*</span>
               </label>
               <select
@@ -209,7 +211,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
                 value={airlineCode}
                 onChange={(e) => setAirlineCode(e.target.value)}
                 disabled={isLoading || airlinesLoading}
-                className="w-full px-3.5 py-2.5 rounded-md border border-slate-200 text-slate-800 text-sm font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-shadow disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed bg-white"
+                className="w-full px-3.5 py-2.5 rounded-none border border-slate-700 bg-slate-800 text-slate-100 text-sm font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-shadow disabled:bg-slate-800/50 disabled:text-slate-500 disabled:cursor-not-allowed"
                 required
               >
                 <option value="">항공사를 선택하세요</option>
@@ -221,13 +223,58 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
               </select>
             </div>
 
-            <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3.5 text-xs text-blue-800 mt-2 flex gap-3 items-start">
-              <span className="text-blue-500 mt-0.5">
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-bold text-slate-400">
+                계정 권한 <span className="text-rose-500">*</span>
+              </span>
+              <div className="flex gap-3">
+                <label
+                  className={`flex-1 border rounded-none px-3.5 py-2.5 text-sm font-semibold cursor-pointer transition ${role === 'user'
+                      ? 'border-blue-500 bg-blue-900/30 text-blue-300'
+                      : 'border-slate-700 text-slate-400 hover:border-slate-600 bg-slate-800/50'
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="role"
+                    value="user"
+                    className="hidden"
+                    checked={role === 'user'}
+                    onChange={() => setRole('user')}
+                    disabled={isLoading}
+                  />
+                  항공사 사용자
+                </label>
+                <label
+                  className={`flex-1 border rounded-none px-3.5 py-2.5 text-sm font-semibold cursor-pointer transition ${role === 'admin'
+                      ? 'border-blue-500 bg-blue-900/30 text-blue-300'
+                      : 'border-slate-700 text-slate-400 hover:border-slate-600 bg-slate-800/50'
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="role"
+                    value="admin"
+                    className="hidden"
+                    checked={role === 'admin'}
+                    onChange={() => setRole('admin')}
+                    disabled={isLoading}
+                  />
+                  관리자
+                </label>
+              </div>
+              <p className="text-[11px] text-slate-500 ml-1">
+                관리자를 선택하면 전 시스템을 관리할 수 있는 계정이 생성됩니다.
+              </p>
+            </div>
+
+            <div className="bg-blue-900/20 border border-blue-900/50 rounded-none p-3.5 text-xs text-blue-300 mt-2 flex gap-3 items-start">
+              <span className="text-blue-400 mt-0.5">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
               </span>
               <div className="flex flex-col gap-1 leading-relaxed">
-                <p className="font-bold text-blue-900">새 사용자 계정 안내</p>
-                <ul className="text-blue-800/80 list-disc list-inside space-y-0.5">
+                <p className="font-bold text-blue-300">새 사용자 계정 안내</p>
+                <ul className="text-blue-400/80 list-disc list-inside space-y-0.5">
                   <li>첫 로그인 시 <span className="font-semibold underline underline-offset-2">비밀번호를 반드시 변경</span>해야 합니다.</li>
                   <li>비밀번호 변경 전까지는 시스템의 모든 메뉴 및 서비스 접근이 불가능합니다.</li>
                 </ul>
@@ -237,12 +284,12 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
         </div>
 
         {/* 푸터 */}
-        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex gap-2 justify-end rounded-b-xl">
+        <div className="px-6 py-4 border-t border-slate-800 bg-slate-800/50 flex gap-2 justify-end">
           <button
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="px-5 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors shadow-sm focus:outline-none disabled:opacity-50"
+            className="px-5 py-2 bg-slate-800 border border-slate-700 rounded-none text-sm font-bold text-slate-300 hover:bg-slate-700 transition-colors shadow-sm focus:outline-none disabled:opacity-50"
           >
             취소
           </button>
@@ -250,7 +297,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
             type="button"
             onClick={handleSubmit}
             disabled={isLoading || success}
-            className="px-5 py-2 bg-blue-600 rounded-lg text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70 flex items-center justify-center min-w-[80px]"
+            className="px-5 py-2 bg-blue-600 rounded-none border border-blue-500 text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-70 flex items-center justify-center min-w-[80px]"
           >
             {isLoading ? (
               <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

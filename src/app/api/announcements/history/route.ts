@@ -96,10 +96,11 @@ export async function GET(request: NextRequest) {
     // 5. WHERE 조건 부분을 먼저 구성
     let whereClause = `(
       a.target_airlines IS NULL
-      OR INSTR(a.target_airlines, ?) > 0
+      OR (',' || COALESCE(a.target_airlines, '') || ',') LIKE ?
     )`;
 
-    const queryParams: any[] = [user.airline_code];
+    const targetPattern = user.airline_code ? `%,${user.airline_code},%` : null;
+    const queryParams: any[] = [targetPattern];
 
     // 6. 필터 적용
     if (level && ['warning', 'info', 'success'].includes(level)) {
@@ -110,9 +111,9 @@ export async function GET(request: NextRequest) {
     // 상태 필터
     if (status !== 'all') {
       if (status === 'active') {
-        whereClause += ` AND DATETIME(a.start_date) <= CURRENT_TIMESTAMP AND DATETIME(a.end_date) >= CURRENT_TIMESTAMP`;
+        whereClause += ` AND a.start_date <= CURRENT_TIMESTAMP AND a.end_date >= CURRENT_TIMESTAMP`;
       } else if (status === 'expired') {
-        whereClause += ` AND (DATETIME(a.start_date) > CURRENT_TIMESTAMP OR DATETIME(a.end_date) < CURRENT_TIMESTAMP)`;
+        whereClause += ` AND (a.start_date > CURRENT_TIMESTAMP OR a.end_date < CURRENT_TIMESTAMP)`;
       }
     }
 
@@ -155,7 +156,7 @@ export async function GET(request: NextRequest) {
         a.is_active as "isActive",
         a.created_at as "createdAt",
         CASE
-          WHEN DATETIME(a.start_date) <= CURRENT_TIMESTAMP AND DATETIME(a.end_date) >= CURRENT_TIMESTAMP THEN 'active'
+          WHEN a.start_date <= CURRENT_TIMESTAMP AND a.end_date >= CURRENT_TIMESTAMP THEN 'active'
           ELSE 'expired'
         END as status,
         CASE WHEN av.id IS NOT NULL THEN 1 ELSE 0 END as "isViewed"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { monthBucket } from '@/lib/db/sql-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
           callsign_id,
           MIN(DATE(completed_at)) as first_action_date
         FROM actions
-        WHERE status = 'completed' AND COALESCE(is_cancelled, 0) = 0
+        WHERE status = 'completed' AND COALESCE(is_cancelled, false) = false
         GROUP BY callsign_id
       ),
       monthly_actions AS (
@@ -87,11 +88,11 @@ export async function GET(request: NextRequest) {
         FROM actions a
         LEFT JOIN callsign_first_action cfa ON a.callsign_id = cfa.callsign_id
         WHERE a.status = 'completed'
-          AND COALESCE(a.is_cancelled, 0) = 0
+          AND COALESCE(a.is_cancelled, false) = false
           AND a.completed_at IS NOT NULL
       )
       SELECT
-        strftime('%Y-%m', action_date) as month,
+        ${monthBucket('action_date')} as month,
         COUNT(CASE WHEN action_type = 'new' THEN 1 END) as newDetections,
         COUNT(CASE WHEN action_type = 'repeat' THEN 1 END) as repeatDetections,
         COUNT(*) as totalDetections,
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest) {
         ROUND(100.0 * COUNT(CASE WHEN action_type = 'repeat' THEN 1 END) /
               CAST(COUNT(*) AS FLOAT), 1) as repeatRate
       FROM monthly_actions
-      GROUP BY strftime('%Y-%m', action_date)
+      GROUP BY 1
       ORDER BY month DESC;
     `;
 

@@ -158,17 +158,19 @@ export function AirlineActionHistoryTab({
   };
 
   // 발생이력 시간 포맷팅
-  const formatOccurrenceTime = (isoString: string): string => {
+  const formatOccurrenceTime = (str: string): string => {
+    // API가 이미 'MM-DD HH:MM' 형태로 반환하면 그대로 사용
+    if (/^\d{2}-\d{2}/.test(str.trim())) return str.trim();
     try {
-      const date = new Date(isoString);
-      return date.toLocaleTimeString('ko-KR', {
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      const d = new Date(str);
+      if (isNaN(d.getTime())) return str;
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      return `${mm}-${dd} ${hh}:${mi}`;
     } catch {
-      return isoString;
+      return str;
     }
   };
 
@@ -389,11 +391,7 @@ export function AirlineActionHistoryTab({
                       <div>
                         <div className="text-gray-500 font-semibold mb-1">오류유형</div>
                         <div className="font-bold text-gray-900 text-xs">
-                          {action.callsign?.error_type ? (
-                            action.callsign.error_type === '관제사오류' ? '관제사' :
-                            action.callsign.error_type === '조종사오류' ? '조종사' :
-                            '불명'
-                          ) : '-'}
+                          {action.callsign?.error_type || '-'}
                         </div>
                       </div>
                       <div>
@@ -412,29 +410,31 @@ export function AirlineActionHistoryTab({
                       </div>
                     </div>
 
-                    {/* 오류유형 섹션 */}
-                    {(action.atc_count || action.pilot_count || action.unknown_count) && (
-                      <div className="mb-3 pb-3 border-b border-gray-200">
-                        <div className="text-xs font-semibold text-gray-500 mb-2">□오류유형</div>
-                        <div className="flex flex-wrap gap-2">
-                          {(action.atc_count || 0) > 0 && (
-                            <span className="text-xs bg-rose-100 text-rose-700 px-2 py-1 rounded font-semibold">
-                              관제사 오류({action.atc_count}건)
-                            </span>
-                          )}
-                          {(action.pilot_count || 0) > 0 && (
-                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded font-semibold">
-                              조종사 오류({action.pilot_count}건)
-                            </span>
-                          )}
-                          {(action.unknown_count || 0) > 0 && (
-                            <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-semibold">
-                              오류 미분류({action.unknown_count}건)
-                            </span>
-                          )}
+                    {/* 오류유형 섹션 (동적) */}
+                    {action.error_type_counts && Object.keys(action.error_type_counts).length > 0 && (() => {
+                      const BADGE_COLORS = [
+                        'bg-rose-100 text-rose-700',
+                        'bg-orange-100 text-orange-700',
+                        'bg-blue-100 text-blue-700',
+                        'bg-violet-100 text-violet-700',
+                        'bg-emerald-100 text-emerald-700',
+                        'bg-gray-100 text-gray-700',
+                      ];
+                      return (
+                        <div className="mb-3 pb-3 border-b border-gray-200">
+                          <div className="text-xs font-semibold text-gray-500 mb-2">□오류유형</div>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(action.error_type_counts)
+                              .sort((a, b) => (b[1] as number) - (a[1] as number))
+                              .map(([type, count], idx) => (
+                                <span key={type} className={`text-xs px-2 py-1 rounded font-semibold ${BADGE_COLORS[idx % BADGE_COLORS.length]}`}>
+                                  {type}({count as number}건)
+                                </span>
+                              ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {/* 발생이력 */}
                     {occurrenceDates.length > 0 && (

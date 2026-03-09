@@ -98,7 +98,8 @@ export function AirlineStatisticsTab({
 
         visibleIncidents.forEach(inc => {
             const pair = inc.pair || 'Unknown';
-            counts[pair] = (counts[pair] || 0) + inc.count;
+            const incidentCount = Number(inc.count || 0);
+            counts[pair] = (counts[pair] || 0) + incidentCount;
             // 동일 쌍에 여러 위험도가 존재할 수 있으므로 가장 높은 위험도를 유지
             const prev = RISK_LEVEL_ORDER[riskMap[pair] as keyof typeof RISK_LEVEL_ORDER] ?? 0;
             const curr = RISK_LEVEL_ORDER[inc.risk as keyof typeof RISK_LEVEL_ORDER] ?? 0;
@@ -135,7 +136,7 @@ export function AirlineStatisticsTab({
                         isWithinRange = occDate >= start && occDate <= end;
                     }
 
-                    if (isWithinRange && occ.occurredTime && occ.occurredTime !== '00:00:00') {
+                    if (isWithinRange && occ.occurredTime) {
                         const hourStr = occ.occurredTime.split(':')[0];
                         const hour = parseInt(hourStr, 10);
                         if (!isNaN(hour) && hour >= 0 && hour < 24) {
@@ -155,14 +156,15 @@ export function AirlineStatisticsTab({
     const routeStats = useMemo(() => {
         const counts: Record<string, number> = {};
         visibleIncidents.forEach(inc => {
+            const incidentCount = Number(inc.count || 0);
             const dep = inc.departureAirport || '미상';
             const arr = inc.arrivalAirport || '미상';
             if (dep === '미상' && arr === '미상') {
-                counts['기타'] = (counts['기타'] || 0) + inc.count;
+                counts['기타'] = (counts['기타'] || 0) + incidentCount;
                 return;
             }
             const route = `${dep}-${arr}`;
-            counts[route] = (counts[route] || 0) + inc.count;
+            counts[route] = (counts[route] || 0) + incidentCount;
         });
         return Object.entries(counts)
             .map(([name, count]) => ({ name, count }))
@@ -171,20 +173,55 @@ export function AirlineStatisticsTab({
             .filter(item => item.count > 0);
     }, [visibleIncidents]);
 
-    // Action Stats Parsing
-    const totalActions = actionStats?.total ?? 0;
-    const completionRate = actionStats?.completionRate ?? 0;
-
     // 발생건수는 incidents 배열에서 각 incident의 count의 합계로 계산
     const totalOccurrences = useMemo(() => {
-        return visibleIncidents.reduce((sum, inc) => sum + (inc.count || 0), 0);
+        const sum = visibleIncidents.reduce((acc, inc) => acc + Number(inc.count || 0), 0);
+        if (sum > 0) return sum;
+        return visibleIncidents.length;
     }, [visibleIncidents]);
+
+    const derivedActionSummary = useMemo(() => {
+        let completed = 0;
+        let inProgress = 0;
+        let waiting = 0;
+
+        visibleIncidents.forEach((incident) => {
+            switch (incident.actionStatus) {
+                case 'completed':
+                    completed += 1;
+                    break;
+                case 'in_progress':
+                case 'pending':
+                    inProgress += 1;
+                    break;
+                default:
+                    waiting += 1;
+            }
+        });
+
+        const total = completed + inProgress;
+        const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+        return {
+            total,
+            completionRate,
+            statusCounts: {
+                waiting,
+                in_progress: inProgress,
+                completed,
+            },
+        };
+    }, [visibleIncidents]);
+
+    const totalActions = actionStats?.total ?? derivedActionSummary.total;
+    const completionRate = actionStats?.completionRate ?? derivedActionSummary.completionRate;
+    const monthlyTrend = actionStats?.monthlyTrend ?? [];
+    const statusCounts = actionStats?.statusCounts ?? derivedActionSummary.statusCounts;
 
     // 조치율 = (조치 건수 / 발생 건수) * 100
     const calculatedActionRate = totalOccurrences > 0 ? (totalActions / totalOccurrences) * 100 : 0;
-
-    const monthlyTrend = actionStats?.monthlyTrend ?? [];
-    const statusCounts = actionStats?.statusCounts ?? { waiting: 0, in_progress: 0, completed: 0 };
+    const totalTimeEvents = useMemo(() => {
+        return timeOfDayStats.reduce((acc, cur) => acc + cur.count, 0);
+    }, [timeOfDayStats]);
 
     const formatDonutLabel = ({ percent }: { percent?: number }) => {
         if (!percent || percent === 0) return '';
@@ -411,19 +448,25 @@ export function AirlineStatisticsTab({
                         <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 flex flex-col h-[280px]">
                             <h4 className="text-sm font-bold text-slate-800 mb-2">시간대별 발생 추이 <span className="text-xs font-normal text-slate-400 ml-1">Time</span></h4>
                             <div className="flex-1 w-full relative pt-2">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={timeOfDayStats} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} interval={3} tick={{ fill: '#64748B', fontSize: 10 }} dy={5} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 10 }} />
-                                        <Tooltip
-                                            cursor={{ fill: '#F1F5F9' }}
-                                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)' }}
-                                            formatter={(value: any) => [`${value}건`, '발생 건수']}
-                                        />
-                                        <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={8} fill={COLORS.rose} />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                                {totalTimeEvents > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={timeOfDayStats} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} interval={3} tick={{ fill: '#64748B', fontSize: 10 }} dy={5} />
+                                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 10 }} />
+                                            <Tooltip
+                                                cursor={{ fill: '#F1F5F9' }}
+                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)' }}
+                                                formatter={(value: any) => [`${value}건`, '발생 건수']}
+                                            />
+                                            <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={8} fill={COLORS.rose} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">
+                                        시간 정보가 없는 데이터입니다.
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -434,13 +477,13 @@ export function AirlineStatisticsTab({
                                 {riskStats.length > 0 ? (
                                     <>
                                         <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
+                                            <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                                 <Pie
                                                     data={riskStats}
                                                     cx="50%"
                                                     cy="50%"
                                                     innerRadius={45}
-                                                    outerRadius={75}
+                                                    outerRadius={70}
                                                     paddingAngle={2}
                                                     dataKey="value"
                                                     labelLine={false}

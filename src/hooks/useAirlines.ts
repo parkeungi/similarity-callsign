@@ -7,6 +7,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import { apiFetch } from '@/lib/api/client';
+import { supabaseClient } from '@/lib/supabase/client';
 
 export interface Airline {
   id: string;
@@ -24,12 +25,18 @@ export function useAirlines() {
   return useQuery({
     queryKey: ['airlines'],
     queryFn: async () => {
-      const response = await fetch('/api/airlines');
-      if (!response.ok) {
+      const { data, error } = await supabaseClient
+        .from('airlines')
+        .select('id, code, name_ko, name_en, display_order')
+        .order('display_order', { ascending: true })
+        .order('code', { ascending: true });
+
+      if (error) {
+        console.error('[useAirlines] Supabase fetch error', error);
         throw new Error('항공사 목록 조회 실패');
       }
-      const data = await response.json();
-      return data.airlines as Airline[];
+
+      return (data ?? []) as Airline[];
     },
     staleTime: 30 * 1000, // 30초
     gcTime: 5 * 60 * 1000, // 5분 (이전 cacheTime)

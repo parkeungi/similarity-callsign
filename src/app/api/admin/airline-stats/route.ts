@@ -88,10 +88,10 @@ export async function GET(request: NextRequest) {
         al.code as airline_code,
         al.name_ko as airline_name_ko,
         COUNT(DISTINCT cs.id) as total_callsigns,
-        COALESCE(action_stats.in_progress_actions, 0) as in_progress_actions,
-        COALESCE(action_stats.completed_actions, 0) as completed_actions,
+        COALESCE(MAX(action_stats.in_progress_actions), 0) as in_progress_actions,
+        COALESCE(MAX(action_stats.completed_actions), 0) as completed_actions,
         ROUND(
-          (COALESCE(action_stats.in_progress_actions, 0) + COALESCE(action_stats.completed_actions, 0)) * 100.0 /
+          (COALESCE(MAX(action_stats.in_progress_actions), 0) + COALESCE(MAX(action_stats.completed_actions), 0)) * 100.0 /
           NULLIF(COUNT(DISTINCT cs.id), 0),
           1
         ) as completion_rate
@@ -102,8 +102,8 @@ export async function GET(request: NextRequest) {
         -- 📌 진행중 = pending + in_progress 통합
         SELECT
           airline_id,
-          SUM(CASE WHEN status IN ('pending', 'in_progress') AND COALESCE(is_cancelled, 0) = 0 THEN 1 ELSE 0 END) as in_progress_actions,
-          SUM(CASE WHEN status = 'completed' AND COALESCE(is_cancelled, 0) = 0 THEN 1 ELSE 0 END) as completed_actions
+          SUM(CASE WHEN status IN ('pending', 'in_progress') AND COALESCE(is_cancelled, false) = false THEN 1 ELSE 0 END) as in_progress_actions,
+          SUM(CASE WHEN status = 'completed' AND COALESCE(is_cancelled, false) = false THEN 1 ELSE 0 END) as completed_actions
         FROM actions
         WHERE (${whereClause})
         GROUP BY airline_id

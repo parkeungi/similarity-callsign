@@ -8,20 +8,20 @@
 - **유사호출부호 관리**: 호출부호 데이터 업로드 및 조회
 - **조치 추적**: 관리자 조치 등록 → 항공사 실행 → 완료 이력
 - **실시간 분석**: 오류 유형별 통계 및 세부 분석
-- **다중 항공사 지원**: 9개 주요 항공사 관리
+- **다중 항공사 지원**: 국내 11개 항공사 관리
 
 ## 🛠️ 기술 스택
 
 - **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
 - **State Management**: Zustand, TanStack Query v5
-- **Backend**: Node.js, SQLite 3 (better-sqlite3)
+- **Backend**: Node.js, PostgreSQL (Supabase)
 - **배포**: Vercel (Next.js App Router)
 
 ## 📋 시스템 요구사항
 
 - Node.js 18+
-- npm 또는 yarn
-- GitHub 계정 (선택사항)
+- npm
+- Supabase 프로젝트 (PostgreSQL DB)
 
 ## 🚀 빠른 시작
 
@@ -36,23 +36,33 @@ cd similar-callsign
 
 ```bash
 npm install
-# 또는
-yarn install
 ```
 
 ### 3️⃣ 환경 변수 설정
 
-`.env.local` 파일 생성:
+`.env.example`을 복사하여 `.env.local`을 생성하고 Supabase 정보를 입력합니다.
 
-```env
-# JWT 토큰 시크릿 (필수)
-JWT_SECRET=your_secret_key_here_32_chars_minimum
-
-# API 엔드포인트
-NEXT_PUBLIC_API_URL=http://localhost:3000
+```bash
+cp .env.example .env.local
 ```
 
-### 4️⃣ 개발 서버 실행
+필수 환경 변수:
+
+| 변수 | 설명 |
+|------|------|
+| `DATABASE_URL` | Supabase PostgreSQL 연결 문자열 |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon public 키 |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service_role 키 (서버 전용) |
+| `JWT_SECRET` | JWT 서명 비밀키 (openssl rand -base64 32) |
+
+Supabase 연결 설정은 `docs/04-migration/supabase-db-checklist.md`를 참고하세요.
+
+### 4️⃣ 데이터베이스 초기화
+
+`scripts/init.sql`을 Supabase SQL Editor에서 실행하여 스키마를 생성합니다.
+
+### 5️⃣ 개발 서버 실행
 
 ```bash
 npm run dev
@@ -60,13 +70,10 @@ npm run dev
 
 브라우저에서 `http://localhost:3000` 열기
 
-### 5️⃣ 빌드 및 배포
+### 6️⃣ 빌드 및 배포
 
 ```bash
-# 프로덕션 빌드
 npm run build
-
-# 빌드 결과 실행
 npm run start
 ```
 
@@ -81,8 +88,6 @@ npm run start
 │   │   ├── api/                # REST API 엔드포인트
 │   │   └── auth/               # 인증 페이지
 │   ├── components/             # React 컴포넌트
-│   │   ├── actions/            # 조치 관련 컴포넌트
-│   │   └── layout/             # 레이아웃 컴포넌트
 │   ├── hooks/                  # React 커스텀 훅
 │   ├── lib/                    # 유틸리티 함수
 │   ├── types/                  # TypeScript 타입 정의
@@ -91,15 +96,13 @@ npm run start
 │   └── init.sql                # 데이터베이스 스키마
 ├── public/                     # 정적 파일
 └── package.json
-
 ```
 
 ## 🔐 인증 흐름
 
-### 회원가입 및 로그인
-1. `/auth/signup` - 신규 사용자 등록
-2. `/auth/login` - 로그인
-3. 토큰 발급 (accessToken + refreshToken)
+### 로그인
+1. `/auth/login` - 로그인
+2. JWT 토큰 발급 (accessToken + refreshToken)
 
 ### 역할 기반 접근
 - **Admin**: 조치 등록, 항공사 관리, 전체 현황 조회
@@ -108,7 +111,6 @@ npm run start
 ## 📊 주요 API 엔드포인트
 
 ### 인증
-- `POST /api/auth/signup` - 회원가입
 - `POST /api/auth/login` - 로그인
 - `POST /api/auth/refresh-token` - 토큰 갱신
 
@@ -164,6 +166,8 @@ npm install -g vercel
 vercel
 ```
 
+Vercel 프로젝트 환경 변수에 `.env.local`과 동일한 값을 설정하세요.
+
 ### 수동 배포
 ```bash
 npm run build
@@ -178,18 +182,17 @@ npm run start
 
 > ⚠️ 프로덕션 환경에서는 반드시 변경하세요!
 
-현재 저장소에는 운영 중인 SQLite 데이터베이스 파일 [data/katc1.db](data/katc1.db)이 포함되어 있으며, 관리자와 일반 사용자 계정을 모두 그대로 담고 있습니다. **모든 계정의 초기 비밀번호는 1234**로 통일되어 있으니 배포 전 반드시 교체하세요.
-
 ## 🐛 문제 해결
 
 ### "JWT_SECRET 에러"
 - `.env.local` 파일에 JWT_SECRET 입력
-- 최소 32자 이상의 임의 문자열 권장
+- 최소 32자 이상의 임의 문자열 권장 (`openssl rand -base64 32`)
 - `npm run dev` 재실행
 
-### "데이터베이스 파일 손상"
-- `data/katc1.db` 파일 삭제
-- `npm run dev`로 자동 재생성
+### "DATABASE_URL 연결 실패"
+- Supabase 대시보드 → Project Settings → Database → Connection string 확인
+- `?sslmode=require` 추가 여부 확인
+- IP 허용 목록(Supabase → Network) 확인
 
 ### "포트 3000이 이미 사용 중"
 ```bash
@@ -204,32 +207,12 @@ npm run dev -- -p 3001
 - 빌드 산출물 및 캐시 (`.next/`, `out/`, `coverage/`)
 - 의존성 폴더 (`node_modules/`)
 
-## 🤝 기여
-
-버그 리포트 및 기능 요청은 GitHub Issues에 등록해주세요.
-
 ## 📄 라이선스
 
 MIT License - 자유롭게 사용, 수정, 배포 가능
 
-## ✨ 개발팀
-
-- Frontend: React/Next.js
-- Backend: Node.js/PostgreSQL
-- DevOps: bkend.ai
-
 ---
 
-**마지막 업데이트**: 2026-02-28
-**버전**: 1.0.0 (SQLite 기반)
+**마지막 업데이트**: 2026-03-09
+**버전**: 2.0.0 (PostgreSQL/Supabase)
 **상태**: ✅ Production Ready
-
-## 🚀 다음 단계
-
-1. `.env.local` 설정
-2. `npm install`
-3. 데이터베이스 초기화
-4. `npm run dev`
-5. 브라우저에서 `http://localhost:3000` 열기
-
-행운을 빕니다! 🎉

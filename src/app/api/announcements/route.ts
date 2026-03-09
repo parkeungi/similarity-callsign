@@ -72,12 +72,13 @@ export async function GET(request: NextRequest) {
         AND end_date >= CURRENT_TIMESTAMP
         AND (
           target_airlines IS NULL
-          OR INSTR(target_airlines, ?) > 0
+          OR (',' || COALESCE(target_airlines, '') || ',') LIKE ?
         )
       ORDER BY start_date DESC
     `;
 
-    const result = await query(sql, [user.airline_code]);
+    const targetPattern = user.airline_code ? `%,${user.airline_code},%` : null;
+    const result = await query(sql, [targetPattern]);
 
     return NextResponse.json({
       announcements: result.rows,

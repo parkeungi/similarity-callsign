@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { dateDiffInDaysInt } from '@/lib/db/sql-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
           a1.action_type,
           MIN(a1.completed_at) as first_completion_date
         FROM actions a1
-        WHERE a1.status = 'completed' AND COALESCE(a1.is_cancelled, 0) = 0
+        WHERE a1.status = 'completed' AND COALESCE(a1.is_cancelled, false) = false
         GROUP BY a1.callsign_id, a1.action_type
       ),
       action_repeats AS (
@@ -89,14 +90,14 @@ export async function GET(request: NextRequest) {
           CASE WHEN a2.completed_at IS NOT NULL THEN 1 ELSE 0 END as is_repeat,
           CASE
             WHEN a2.completed_at IS NOT NULL
-            THEN CAST((julianday(a2.completed_at) - julianday(afd.first_completion_date)) AS INT)
+            THEN ${dateDiffInDaysInt('a2.completed_at', 'afd.first_completion_date')}
             ELSE NULL
           END as days_until_repeat
         FROM action_first_dates afd
         LEFT JOIN actions a2 ON afd.callsign_id = a2.callsign_id
           AND a2.action_type = afd.action_type
           AND a2.status = 'completed'
-          AND COALESCE(a2.is_cancelled, 0) = 0
+          AND COALESCE(a2.is_cancelled, false) = false
           AND a2.completed_at > afd.first_completion_date
         GROUP BY afd.callsign_id, afd.action_type
       )

@@ -53,7 +53,7 @@ export default function CallsignManagementPage() {
 
   return (
     <div className="flex flex-col bg-[#f8fafc] selection:bg-primary/10 min-h-full">
-      <main className="flex-1 w-full px-6 pt-8 pb-10">
+      <main className="flex-1 w-full px-6 pt-8 pb-0">
         {/* 페이지 헤더 */}
         <div className="flex items-center gap-3 border-b border-gray-200 pb-4 mb-8">
           <span className="w-6 h-0.5 bg-primary rounded-full" />
@@ -98,11 +98,31 @@ export default function CallsignManagementPage() {
           </div>
         </div>
 
-        {/* 푸터 */}
-        <footer className="mt-12 pt-8 border-t border-gray-200 text-center text-xs text-gray-500 pb-8">
-          © 2026 Korea Airports Corporation. All Rights Reserved.
-        </footer>
       </main>
+      {/* 푸터 */}
+      <footer className="py-5 bg-gray-800 text-gray-300 border-t border-gray-700">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex flex-wrap gap-6 items-center justify-center">
+            <div className="text-sm font-medium text-white">
+              Callsign Safety Management Platform | Korea Airports Corporation
+            </div>
+            <div className="flex gap-5 text-sm">
+              <span className="text-gray-400">Aviation Safety Division</span>
+              <div>
+                <span className="text-gray-400">T.</span>
+                <span className="font-medium ml-1">1588-2311</span>
+              </div>
+              <div>
+                <span className="text-gray-400">E.</span>
+                <span className="font-medium ml-1">info@airport.kr</span>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-gray-600 mt-3 pt-3 text-xs text-gray-400 text-center">
+            © 2026 Korea Airports Corporation. All Rights Reserved.
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

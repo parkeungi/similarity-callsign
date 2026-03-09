@@ -12,6 +12,7 @@ import {
   ErrorType
 } from '@/types/airline';
 import { IncidentFilters } from './IncidentFilters';
+import { formatOccurrenceBadge } from '@/lib/occurrence-format';
 
 interface AirlineOccurrenceTabProps {
   incidents: Incident[];
@@ -119,38 +120,33 @@ export function AirlineOccurrenceTab({
     });
   }, [filteredByDate, errorTypeFilter, incidentsSearchInput, sortOrder, actionStatusFilter]);
 
-  // 통계 계산
+  // 통계 계산 - error_type GROUP BY (동적, 하드코딩 없음)
   const stats = useMemo(() => {
-    const total = filteredByDate.length; // 유사호출부호 쌍 수
-    
-    // occurrences 기반 오류 유형별 카운트 (발생 이력 기준)
-    let atc = 0;
-    let pilot = 0;
-    let none = 0;
-    
+    const total = filteredByDate.length;
+    const errorTypeCounts: Record<string, number> = {};
+
     filteredByDate.forEach((incident) => {
-      if (incident.occurrences && incident.occurrences.length > 0) {
-        incident.occurrences.forEach((occ) => {
-          if (occ.errorType === '관제사오류') atc++;
-          else if (occ.errorType === '조종사오류') pilot++;
-          else if (occ.errorType === '오류미발생') none++;
-        });
-      }
+      (incident.occurrences || []).forEach((occ) => {
+        const t = (occ.errorType?.trim()) || '미분류';
+        errorTypeCounts[t] = (errorTypeCounts[t] || 0) + 1;
+      });
     });
-    
-    const totalOccurrences = atc + pilot + none; // 총 발생 이력 수
-    
-    return {
-      total,
-      atc,
-      pilot,
-      none,
-      totalOccurrences,
-      atcPercent: totalOccurrences > 0 ? Math.round((atc / totalOccurrences) * 100) : 0,
-      pilotPercent: totalOccurrences > 0 ? Math.round((pilot / totalOccurrences) * 100) : 0,
-      nonePercent: totalOccurrences > 0 ? Math.round((none / totalOccurrences) * 100) : 0,
-    };
+
+    const totalOccurrences = Object.values(errorTypeCounts).reduce((a, b) => a + b, 0);
+
+    return { total, errorTypeCounts, totalOccurrences };
   }, [filteredByDate]);
+
+  // 오류유형 카드 색상 팔레트
+  const ERROR_TYPE_PALETTE = [
+    { border: 'border-rose-200',    activeBorder: 'border-rose-400',    bg: 'bg-rose-50',    activeBg: 'bg-rose-100',    label: 'text-rose-600',    value: 'text-rose-700',    pct: 'text-rose-500'    },
+    { border: 'border-orange-200',  activeBorder: 'border-orange-400',  bg: 'bg-orange-50',  activeBg: 'bg-orange-100',  label: 'text-orange-600',  value: 'text-orange-700',  pct: 'text-orange-500'  },
+    { border: 'border-emerald-200', activeBorder: 'border-emerald-400', bg: 'bg-emerald-50', activeBg: 'bg-emerald-100', label: 'text-emerald-600', value: 'text-emerald-700', pct: 'text-emerald-500' },
+    { border: 'border-blue-200',    activeBorder: 'border-blue-400',    bg: 'bg-blue-50',    activeBg: 'bg-blue-100',    label: 'text-blue-600',    value: 'text-blue-700',    pct: 'text-blue-500'    },
+    { border: 'border-violet-200',  activeBorder: 'border-violet-400',  bg: 'bg-violet-50',  activeBg: 'bg-violet-100',  label: 'text-violet-600',  value: 'text-violet-700',  pct: 'text-violet-500'  },
+    { border: 'border-amber-200',   activeBorder: 'border-amber-400',   bg: 'bg-amber-50',   activeBg: 'bg-amber-100',   label: 'text-amber-600',   value: 'text-amber-700',   pct: 'text-amber-500'   },
+    { border: 'border-gray-200',    activeBorder: 'border-gray-400',    bg: 'bg-gray-50',    activeBg: 'bg-gray-100',    label: 'text-gray-500',    value: 'text-gray-700',    pct: 'text-gray-400'    },
+  ];
 
   // 페이징
   const totalPages = Math.max(1, Math.ceil(allFilteredIncidents.length / incidentsLimit));
@@ -190,7 +186,7 @@ export function AirlineOccurrenceTab({
   };
 
   const getErrorTypeLabel = (type: string): string => {
-    if (!type) return '불명';
+    if (!type) return '기타';
 
     // 공백 제거하여 정규화
     const normalized = type.replace(/\s+/g, '');
@@ -201,10 +197,21 @@ export function AirlineOccurrenceTab({
       case '조종사오류':
         return '조종사';
       case '오류미발생':
-        return '불명';
+        return '오류미발생';
+      case '동시응답':
+        return '동시응답';
+      case '오인응답':
+        return '오인응답';
+      case '오인응답감지실패':
+        return '감지실패';
+      case '호출부호발신오류':
+        return '발신오류';
+      case '무응답':
+        return '무응답';
+      case '기타':
+        return '기타';
       default:
-        // DB에 예상치 못한 문자열이 와도 사용자에겐 "불명"으로 표시
-        return '불명';
+        return type;
     }
   };
 
@@ -224,62 +231,40 @@ export function AirlineOccurrenceTab({
             ※ 오류 유형별 건수는 발생 이력 기준이며, 전체 유사호출부호 쌍 수와 일치하지 않습니다.
           </div>
 
-          {/* 3칸 카드 그리드 (클릭하면 필터링) */}
-          <div className="grid grid-cols-3 gap-3">
-            {/* ATC 오류 */}
-            <button
-              onClick={() => onErrorTypeFilterChange(errorTypeFilter === '관제사 오류' ? 'all' : '관제사 오류')}
-              className={`border-2 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all ${
-                errorTypeFilter === '관제사 오류'
-                  ? 'border-rose-400 bg-rose-100 shadow-md'
-                  : 'border-rose-200 bg-rose-50'
-              }`}
+          {/* 오류유형 카드 그리드 - DB error_type GROUP BY 동적 렌더링 */}
+          {Object.keys(stats.errorTypeCounts).length === 0 ? (
+            <div className="text-sm text-gray-400 py-2">발생 이력이 없습니다.</div>
+          ) : (
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: `repeat(${Math.min(Object.keys(stats.errorTypeCounts).length, 4)}, minmax(0, 1fr))` }}
             >
-              <div className="text-xs font-bold text-rose-600 uppercase mb-2">
-                관제사 오류
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-rose-700">{stats.atc}</span>
-                <span className="text-xs font-bold text-rose-500">{stats.atcPercent}%</span>
-              </div>
-            </button>
-
-            {/* PILOT 오류 */}
-            <button
-              onClick={() => onErrorTypeFilterChange(errorTypeFilter === '조종사 오류' ? 'all' : '조종사 오류')}
-              className={`border-2 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all ${
-                errorTypeFilter === '조종사 오류'
-                  ? 'border-orange-400 bg-orange-100 shadow-md'
-                  : 'border-orange-200 bg-orange-50'
-              }`}
-            >
-              <div className="text-xs font-bold text-orange-600 uppercase mb-2">
-                조종사 오류
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-orange-700">{stats.pilot}</span>
-                <span className="text-xs font-bold text-orange-500">{stats.pilotPercent}%</span>
-              </div>
-            </button>
-
-            {/* 오류 미분류 */}
-            <button
-              onClick={() => onErrorTypeFilterChange(errorTypeFilter === '오류 미발생' ? 'all' : '오류 미발생')}
-              className={`border-2 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all ${
-                errorTypeFilter === '오류 미발생'
-                  ? 'border-emerald-400 bg-emerald-100 shadow-md'
-                  : 'border-emerald-200 bg-emerald-50'
-              }`}
-            >
-              <div className="text-xs font-bold text-emerald-600 uppercase mb-2">
-                오류 미분류
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-emerald-700">{stats.none}</span>
-                <span className="text-xs font-bold text-emerald-500">{stats.nonePercent}%</span>
-              </div>
-            </button>
-          </div>
+              {Object.entries(stats.errorTypeCounts)
+                .sort((a, b) => b[1] - a[1])
+                .map(([type, count], idx) => {
+                  const palette = ERROR_TYPE_PALETTE[idx % ERROR_TYPE_PALETTE.length];
+                  const pct = stats.totalOccurrences > 0 ? Math.round((count / stats.totalOccurrences) * 100) : 0;
+                  const isActive = errorTypeFilter === type;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => onErrorTypeFilterChange(isActive ? 'all' : type)}
+                      className={`border-2 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all text-left ${
+                        isActive
+                          ? `${palette.activeBorder} ${palette.activeBg} shadow-md`
+                          : `${palette.border} ${palette.bg}`
+                      }`}
+                    >
+                      <div className={`text-xs font-bold ${palette.label} mb-2`}>{type}</div>
+                      <div className="flex items-baseline gap-2">
+                        <span className={`text-2xl font-black ${palette.value}`}>{count}</span>
+                        <span className={`text-xs font-bold ${palette.pct}`}>{pct}%</span>
+                      </div>
+                    </button>
+                  );
+                })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -413,22 +398,17 @@ export function AirlineOccurrenceTab({
                   </div>
                 </div>
 
-                {/* 오류 유형별 집계 */}
+                {/* 오류 유형별 집계 - 팔레트 색상 동적 적용 */}
                 {incident.errorTypeSummary && incident.errorTypeSummary.length > 0 && (
                   <div className="mb-2 pb-2 border-b border-gray-200">
                     <div className="text-[11px] font-semibold text-gray-500 mb-1">📊 오류유형</div>
                     <div className="flex flex-wrap gap-1.5">
                       {incident.errorTypeSummary.map((summary, i) => {
-                        // 오류 유형별 색상 설정
-                        const errorTypeColor = 
-                          summary.errorType === '관제사오류' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                          summary.errorType === '조종사오류' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                          'bg-emerald-50 text-emerald-700 border-emerald-200';
-                        
+                        const p = ERROR_TYPE_PALETTE[i % ERROR_TYPE_PALETTE.length];
                         return (
                           <span
                             key={i}
-                            className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded font-semibold border ${errorTypeColor}`}
+                            className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded font-semibold border ${p.bg} ${p.label} ${p.border}`}
                           >
                             <span>{getErrorTypeLabel(summary.errorType)}</span>
                             <span className="font-black">({summary.count}건)</span>
@@ -445,26 +425,17 @@ export function AirlineOccurrenceTab({
                     <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (날짜·시간)</div>
                     <div className="flex flex-wrap gap-1.5">
                       {incident.occurrences.map((occurrence, i) => {
-                        // 날짜 형식: YYYY-MM-DD → MM-DD
-                        const dateStr = occurrence.occurredDate
-                          ? occurrence.occurredDate.split('-').slice(1).join('-')
-                          : '-';
-
-                        // 시간 형식: HH:MM:SS → HH:MM
-                        let timeStr = '';
-                        if (occurrence.occurredTime && occurrence.occurredTime !== '00:00:00') {
-                          // HH:MM:SS 형식에서 HH:MM만 추출
-                          timeStr = occurrence.occurredTime.substring(0, 5);
-                        } else {
-                          timeStr = '00:00';
-                        }
+                        const { monthDay, time } = formatOccurrenceBadge(
+                          occurrence.occurredDate,
+                          occurrence.occurredTime
+                        );
 
                         return (
                           <span
                             key={i}
                             className="inline-block text-[11px] bg-blue-50 text-blue-800 px-2.5 py-0.5 rounded font-mono border border-blue-200"
                           >
-                            {dateStr} <span className="text-blue-500 font-bold">{timeStr}</span>
+                            {monthDay} <span className="text-blue-500 font-bold">{time}</span>
                           </span>
                         );
                       })}

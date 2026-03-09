@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Users, Plane, Megaphone, LockKeyhole } from 'lucide-react';
+import { Users, Plane, Megaphone, LockKeyhole, Settings } from 'lucide-react';
 import { ROUTES } from '@/lib/constants';
 
 export const ADMIN_LINKS = {
@@ -11,9 +11,10 @@ export const ADMIN_LINKS = {
   ACTIONS: ROUTES.ADMIN_ACTIONS,
   CALLSIGN_MANAGEMENT: ROUTES.ADMIN_CALLSIGN_MANAGEMENT,
   FILE_UPLOADS: ROUTES.ADMIN_FILE_UPLOADS,
+  SETTINGS_ACTION_TYPES: ROUTES.ADMIN_SETTINGS_ACTION_TYPES,
 } as const;
 
-type SidebarColor = 'info' | 'purple' | 'orange' | 'danger';
+type SidebarColor = 'info' | 'purple' | 'orange' | 'danger' | 'navy';
 
 export interface AdminSidebarItem {
   id: string;
@@ -21,6 +22,7 @@ export interface AdminSidebarItem {
   href: string;
   icon: LucideIcon;
   color: SidebarColor;
+  group?: 'main' | 'settings';
 }
 
 export const ADMIN_SIDEBAR_ITEMS: AdminSidebarItem[] = [
@@ -30,6 +32,7 @@ export const ADMIN_SIDEBAR_ITEMS: AdminSidebarItem[] = [
     href: ADMIN_LINKS.USERS_TAB,
     icon: Users,
     color: 'info',
+    group: 'main',
   },
   {
     id: 'airlines',
@@ -37,6 +40,7 @@ export const ADMIN_SIDEBAR_ITEMS: AdminSidebarItem[] = [
     href: ADMIN_LINKS.AIRLINES_TAB,
     icon: Plane,
     color: 'purple',
+    group: 'main',
   },
   {
     id: 'announcements',
@@ -44,6 +48,7 @@ export const ADMIN_SIDEBAR_ITEMS: AdminSidebarItem[] = [
     href: ADMIN_LINKS.ANNOUNCEMENTS,
     icon: Megaphone,
     color: 'orange',
+    group: 'main',
   },
   {
     id: 'password',
@@ -51,6 +56,15 @@ export const ADMIN_SIDEBAR_ITEMS: AdminSidebarItem[] = [
     href: ADMIN_LINKS.PASSWORD_TAB,
     icon: LockKeyhole,
     color: 'danger',
+    group: 'main',
+  },
+  {
+    id: 'settings-action-types',
+    label: '조치유형 관리',
+    href: ADMIN_LINKS.SETTINGS_ACTION_TYPES,
+    icon: Settings,
+    color: 'navy',
+    group: 'settings',
   },
 ];
 
