@@ -792,7 +792,7 @@ export function OverviewTab() {
           onClick={() => setIsCallsignDetailModalOpen(false)}
         >
           <div
-            className="w-[900px] max-w-[95vw] bg-white rounded-xl shadow-2xl shadow-black/20 border border-gray-200 p-8 my-8"
+            className="w-[900px] max-w-[95vw] bg-white rounded-xl shadow-2xl shadow-black/20 border border-gray-200 p-5 my-8"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 헤더 */}
@@ -826,53 +826,42 @@ export function OverviewTab() {
             </div>
 
             {/* 상세정보 그리드 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">발생건수</p>
-                <p className="text-2xl font-black text-rose-500">{callsignDetailMeta.occurrenceCount}건</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
+                <p className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">발생건수</p>
+                <p className="text-xl font-black text-rose-500">{callsignDetailMeta.occurrenceCount}건</p>
               </div>
-              <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">최근 발생일</p>
+              <div className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
+                <p className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">최근 발생일</p>
                 <p className="text-sm font-bold text-gray-900">{formatDisplayDate(callsignDetailMeta.lastOccurredAt)}</p>
               </div>
-              <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">유사성</p>
+              <div className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
+                <p className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">유사성</p>
                 <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.similarity}</p>
               </div>
-              <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">오류가능성</p>
+              <div className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
+                <p className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">오류가능성</p>
                 <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.riskLevel}</p>
               </div>
             </div>
 
-            {/* 호출부호 정보 */}
-            <div className="grid grid-cols-2 gap-6 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">자사 호출부호</p>
-                <p className="text-lg font-bold text-slate-100">{callsignDetailMeta.myCallsign}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">타사 호출부호</p>
-                <p className="text-lg font-bold text-slate-100">{callsignDetailMeta.otherCallsign}</p>
-              </div>
-            </div>
-
             {/* 오류 정보 */}
-            <div className="grid grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg border border-gray-200 mb-6">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">오류 유형</p>
-                <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.errorType}</p>
+            <div className="flex items-center gap-6 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">오류유형</span>
+                <span className="text-sm font-bold text-gray-900">{callsignDetailMeta.errorType}</span>
               </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">세부 오류</p>
-                <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.subError}</p>
+              <span className="text-gray-300">|</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">세부오류</span>
+                <span className="text-sm font-bold text-gray-900">{callsignDetailMeta.subError}</span>
               </div>
             </div>
 
             {/* 항공사 조치 상세내용 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
               {/* 자사 조치 */}
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-xs font-bold text-blue-600 mb-3 uppercase tracking-wide">
                   ✈ 자사 조치 ({callsignDetailMeta.myAirlineCode})
                 </p>
@@ -907,7 +896,7 @@ export function OverviewTab() {
               </div>
 
               {/* 타사 조치 */}
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
                 <p className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wide">
                   ✈ 타사 조치 ({callsignDetailMeta.otherAirlineCode})
                 </p>
@@ -954,14 +943,13 @@ export function OverviewTab() {
               ];
               const entries = Object.entries(callsignDetailMeta.errorTypeCounts).sort((a, b) => b[1] - a[1]);
               return (
-                <div className={`grid gap-4 mb-6`} style={{ gridTemplateColumns: `repeat(${Math.min(entries.length, 3)}, minmax(0, 1fr))` }}>
+                <div className={`grid gap-2 mb-4`} style={{ gridTemplateColumns: `repeat(${Math.min(entries.length, 4)}, minmax(0, 1fr))` }}>
                   {entries.map(([type, count], idx) => {
                     const p = PALETTE[idx % PALETTE.length];
                     return (
-                      <div key={type} className={`p-4 ${p.bg} border ${p.border} rounded-none text-center`}>
-                        <p className={`text-xs font-semibold ${p.text} mb-2 uppercase tracking-wide`}>{type}</p>
-                        <p className={`text-2xl font-black ${p.text}`}>{count}</p>
-                        <p className={`text-xs ${p.text} mt-1 font-semibold opacity-70`}>건</p>
+                      <div key={type} className={`px-3 py-2 ${p.bg} border ${p.border} rounded-lg flex items-center justify-between gap-2`}>
+                        <p className={`text-xs font-semibold ${p.text} truncate`}>{type}</p>
+                        <p className={`text-sm font-black ${p.text} shrink-0`}>{count}건</p>
                       </div>
                     );
                   })}
