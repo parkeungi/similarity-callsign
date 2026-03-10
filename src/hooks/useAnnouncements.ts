@@ -90,8 +90,8 @@ export function useActiveAnnouncements(
         total: announcements.length,
       };
     },
-    staleTime: 30 * 1000,      // 30초
-    gcTime: 5 * 60 * 1000,     // 5분
+    staleTime: 2 * 60 * 1000,  // 2분
+    gcTime: 10 * 60 * 1000,    // 10분
     enabled: !!user && (options?.enabled ?? true),
   });
 }

@@ -43,7 +43,7 @@ export function AdminOccurrenceTab() {
     queryFn: async () => {
       if (!accessToken || selectedAirlineId === 'all') return [];
       const response = await fetch(
-        `/api/airlines/${selectedAirlineId}/callsigns?page=1&limit=10000`,
+        `/api/airlines/${selectedAirlineId}/callsigns?page=1&limit=1000`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
       if (!response.ok) return [];
@@ -76,7 +76,7 @@ export function AdminOccurrenceTab() {
       const results = await Promise.all(
         airlines.map(async (airline) => {
           const response = await fetch(
-            `/api/airlines/${airline.id}/callsigns?page=1&limit=10000`,
+            `/api/airlines/${airline.id}/callsigns?page=1&limit=1000`,
             { headers: { Authorization: `Bearer ${accessToken}` } }
           );
           if (!response.ok) return [];

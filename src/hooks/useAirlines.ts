@@ -38,8 +38,8 @@ export function useAirlines() {
 
       return (data ?? []) as Airline[];
     },
-    staleTime: 30 * 1000, // 30초
-    gcTime: 5 * 60 * 1000, // 5분 (이전 cacheTime)
+    staleTime: 5 * 60 * 1000, // 5분
+    gcTime: 30 * 60 * 1000, // 30분
   });
 }
 
@@ -69,8 +69,8 @@ export function useAdminAirlines() {
       return data.airlines as Airline[];
     },
     enabled: !!accessToken, // accessToken이 있을 때만 쿼리 실행
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5분
+    gcTime: 30 * 60 * 1000, // 30분
   });
 }
 
