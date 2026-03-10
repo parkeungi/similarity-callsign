@@ -13,6 +13,7 @@ import {
 } from '@/types/airline';
 import { IncidentFilters } from './IncidentFilters';
 import { formatOccurrenceBadge } from '@/lib/occurrence-format';
+import { Pagination } from '@/components/common/Pagination';
 
 interface AirlineOccurrenceTabProps {
   incidents: Incident[];
@@ -217,6 +218,13 @@ export function AirlineOccurrenceTab({
 
   return (
     <div className="space-y-6">
+      {/* 가이드라인 */}
+      <div className="text-xs text-gray-500 space-y-0.5 bg-white border border-gray-200 rounded-lg px-4 py-3">
+        <p>※ 발생일수: 최초 발생이력 기준 하루 1건으로 카운트 (같은 날 다른 섹터 중복 검출은 1건)</p>
+        <p>※ 오류유형: 하루 동일 항공기라도 서로 다른 섹터에서 검출 시 오류유형별로 각각 집계</p>
+        <p>※ 예외: 당일 출도착 변경 시 최대 2건 카운트 가능 (극히 드묾)</p>
+      </div>
+
       {/* 통계 카드 섹션 */}
       {Object.keys(stats.errorTypeCounts).length > 0 && (
         <div className="bg-white border border-gray-200 shadow-sm">
@@ -338,8 +346,14 @@ export function AirlineOccurrenceTab({
                 {/* 정보 테이블 */}
                 <div className="grid grid-cols-4 gap-2 text-sm mb-2 pb-2 border-b border-gray-200">
                   <div>
-                    <div className="text-[11px] text-gray-500 font-semibold mb-0.5">발생건수</div>
-                    <div className="font-bold text-red-600 text-sm">{incident.count || 0}건</div>
+                    <div className="text-[11px] text-gray-500 font-semibold mb-0.5">발생일수</div>
+                    <div className="font-bold text-red-600 text-sm">
+                      {(() => {
+                        const occs = incident.occurrences || [];
+                        const uniqueDays = new Set(occs.map((o) => o.occurredDate)).size;
+                        return `${uniqueDays || incident.count || 0}일`;
+                      })()}
+                    </div>
                   </div>
                   <div>
                     <div className="text-[11px] text-gray-500 font-semibold mb-0.5">최근발생일</div>
@@ -393,12 +407,25 @@ export function AirlineOccurrenceTab({
                   </div>
                 )}
 
-                {/* 발생 이력 타임라인 (날짜+시간) */}
+                {/* 발생 이력 타임라인 (일자별 최초 1건, 시간순 오름차순) */}
                 {incident.occurrences && incident.occurrences.length > 0 && (
                   <div>
-                    <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (날짜·시간)</div>
+                    <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (일자별 최초 검출, 시간순)</div>
                     <div className="flex flex-wrap gap-1.5">
-                      {incident.occurrences.map((occurrence, i) => {
+                      {(() => {
+                        const sorted = [...incident.occurrences].sort((a, b) => {
+                          const dateA = `${a.occurredDate || ''} ${a.occurredTime || '00:00'}`;
+                          const dateB = `${b.occurredDate || ''} ${b.occurredTime || '00:00'}`;
+                          return dateA.localeCompare(dateB);
+                        });
+                        const seen = new Set<string>();
+                        return sorted.filter((o) => {
+                          const d = o.occurredDate || '';
+                          if (seen.has(d)) return false;
+                          seen.add(d);
+                          return true;
+                        });
+                      })().map((occurrence, i) => {
                         const { monthDay, time } = formatOccurrenceBadge(
                           occurrence.occurredDate,
                           occurrence.occurredTime
@@ -426,75 +453,7 @@ export function AirlineOccurrenceTab({
         )}
 
         {/* 페이지네이션 */}
-        {totalPages > 1 && (
-          <div className="py-6 flex items-center justify-center gap-1">
-            {/* 첫 페이지 */}
-            <button
-              onClick={() => onPageChange(1)}
-              disabled={incidentsPage === 1}
-              className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M3 3h1.5v10H3V3zm3.5 5L12 3v10L6.5 8z"/>
-              </svg>
-            </button>
-
-            {/* 이전 */}
-            <button
-              onClick={() => onPageChange(Math.max(1, incidentsPage - 1))}
-              disabled={incidentsPage === 1}
-              className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all"
-            >
-              <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
-                <path d="M8.5 1L1.5 7l7 6"/>
-              </svg>
-            </button>
-
-            {/* 페이지 번호 버튼 */}
-            {(() => {
-              const windowSize = 5;
-              const half = Math.floor(windowSize / 2);
-              let start = Math.max(1, incidentsPage - half);
-              let end = Math.min(totalPages, start + windowSize - 1);
-              if (end - start + 1 < windowSize) start = Math.max(1, end - windowSize + 1);
-              return Array.from({ length: end - start + 1 }, (_, i) => start + i).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => onPageChange(p)}
-                  className={`w-9 h-9 flex items-center justify-center rounded text-sm font-bold transition-all ${
-                    p === incidentsPage
-                      ? 'bg-[#0A2C5A] text-white shadow-sm'
-                      : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  {p}
-                </button>
-              ));
-            })()}
-
-            {/* 다음 */}
-            <button
-              onClick={() => onPageChange(Math.min(totalPages, incidentsPage + 1))}
-              disabled={incidentsPage >= totalPages}
-              className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all"
-            >
-              <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
-                <path d="M1.5 1l7 6-7 6"/>
-              </svg>
-            </button>
-
-            {/* 마지막 페이지 */}
-            <button
-              onClick={() => onPageChange(totalPages)}
-              disabled={incidentsPage === totalPages}
-              className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M13 3h-1.5v10H13V3zM9.5 8L4 3v10l5.5-5z"/>
-              </svg>
-            </button>
-          </div>
-        )}
+        <Pagination page={incidentsPage} totalPages={totalPages} onPageChange={onPageChange} />
       </div>
     </div>
   );
