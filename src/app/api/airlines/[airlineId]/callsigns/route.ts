@@ -169,10 +169,10 @@ export async function GET(
       // 발생 이력 상세 조회 (callsign_occurrences 테이블) - 날짜와 시간 모두 포함
       const occPlaceholders = callsignIds.map((_: any, i: number) => `$${i + 1}`).join(',');
       const occurrencesResult = await query(
-        `SELECT callsign_id, occurred_date, occurred_time, error_type, sub_error
+        `SELECT DISTINCT ON (callsign_id, occurred_date) callsign_id, occurred_date, occurred_time, error_type, sub_error
          FROM callsign_occurrences
          WHERE callsign_id IN (${occPlaceholders})
-         ORDER BY occurred_date DESC, COALESCE(occurred_time::text, '00:00:00') DESC`,
+         ORDER BY callsign_id, occurred_date DESC, occurred_time DESC NULLS LAST`,
         callsignIds
       );
 

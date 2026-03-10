@@ -134,7 +134,7 @@ export async function GET(
           TO_CHAR(occurred_date, 'MM-DD') || ' ' || COALESCE(TO_CHAR(occurred_time, 'HH24:MI'), ''),
           ',' ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST
         ) FROM (
-          SELECT occurred_date, occurred_time FROM callsign_occurrences WHERE callsign_id = cs.id ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST LIMIT 10
+          SELECT DISTINCT ON (occurred_date) occurred_date, occurred_time FROM callsign_occurrences WHERE callsign_id = cs.id ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST LIMIT 10
         ) _occ) as occurrence_dates,
         (SELECT json_object_agg(error_type, cnt) FROM (
           SELECT error_type, COUNT(*) as cnt FROM callsign_occurrences WHERE callsign_id = cs.id GROUP BY error_type
