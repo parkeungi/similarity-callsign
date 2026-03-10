@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
-import { useAirlines } from '@/hooks/useAirlines';
+import { useAdminAirlines } from '@/hooks/useAirlines';
 import { Incident, RISK_LEVEL_ORDER } from '@/types/airline';
 import { formatOccurrenceBadge } from '@/lib/occurrence-format';
 
@@ -17,7 +17,7 @@ type ActionStatusFilter = 'all' | 'no_action' | 'in_progress' | 'completed';
 
 export function AdminOccurrenceTab() {
   const accessToken = useAuthStore((s) => s.accessToken);
-  const airlinesQuery = useAirlines();
+  const airlinesQuery = useAdminAirlines();
 
   const [selectedAirlineId, setSelectedAirlineId] = useState<'all' | string>('all');
   const [startDate, setStartDate] = useState<string>(() => {
