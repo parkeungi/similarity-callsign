@@ -62,7 +62,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; script-src 'self' cdn.jsdelivr.net 'unsafe-eval' 'unsafe-inline'; style-src 'self' cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' cdn.jsdelivr.net; connect-src 'self' https://api-client.bkend.ai https://*.supabase.co;`,
+            value: `default-src 'self'; script-src 'self' cdn.jsdelivr.net 'unsafe-eval' 'unsafe-inline' https://vercel.live https://*.vercel.live; style-src 'self' cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' cdn.jsdelivr.net; connect-src 'self' https://api-client.bkend.ai https://*.supabase.co https://vercel.live https://*.vercel.live wss://*.vercel.live;`,
           },
           {
             key: 'Permissions-Policy',
