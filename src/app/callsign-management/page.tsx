@@ -26,11 +26,11 @@ export default function CallsignManagementPublicPage() {
     user: state.user,
     accessToken: state.accessToken,
   }));
-  const activeTab = searchParams.get('tab') || 'overview';
+  const activeTab = searchParams.get('tab') || 'occurrences';
 
   const menuItems = [
-    { id: 'overview', label: '조치현황', icon: BarChart3, color: 'primary' },
     { id: 'occurrences', label: '발생현황', icon: AlertTriangle, color: 'warning' },
+    { id: 'overview', label: '조치현황', icon: BarChart3, color: 'primary' },
     { id: 'stats', label: '통계', icon: TrendingUp, color: 'success' },
     { id: 'upload', label: '엑셀입력', icon: FileSpreadsheet, color: 'orange' },
   ];

@@ -19,11 +19,11 @@ export default function CallsignManagementPage() {
   }));
   const isAdmin = useAuthStore((state) => state.isAdmin());
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [activeTab, setActiveTab] = useState<'actions' | 'occurrences' | 'stats' | 'upload'>('actions');
+  const [activeTab, setActiveTab] = useState<'actions' | 'occurrences' | 'stats' | 'upload'>('occurrences');
 
   const menuItems = [
-    { id: 'actions', label: '조치현황', icon: '📊' },
     { id: 'occurrences', label: '발생현황', icon: '⚠️' },
+    { id: 'actions', label: '조치현황', icon: '📊' },
     { id: 'stats', label: '통계', icon: '📈' },
     { id: 'upload', label: '엑셀입력', icon: '📁' },
   ];
