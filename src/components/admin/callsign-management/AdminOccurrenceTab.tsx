@@ -37,15 +37,14 @@ export function AdminOccurrenceTab() {
   const airlines = airlinesQuery.data || [];
   const selectedAirline = airlines.find(a => a.id === selectedAirlineId);
 
-  // 특정 항공사 발생현황 조회
-  const singleAirlineQuery = useQuery({
-    queryKey: ['admin-occurrences', selectedAirlineId, accessToken],
+  // 전체 발생현황 통합 조회 (1번 API 호출로 모든 항공사 데이터 수신)
+  const allOccurrencesQuery = useQuery({
+    queryKey: ['admin-all-occurrences-v2', accessToken],
     queryFn: async () => {
-      if (!accessToken || selectedAirlineId === 'all') return [];
-      const response = await fetch(
-        `/api/airlines/${selectedAirlineId}/callsigns?page=1&limit=1000`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
+      if (!accessToken) return [];
+      const response = await fetch('/api/admin/occurrences', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       if (!response.ok) return [];
       const result = await response.json();
       return (result.data || []).map((cs: any) => ({
@@ -59,53 +58,22 @@ export function AdminOccurrenceTab() {
         errorType: cs.error_type,
         errorTypeSummary: cs.errorTypeSummary || [],
         occurrences: cs.occurrences || [],
-        airlineName: selectedAirline?.name_ko,
-        airlineCode: selectedAirline?.code,
+        airlineName: cs.airline_name_ko,
+        airlineCode: cs.airline_code,
+        airlineId: cs.airline_id,
       } as OccurrenceIncident));
     },
-    enabled: !!accessToken && selectedAirlineId !== 'all',
-    staleTime: 1000 * 60 * 5,
+    enabled: !!accessToken,
+    staleTime: 1000 * 60 * 5, // 5분 캐시 (항공사 전환 시 재요청 없음)
+    gcTime: 1000 * 60 * 30,
   });
 
-  // 전체 항공사 발생현황 조회
-  const allAirlinesQuery = useQuery({
-    queryKey: ['admin-all-occurrences', accessToken, airlines.length],
-    queryFn: async () => {
-      if (!accessToken || airlines.length === 0) return [];
-      // 병렬 요청으로 성능 개선 (순차 → Promise.all)
-      const results = await Promise.all(
-        airlines.map(async (airline) => {
-          const response = await fetch(
-            `/api/airlines/${airline.id}/callsigns?page=1&limit=1000`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          );
-          if (!response.ok) return [];
-          const result = await response.json();
-          return (result.data || []).map((cs: any) => ({
-            id: cs.id,
-            pair: cs.callsign_pair,
-            risk: cs.risk_level === '매우높음' ? 'very_high' : cs.risk_level === '높음' ? 'high' : 'low',
-            count: cs.occurrence_count || 0,
-            lastDate: cs.last_occurred_at,
-            similarity: cs.similarity,
-            actionStatus: cs.action_status,
-            errorType: cs.error_type,
-            errorTypeSummary: cs.errorTypeSummary || [],
-            occurrences: cs.occurrences || [],
-            airlineName: airline.name_ko,
-            airlineCode: airline.code,
-          } as OccurrenceIncident));
-        })
-      );
-      return results.flat();
-    },
-    enabled: !!accessToken && selectedAirlineId === 'all' && airlines.length > 0,
-    staleTime: 1000 * 60 * 5,
-  });
-
-  const rawIncidents: OccurrenceIncident[] = selectedAirlineId === 'all'
-    ? (allAirlinesQuery.data || [])
-    : (singleAirlineQuery.data || []);
+  // 선택 항공사 필터링은 캐시된 데이터에서 클라이언트 처리 (추가 fetch 없음)
+  const rawIncidents: OccurrenceIncident[] = useMemo(() => {
+    const all = allOccurrencesQuery.data || [];
+    if (selectedAirlineId === 'all') return all;
+    return all.filter((i) => (i as any).airlineId === selectedAirlineId);
+  }, [allOccurrencesQuery.data, selectedAirlineId]);
 
   // 날짜 필터링
   const filteredByDate = useMemo(() => {
@@ -206,7 +174,7 @@ export function AdminOccurrenceTab() {
     return allFilteredIncidents.slice(start, start + limit);
   }, [allFilteredIncidents, page, limit]);
 
-  const isLoading = selectedAirlineId === 'all' ? allAirlinesQuery.isLoading : singleAirlineQuery.isLoading;
+  const isLoading = allOccurrencesQuery.isLoading;
 
   const getRiskBorderColor = (risk: string) => {
     switch (risk) {
