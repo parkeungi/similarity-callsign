@@ -23,10 +23,6 @@ export async function POST(request: NextRequest) {
 
     // 리프레시 토큰 검증
     const payload = verifyRefreshToken(refreshToken);
-    console.log('[REFRESH] 토큰 검증 결과:', {
-      userId: payload?.userId,
-      refreshTokenExists: !!refreshToken,
-    });
     if (!payload) {
       return NextResponse.json(
         { error: '유효하지 않은 리프레시 토큰입니다.' },
@@ -61,12 +57,6 @@ export async function POST(request: NextRequest) {
     }
 
     const user = result.rows[0];
-    console.log('[REFRESH] 조회된 사용자:', {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-    });
 
     // 정지된 사용자 거부
     if (user.status === 'suspended') {

@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { PASSWORD_REGEX } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,6 +83,13 @@ export async function PUT(request: NextRequest, { params }: Params) {
     if (!password) {
       return NextResponse.json(
         { error: '새 비밀번호를 입력해주세요.' },
+        { status: 400 }
+      );
+    }
+
+    if (!PASSWORD_REGEX.test(password)) {
+      return NextResponse.json(
+        { error: '비밀번호는 8자 이상, 대문자·소문자·숫자·특수문자를 모두 포함해야 합니다.' },
         { status: 400 }
       );
     }

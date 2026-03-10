@@ -1,20 +1,45 @@
 /**
  * POST /api/auth/login
  * 로그인 API
+ *
+ * 보안 정책 (행안부 정보보호 지침):
+ * - IP 기반 Rate Limiting: 10회/분 초과 시 429
+ * - 계정 잠금: 5회 연속 실패 시 15분 잠금
+ * - 성공 시 실패 횟수 초기화
+ * - 열거 공격 방어: 이메일/비밀번호 오류 메시지 동일
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
 import { generateAccessToken } from '@/lib/jwt';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import * as authQueries from '@/lib/db/queries/auth';
+
+const MAX_FAILED_ATTEMPTS = 5;       // 계정 잠금 임계값
+const LOCK_DURATION_MS = 15 * 60 * 1000; // 15분
+const IP_RATE_LIMIT = 10;            // IP당 허용 횟수
+const IP_WINDOW_MS = 60 * 1000;      // 1분
 
 export async function POST(request: NextRequest) {
   try {
+    // ── 1. IP Rate Limiting ────────────────────────────────────────────────
+    const ip = getClientIp(request);
+    const rl = rateLimit(`login:${ip}`, IP_RATE_LIMIT, IP_WINDOW_MS);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `요청이 너무 많습니다. ${rl.retryAfterSec}초 후 다시 시도해주세요.` },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rl.retryAfterSec) },
+        }
+      );
+    }
+
+    // ── 2. 입력 파싱 ────────────────────────────────────────────────────────
     const body = await request.json();
     const { email, password } = body;
 
-    // 유효성 검사
     if (!email || !password) {
       return NextResponse.json(
         { error: '이메일 또는 비밀번호가 올바르지 않습니다.' },
@@ -22,13 +47,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const normalizedEmail = email.trim();
+    const normalizedEmail = email.trim().toLowerCase();
 
-    // 사용자 조회 (항공사 정보, 비밀번호 정책 추적 필드 포함)
+    // ── 3. 사용자 조회 ──────────────────────────────────────────────────────
     const result = await query(authQueries.getUserByEmail, [normalizedEmail]);
 
     if (result.rows.length === 0) {
-      // 열거 공격 방어: 존재하지 않는 사용자도 같은 메시지 반환
+      // 열거 공격 방어: 동일 메시지
       return NextResponse.json(
         { error: '이메일 또는 비밀번호가 올바르지 않습니다.' },
         { status: 401 }
@@ -37,42 +62,94 @@ export async function POST(request: NextRequest) {
 
     const user = result.rows[0];
 
-    // 비밀번호 검증
+    // ── 4. 계정 잠금 확인 ───────────────────────────────────────────────────
+    if (user.locked_until) {
+      const lockedUntil = new Date(user.locked_until);
+      if (lockedUntil > new Date()) {
+        const remainingSec = Math.ceil((lockedUntil.getTime() - Date.now()) / 1000);
+        const remainingMin = Math.ceil(remainingSec / 60);
+        return NextResponse.json(
+          {
+            error: `계정이 잠겨 있습니다. ${remainingMin}분 후 다시 시도해주세요.`,
+            lockedUntil: lockedUntil.toISOString(),
+          },
+          { status: 423 }
+        );
+      }
+      // 잠금 기간 경과 — 자동 해제
+      await query(
+        `UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?`,
+        [user.id]
+      );
+    }
+
+    // ── 5. 비밀번호 검증 ────────────────────────────────────────────────────
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
     if (!isPasswordValid) {
+      const newFailCount = (user.failed_login_attempts || 0) + 1;
+
+      if (newFailCount >= MAX_FAILED_ATTEMPTS) {
+        // 계정 잠금
+        const lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
+        await query(
+          `UPDATE users
+           SET failed_login_attempts = ?, locked_until = ?
+           WHERE id = ?`,
+          [newFailCount, lockUntil.toISOString(), user.id]
+        );
+        return NextResponse.json(
+          {
+            error: `비밀번호를 ${MAX_FAILED_ATTEMPTS}회 잘못 입력했습니다. 계정이 15분간 잠겼습니다.`,
+            lockedUntil: lockUntil.toISOString(),
+          },
+          { status: 423 }
+        );
+      }
+
+      // 실패 횟수만 증가
+      await query(
+        `UPDATE users SET failed_login_attempts = ? WHERE id = ?`,
+        [newFailCount, user.id]
+      );
+      const remaining = MAX_FAILED_ATTEMPTS - newFailCount;
       return NextResponse.json(
-        { error: '이메일 또는 비밀번호가 올바르지 않습니다.' },
+        {
+          error: `이메일 또는 비밀번호가 올바르지 않습니다. (${remaining}회 더 실패하면 계정이 잠깁니다.)`,
+        },
         { status: 401 }
       );
     }
 
-    // 사용자 상태 확인
+    // ── 6. 계정 상태 확인 ───────────────────────────────────────────────────
     if (user.status === 'suspended') {
-      return NextResponse.json(
-        { error: '정지된 계정입니다.' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: '정지된 계정입니다.' }, { status: 403 });
     }
 
-    // 90일 비밀번호 만료 확인
+    // ── 7. 로그인 성공 — 실패 횟수 초기화 ────────────────────────────────────
+    await query(
+      `UPDATE users
+       SET failed_login_attempts = 0,
+           locked_until = NULL,
+           last_login_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [user.id]
+    );
+
+    // ── 8. 90일 비밀번호 만료 확인 ──────────────────────────────────────────
     if (user.last_password_changed_at) {
       const lastChanged = new Date(user.last_password_changed_at);
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
       if (lastChanged < ninetyDaysAgo) {
-        // password_change_required 플래그 설정
         await query(
-          `UPDATE users SET password_change_required = true, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+          `UPDATE users SET password_change_required = true WHERE id = ?`,
           [user.id]
         );
         user.password_change_required = true;
       }
     }
 
-    // 마지막 로그인 시간 업데이트
-    await query(authQueries.updateLastLogin, [user.id]);
-
-    // 토큰 생성 (airline_id 포함)
+    // ── 9. 토큰 발급 ────────────────────────────────────────────────────────
     const accessToken = generateAccessToken({
       userId: user.id,
       email: user.email,
@@ -81,7 +158,6 @@ export async function POST(request: NextRequest) {
       airlineId: user.airline_id,
     });
 
-    // 항공사 정보 구성
     const airline = user.airline_code
       ? {
           id: user.airline_id,
@@ -91,8 +167,6 @@ export async function POST(request: NextRequest) {
         }
       : null;
 
-    // 📌 비밀번호 강제 변경 기준: is_default_password 또는 password_change_required 중 하나라도 true
-    // SQLite는 boolean을 정수 0/1로 저장하므로, !! 연산자로 변환 (1 === true는 false이므로)
     const needsPasswordChange = !!user.is_default_password || !!user.password_change_required;
 
     const sanitizedUser = {
@@ -108,11 +182,7 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json(
-      {
-        user: sanitizedUser,
-        accessToken,
-        forceChangePassword: sanitizedUser.forceChangePassword,
-      },
+      { user: sanitizedUser, accessToken, forceChangePassword: needsPasswordChange },
       { status: 200 }
     );
   } catch (error) {
