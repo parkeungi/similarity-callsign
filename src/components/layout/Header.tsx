@@ -55,29 +55,46 @@ export function Header() {
 
   return (
     <header
-      className="sticky top-0 z-50 flex items-center justify-between px-12 h-36 border-b border-gray-200 overflow-hidden" // h-36 is 144px
+      className="sticky top-0 z-50 flex items-center justify-between px-12 h-36 overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, #00205b 0%, #003380 100%)',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+        background: 'linear-gradient(135deg, #111827 0%, #1f2937 60%, #111827 100%)',
+        borderBottom: '1px solid rgba(75, 85, 99, 0.5)',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
       }}
     >
-      {/* Grid effect for technical look */}
+      {/* Dot grid pattern */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)',
+          backgroundSize: '28px 28px',
+        }}
+      />
+
+      {/* Accent glow line at top */}
+      <div
+        className="absolute top-0 left-0 right-0 h-px pointer-events-none"
+        style={{
+          background: 'linear-gradient(90deg, transparent 0%, rgba(99,102,241,0.6) 30%, rgba(139,92,246,0.6) 60%, transparent 100%)',
+        }}
+      />
+
+      {/* Radial glow left */}
+      <div
+        className="absolute left-0 top-0 w-96 h-full pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse at left center, rgba(99,102,241,0.08) 0%, transparent 70%)',
         }}
       />
 
       {/* Illustration (Tower Only) */}
-      <div className="absolute left-[300px] bottom-0 h-full flex items-end justify-start opacity-40 pointer-events-none z-0">
+      <div className="absolute left-[300px] bottom-0 h-full flex items-end justify-start opacity-20 pointer-events-none z-0">
         <svg viewBox="0 0 200 300" className="h-full">
-          <g transform="translate(50, 110)" fill="#fff" style={{ filter: 'drop-shadow(0 0 10px rgba(100, 200, 255, 0.4))' }}>
-            <rect x="40" y="100" width="30" height="160" opacity="0.4" />
-            <rect x="35" y="85" width="40" height="20" rx="1" opacity="0.6" />
+          <g transform="translate(50, 110)" fill="#fff" style={{ filter: 'drop-shadow(0 0 8px rgba(139,92,246,0.5))' }}>
+            <rect x="40" y="100" width="30" height="160" opacity="0.3" />
+            <rect x="35" y="85" width="40" height="20" rx="1" opacity="0.5" />
             <path d="M20,85 L90,85 L80,45 L30,45 Z" />
-            <rect x="25" y="45" width="60" height="8" fill="rgba(34, 211, 238, 0.3)" />
+            <rect x="25" y="45" width="60" height="8" fill="rgba(139, 92, 246, 0.4)" />
             <rect x="52" y="10" width="6" height="35" />
             <circle cx="55" cy="5" r="2" />
           </g>
@@ -86,6 +103,34 @@ export function Header() {
 
       {/* 로고 + 시스템명 + 항공사 정보 */}
       <div className="flex items-center gap-6 z-10">
+
+        {/* 국토교통부 항공교통본부 */}
+        <div className="flex items-center gap-3 pr-6 border-r border-white/15">
+          {/* 태극 SVG 심볼 */}
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* 흰색 배경 원 */}
+            <circle cx="20" cy="20" r="18" fill="white"/>
+            {/* 태극 - 상단(파란색) */}
+            <path
+              d="M20 4 A16 16 0 0 1 20 36 A8 8 0 0 0 20 20 A8 8 0 0 1 20 4Z"
+              fill="#0047AB"
+            />
+            {/* 태극 - 하단(빨간색) */}
+            <path
+              d="M20 4 A16 16 0 0 0 20 36 A8 8 0 0 1 20 20 A8 8 0 0 0 20 4Z"
+              fill="#CD2E3A"
+            />
+            {/* 중앙 작은 원 */}
+            <circle cx="20" cy="12" r="3.5" fill="#0047AB"/>
+            <circle cx="20" cy="28" r="3.5" fill="#CD2E3A"/>
+          </svg>
+          {/* 부처명 두 줄 */}
+          <div className="flex flex-col">
+            <span className="text-white font-black text-sm leading-tight tracking-tight">국토교통부</span>
+            <span className="text-white font-black text-sm leading-tight tracking-tight">항공교통본부</span>
+          </div>
+        </div>
+
         {/* 시스템명 */}
         <Link
           href={ROUTES.HOME}
@@ -95,7 +140,7 @@ export function Header() {
             유사호출부호 경고시스템
           </span>
           <div className="flex items-center gap-3 mt-1.5">
-            <p className="text-cyan-400 text-[10px] font-black uppercase tracking-[0.4em]">Similar Callsign Warning System</p>
+            <p className="text-violet-400 text-[10px] font-black uppercase tracking-[0.4em]">Similar Callsign Warning System</p>
           </div>
         </Link>
 
@@ -125,7 +170,7 @@ export function Header() {
             {/* 이메일 표시 (간소화) */}
             <div className="flex items-center gap-2">
               <div className="relative">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></div>
               </div>
               <span className="text-white/40 text-[10px] font-bold tracking-wide uppercase">
                 {user.email}

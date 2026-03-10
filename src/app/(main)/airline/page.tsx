@@ -58,7 +58,7 @@ export default function AirlinePage() {
 
   // 발생현황 탭 상태 (신규)
   const [occurrencePage, setOccurrencePage] = useState(1);
-  const [occurrenceLimit, setOccurrenceLimit] = useState(10);
+  const [occurrenceLimit, setOccurrenceLimit] = useState(9);
   const [occurrenceSearchInput, setOccurrenceSearchInput] = useState('');
 
   // 조치이력 탭 상태
@@ -302,22 +302,7 @@ export default function AirlinePage() {
       <Header />
       <main className="flex flex-1 min-h-0 overflow-y-auto">
         {/* 왼쪽 사이드바 */}
-        <aside className="w-72 bg-white border-r border-gray-100 flex flex-col pt-0 shrink-0 h-full overflow-y-auto">
-          <div className="relative px-6 pt-9 pb-8 mb-4 bg-gradient-to-br from-[#071C3C] via-[#0A2C5A] to-[#041330] text-white shadow-lg">
-            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top,_rgba(79,193,255,0.8),_transparent_60%)] pointer-events-none" />
-            <div className="relative z-10 space-y-2">
-              <p className="text-[10px] font-semibold tracking-[0.45em] uppercase text-cyan-200">
-                Airline Portal
-              </p>
-              <h2 className="text-2xl font-black tracking-tight leading-tight">
-                {displayAirlineName}
-              </h2>
-              <div className="w-12 h-0.5 bg-cyan-300/70" />
-              <p className="text-xs font-semibold tracking-[0.35em] text-white/80 uppercase">
-                {displayAirlineCode} Management
-              </p>
-            </div>
-          </div>
+        <aside className="w-72 bg-white border-r border-gray-100 flex flex-col pt-4 shrink-0 h-full overflow-y-auto">
           <nav className="flex-1 px-4 space-y-2">
             {navItems.map((item) => {
               const isActive = activeTab === item.id;
@@ -342,7 +327,7 @@ export default function AirlinePage() {
 
         {/* 오른쪽 콘텐츠 영역 */}
         <div className="flex-1 overflow-y-auto h-full bg-gray-50">
-          <div className="w-full max-w-6xl mx-auto px-4 py-10 space-y-8 animate-fade-in flex flex-col">
+          <div className="w-full max-w-[90rem] mx-auto px-4 py-10 space-y-8 animate-fade-in flex flex-col">
             {activeTab === 'occurrence' && (
               <AirlineOccurrenceTab
                 incidents={incidents}

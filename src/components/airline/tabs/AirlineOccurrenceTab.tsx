@@ -218,55 +218,35 @@ export function AirlineOccurrenceTab({
   return (
     <div className="space-y-6">
       {/* 통계 카드 섹션 */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-
-
-        {/* 메인 통계 */}
-        <div className="mb-6">
-          <div className="flex items-baseline gap-3 mb-1">
-            <span className="text-4xl font-black text-gray-900">{stats.total}</span>
-            <span className="text-sm font-medium text-gray-500">(유사호출부호 쌍)</span>
+      {Object.keys(stats.errorTypeCounts).length > 0 && (
+        <div className="bg-white border border-gray-200 shadow-sm">
+          <div className="flex divide-x divide-gray-100">
+            {Object.entries(stats.errorTypeCounts)
+              .sort((a, b) => b[1] - a[1])
+              .map(([type, count], idx) => {
+                const palette = ERROR_TYPE_PALETTE[idx % ERROR_TYPE_PALETTE.length];
+                const pct = stats.totalOccurrences > 0 ? Math.round((count / stats.totalOccurrences) * 100) : 0;
+                const isActive = errorTypeFilter === type;
+                const borderColors = ['#ef4444','#f97316','#10b981','#6366f1','#8b5cf6','#f59e0b','#6b7280'];
+                const borderColor = borderColors[idx % borderColors.length];
+                return (
+                  <button
+                    key={type}
+                    onClick={() => onErrorTypeFilterChange(isActive ? 'all' : type)}
+                    className={`flex-1 px-5 py-3 text-left transition-all hover:bg-gray-50 ${isActive ? 'bg-gray-50' : ''}`}
+                    style={{ borderLeft: `3px solid ${borderColor}` }}
+                  >
+                    <div className="text-xs text-gray-500 mb-1">{type}</div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-2xl font-black text-gray-900">{count}</span>
+                      <span className="text-sm font-bold italic" style={{ color: borderColor }}>{pct}%</span>
+                    </div>
+                  </button>
+                );
+              })}
           </div>
-          <div className="text-xs text-gray-500 mb-4">
-            ※ 오류 유형별 건수는 발생 이력 기준이며, 전체 유사호출부호 쌍 수와 일치하지 않습니다.
-          </div>
-
-          {/* 오류유형 카드 그리드 - DB error_type GROUP BY 동적 렌더링 */}
-          {Object.keys(stats.errorTypeCounts).length === 0 ? (
-            <div className="text-sm text-gray-400 py-2">발생 이력이 없습니다.</div>
-          ) : (
-            <div
-              className="grid gap-3"
-              style={{ gridTemplateColumns: `repeat(${Math.min(Object.keys(stats.errorTypeCounts).length, 4)}, minmax(0, 1fr))` }}
-            >
-              {Object.entries(stats.errorTypeCounts)
-                .sort((a, b) => b[1] - a[1])
-                .map(([type, count], idx) => {
-                  const palette = ERROR_TYPE_PALETTE[idx % ERROR_TYPE_PALETTE.length];
-                  const pct = stats.totalOccurrences > 0 ? Math.round((count / stats.totalOccurrences) * 100) : 0;
-                  const isActive = errorTypeFilter === type;
-                  return (
-                    <button
-                      key={type}
-                      onClick={() => onErrorTypeFilterChange(isActive ? 'all' : type)}
-                      className={`border-2 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all text-left ${
-                        isActive
-                          ? `${palette.activeBorder} ${palette.activeBg} shadow-md`
-                          : `${palette.border} ${palette.bg}`
-                      }`}
-                    >
-                      <div className={`text-xs font-bold ${palette.label} mb-2`}>{type}</div>
-                      <div className="flex items-baseline gap-2">
-                        <span className={`text-2xl font-black ${palette.value}`}>{count}</span>
-                        <span className={`text-xs font-bold ${palette.pct}`}>{pct}%</span>
-                      </div>
-                    </button>
-                  );
-                })}
-            </div>
-          )}
         </div>
-      </div>
+      )}
 
       {/* 필터 바 */}
       <IncidentFilters
@@ -308,21 +288,15 @@ export function AirlineOccurrenceTab({
         </div>
 
         {pagedIncidents.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {pagedIncidents.map((incident, idx) => (
               <div
                 key={`${incident.pair}-${idx}`}
-                className="bg-white border-l-4 border-gray-300 rounded-lg p-3 shadow-sm hover:shadow-md transition-all"
-                style={{
-                  borderLeftColor:
-                    incident.risk === 'very_high'
-                      ? '#dc2626'
-                      : incident.risk === 'high'
-                      ? '#f59e0b'
-                      : incident.risk === 'medium'
-                      ? '#eab308'
-                      : '#16a34a',
-                }}
+                className={`bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-all border-2 ${
+                  incident.actionStatus === 'completed'
+                    ? 'border-blue-200'
+                    : 'border-red-400'
+                }`}
               >
                 {/* 헤더 */}
                 <div className="flex justify-between items-start mb-2">
@@ -453,61 +427,72 @@ export function AirlineOccurrenceTab({
 
         {/* 페이지네이션 */}
         {totalPages > 1 && (
-          <div className="px-6 py-6 border-t border-gray-200">
-            {/* 정보 텍스트 */}
-            <div className="text-center mb-4">
-              <span className="text-[12px] font-bold text-gray-600">
-                총 <span className="text-gray-800 font-black">{allFilteredIncidents.length}</span>건 중 <span className="text-blue-600">{(incidentsPage - 1) * incidentsLimit + 1}-{Math.min(incidentsPage * incidentsLimit, allFilteredIncidents.length)}</span>
-              </span>
-            </div>
+          <div className="py-6 flex items-center justify-center gap-1">
+            {/* 첫 페이지 */}
+            <button
+              onClick={() => onPageChange(1)}
+              disabled={incidentsPage === 1}
+              className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M3 3h1.5v10H3V3zm3.5 5L12 3v10L6.5 8z"/>
+              </svg>
+            </button>
 
-            {/* 페이지네이션 버튼 */}
-            <div className="flex items-center justify-center gap-1">
-              {/* 첫 페이지 */}
-              <button
-                onClick={() => onPageChange(1)}
-                disabled={incidentsPage === 1}
-                title="첫 페이지"
-                className="px-3 py-2 rounded border border-gray-300 text-gray-600 font-bold text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:border-gray-200 disabled:text-gray-300 disabled:bg-gray-50 transition-all"
-              >
-                ⏮
-              </button>
+            {/* 이전 */}
+            <button
+              onClick={() => onPageChange(Math.max(1, incidentsPage - 1))}
+              disabled={incidentsPage === 1}
+              className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all"
+            >
+              <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+                <path d="M8.5 1L1.5 7l7 6"/>
+              </svg>
+            </button>
 
-              {/* 이전 */}
-              <button
-                onClick={() => onPageChange(Math.max(1, incidentsPage - 1))}
-                disabled={incidentsPage === 1}
-                className="px-3 py-2 rounded border border-gray-300 text-gray-600 font-bold text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:border-gray-200 disabled:text-gray-300 disabled:bg-gray-50 transition-all"
-              >
-                ◀
-              </button>
+            {/* 페이지 번호 버튼 */}
+            {(() => {
+              const windowSize = 5;
+              const half = Math.floor(windowSize / 2);
+              let start = Math.max(1, incidentsPage - half);
+              let end = Math.min(totalPages, start + windowSize - 1);
+              if (end - start + 1 < windowSize) start = Math.max(1, end - windowSize + 1);
+              return Array.from({ length: end - start + 1 }, (_, i) => start + i).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => onPageChange(p)}
+                  className={`w-9 h-9 flex items-center justify-center rounded text-sm font-bold transition-all ${
+                    p === incidentsPage
+                      ? 'bg-[#0A2C5A] text-white shadow-sm'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  {p}
+                </button>
+              ));
+            })()}
 
-              {/* 페이지 번호 표시 */}
-              <div className="px-4 py-2 mx-1 rounded border border-blue-300 bg-blue-50">
-                <span className="text-sm font-black text-blue-600">
-                  {incidentsPage} <span className="text-gray-400 font-bold">/ {totalPages}</span>
-                </span>
-              </div>
+            {/* 다음 */}
+            <button
+              onClick={() => onPageChange(Math.min(totalPages, incidentsPage + 1))}
+              disabled={incidentsPage >= totalPages}
+              className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all"
+            >
+              <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+                <path d="M1.5 1l7 6-7 6"/>
+              </svg>
+            </button>
 
-              {/* 다음 */}
-              <button
-                onClick={() => onPageChange(Math.min(totalPages, incidentsPage + 1))}
-                disabled={incidentsPage >= totalPages}
-                className="px-3 py-2 rounded border border-gray-300 text-gray-600 font-bold text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:border-gray-200 disabled:text-gray-300 disabled:bg-gray-50 transition-all"
-              >
-                ▶
-              </button>
-
-              {/* 마지막 페이지 */}
-              <button
-                onClick={() => onPageChange(totalPages)}
-                disabled={incidentsPage === totalPages}
-                title="마지막 페이지"
-                className="px-3 py-2 rounded border border-gray-300 text-gray-600 font-bold text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:border-gray-200 disabled:text-gray-300 disabled:bg-gray-50 transition-all"
-              >
-                ⏭
-              </button>
-            </div>
+            {/* 마지막 페이지 */}
+            <button
+              onClick={() => onPageChange(totalPages)}
+              disabled={incidentsPage === totalPages}
+              className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M13 3h-1.5v10H13V3zM9.5 8L4 3v10l5.5-5z"/>
+              </svg>
+            </button>
           </div>
         )}
       </div>

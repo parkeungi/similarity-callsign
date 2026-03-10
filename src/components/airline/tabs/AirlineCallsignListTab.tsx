@@ -195,157 +195,85 @@ export function AirlineCallsignListTab({
 
   return (
     <div className="space-y-6">
-      {/* 통계 정보 */}
-      <div className="space-y-2 mb-4">
-        <div className="text-2xl font-black text-gray-800">
-          {stats.total} <span className="text-gray-500 text-base">(유사호출부호 쌍)</span>
+      {/* 통계 - 가로 한줄 바 */}
+      <div className="bg-white border border-gray-200 shadow-sm">
+        <div className="flex divide-x divide-gray-100">
+          {[
+            { label: '전체', value: stats.total, color: '#6366f1', filter: 'all' as const },
+            { label: '조치완료', value: stats.completed, color: '#10b981', filter: 'completed' as const },
+            { label: '조치필요', value: stats.pending + stats.notStarted, color: '#ef4444', filter: 'pending' as const },
+          ].map(({ label, value, color, filter }) => (
+            <button
+              key={label}
+              onClick={() => { setStatusFilter(filter); setPage(1); }}
+              className={`flex-1 px-5 py-3 text-left transition-all hover:bg-gray-50 ${statusFilter === filter ? 'bg-gray-50' : ''}`}
+              style={{ borderLeft: `3px solid ${color}` }}
+            >
+              <div className="text-xs text-gray-500 mb-1">{label}</div>
+              <div className="text-2xl font-black text-gray-900">{value}</div>
+            </button>
+          ))}
         </div>
-        <p className="text-xs text-gray-500">
-          ※ 조치별 건수는 조치 현황 기준이며, 전체 유사호출부호 쌍 수와 일치하지 않을 수 있습니다.
-        </p>
       </div>
 
-      {/* 통계 카드 - 클릭 가능 */}
-      <div className="grid grid-cols-3 gap-4">
-        {/* 전체 보기 */}
-        <button
-          onClick={() => {
-            setStatusFilter('all');
-            setPage(1);
-          }}
-          className={`rounded-lg p-6 shadow-sm transition-all cursor-pointer ${
-            statusFilter === 'all'
-              ? 'bg-blue-50 border-2 border-blue-600 ring-2 ring-blue-200'
-              : 'bg-white border border-gray-200 hover:border-blue-300 hover:shadow-md'
-          }`}
-        >
-          <div className="text-center">
-            <div className={`text-4xl font-bold ${statusFilter === 'all' ? 'text-blue-600' : 'text-blue-600'}`}>
-              {stats.total}
-            </div>
-            <div className={`text-sm mt-2 ${statusFilter === 'all' ? 'text-blue-600 font-bold' : 'text-gray-600'}`}>
-              전체
-            </div>
-          </div>
-        </button>
-
-        {/* 조치완료 */}
-        <button
-          onClick={() => {
-            setStatusFilter('completed');
-            setPage(1);
-          }}
-          className={`rounded-lg p-6 shadow-sm transition-all cursor-pointer ${
-            statusFilter === 'completed'
-              ? 'bg-emerald-50 border-2 border-emerald-600 ring-2 ring-emerald-200'
-              : 'bg-white border border-gray-200 hover:border-emerald-300 hover:shadow-md'
-          }`}
-        >
-          <div className="text-center">
-            <div className={`text-4xl font-bold ${statusFilter === 'completed' ? 'text-emerald-600' : 'text-emerald-600'}`}>
-              {stats.completed}
-            </div>
-            <div className={`text-sm mt-2 ${statusFilter === 'completed' ? 'text-emerald-600 font-bold' : 'text-gray-600'}`}>
-              조치완료
-            </div>
-          </div>
-        </button>
-
-        {/* 조치필요 */}
-        <button
-          onClick={() => {
-            setStatusFilter('pending');
-            setPage(1);
-          }}
-          className={`rounded-lg p-6 shadow-sm transition-all cursor-pointer ${
-            statusFilter === 'pending'
-              ? 'bg-rose-50 border-2 border-rose-600 ring-2 ring-rose-200'
-              : 'bg-white border border-gray-200 hover:border-rose-300 hover:shadow-md'
-          }`}
-        >
-          <div className="text-center">
-            <div className={`text-4xl font-bold ${statusFilter === 'pending' ? 'text-rose-600' : 'text-rose-600'}`}>
-              {stats.pending + stats.notStarted}
-            </div>
-            <div className={`text-sm mt-2 ${statusFilter === 'pending' ? 'text-rose-600 font-bold' : 'text-gray-600'}`}>
-              조치필요
-            </div>
-          </div>
-        </button>
-      </div>
-
-      {/* 필터 바 */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
+      {/* 필터 바 - 한 줄 */}
+      <div className="w-full border border-gray-200 bg-white px-4 py-2.5 shadow-sm">
+        <div className="flex w-full items-center gap-2">
           {/* 날짜 범위 */}
-          <div className="bg-gray-50 border border-gray-300 rounded-none px-3 py-2 flex items-center gap-2">
+          <div className="flex items-center gap-1.5 border border-gray-200 bg-white px-3 h-9 shrink-0">
             <input
               type="date"
               value={dateFilter.startDate}
               onChange={onStartDateChange}
-              className="bg-transparent border-none p-0 text-sm font-bold text-gray-900 focus:ring-0 cursor-pointer outline-none"
+              className="w-[110px] border-none bg-transparent p-0 text-sm font-semibold text-gray-900 outline-none focus:ring-0"
             />
-            <span className="text-gray-300 font-bold mx-1">~</span>
+            <span className="text-sm text-gray-300">~</span>
             <input
               type="date"
               value={dateFilter.endDate}
               onChange={onEndDateChange}
-              className="bg-transparent border-none p-0 text-sm font-bold text-gray-900 focus:ring-0 cursor-pointer outline-none"
+              className="w-[110px] border-none bg-transparent p-0 text-sm font-semibold text-gray-900 outline-none focus:ring-0"
             />
           </div>
 
-          {/* Quick Range 버튼들 */}
-          <div className="flex rounded-none border border-gray-200 overflow-hidden">
-            {(['today', '1w', '2w', '1m'] as const).map((range) => {
-              const labels: Record<typeof range, string> = {
-                'today': '오늘',
-                '1w': '1주',
-                '2w': '2주',
-                '1m': '1개월',
-              };
-              return (
-                <button
-                  key={range}
-                  type="button"
-                  onClick={() => onApplyQuickRange(range)}
-                  className={`px-4 py-2.5 text-[13px] font-black tracking-tight transition-all border-r border-gray-200 last:border-r-0 ${
-                    dateFilter.activeRange === range
-                      ? 'bg-[#00205b] text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {labels[range]}
-                </button>
-              );
-            })}
+          {/* 빠른 기간 */}
+          <div className="flex h-9 overflow-hidden border border-gray-200 shrink-0">
+            {(['today', '1w', '2w', '1m'] as const).map((range) => (
+              <button
+                key={range}
+                type="button"
+                onClick={() => onApplyQuickRange(range)}
+                className={`px-3 text-[13px] font-bold transition-colors ${
+                  dateFilter.activeRange === range ? 'bg-[#0f1b40] text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                } ${range !== '1m' ? 'border-r border-gray-200' : ''}`}
+              >
+                {range === 'today' ? '오늘' : range === '1w' ? '1주' : range === '2w' ? '2주' : '1개월'}
+              </button>
+            ))}
           </div>
-        </div>
-      </div>
 
-      {/* 호출부호 목록 헤더 */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm font-bold text-gray-700">조치 목록</div>
-        <div className="flex items-center gap-3">
+          {/* 정렬 */}
           <select
             value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value as any);
-              setPage(1);
-            }}
-            className="px-3 py-2 border border-gray-300 rounded text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            onChange={(e) => { setSortBy(e.target.value as any); setPage(1); }}
+            className="h-9 border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 outline-none shrink-0"
           >
-            <option value="priority">우선순위순 (위험도 → 유사도 → 발생)</option>
+            <option value="priority">우선순위순</option>
             <option value="latest">최근발생일순</option>
             <option value="oldest">오래된순</option>
             <option value="risk">위험도순</option>
             <option value="occurrence">발생횟수순</option>
           </select>
+
+          <div className="flex-1" />
+
+          {/* 엑셀 */}
           <button
             onClick={handleExportExcel}
             disabled={isExporting || sortedCallsigns.length === 0}
-            className="px-4 py-2 bg-emerald-600 text-white font-bold rounded text-sm hover:bg-emerald-700 disabled:bg-gray-300 transition-colors"
+            className="h-9 px-4 text-[13px] font-bold bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-300 shrink-0 transition-colors"
           >
-            {isExporting ? '다운로드 중...' : '엑셀'}
+            {isExporting ? '추출 중...' : 'EXCEL'}
           </button>
         </div>
       </div>
@@ -487,61 +415,37 @@ export function AirlineCallsignListTab({
 
             {/* 페이지네이션 */}
             {totalPages > 1 && (
-              <div className="px-6 py-6 border-t border-gray-200">
-                {/* 정보 텍스트 */}
-                <div className="text-center mb-4">
-                  <span className="text-[12px] font-bold text-gray-600">
-                    총 <span className="text-gray-800 font-black">{dateFilteredCallsigns.length}</span>건 중 <span className="text-blue-600">{startItem}-{endItem}</span>
-                  </span>
-                </div>
-
-                {/* 페이지네이션 버튼 */}
-                <div className="flex items-center justify-center gap-1">
-                  {/* 첫 페이지 */}
-                  <button
-                    onClick={() => setPage(1)}
-                    disabled={page === 1}
-                    title="첫 페이지"
-                    className="px-3 py-2 rounded border border-gray-300 text-gray-600 font-bold text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:border-gray-200 disabled:text-gray-300 disabled:bg-gray-50 transition-all"
-                  >
-                    ⏮
-                  </button>
-
-                  {/* 이전 */}
-                  <button
-                    onClick={() => setPage(Math.max(1, page - 1))}
-                    disabled={page === 1}
-                    className="px-3 py-2 rounded border border-gray-300 text-gray-600 font-bold text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:border-gray-200 disabled:text-gray-300 disabled:bg-gray-50 transition-all"
-                  >
-                    ◀
-                  </button>
-
-                  {/* 페이지 번호 표시 */}
-                  <div className="px-4 py-2 mx-1 rounded border border-blue-300 bg-blue-50">
-                    <span className="text-sm font-black text-blue-600">
-                      {page} <span className="text-gray-400 font-bold">/ {totalPages}</span>
-                    </span>
-                  </div>
-
-                  {/* 다음 */}
-                  <button
-                    onClick={() => setPage(Math.min(totalPages, page + 1))}
-                    disabled={page >= totalPages}
-                    className="px-3 py-2 rounded border border-gray-300 text-gray-600 font-bold text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:border-gray-200 disabled:text-gray-300 disabled:bg-gray-50 transition-all"
-                  >
-                    ▶
-                  </button>
-
-                  {/* 마지막 페이지 */}
-                  <button
-                    onClick={() => setPage(totalPages)}
-                    disabled={page === totalPages}
-                    title="마지막 페이지"
-                    className="px-3 py-2 rounded border border-gray-300 text-gray-600 font-bold text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:border-gray-200 disabled:text-gray-300 disabled:bg-gray-50 transition-all"
-                  >
-                    ⏭
-                  </button>
-                </div>
+              <div className="py-6 flex items-center justify-center gap-1 border-t border-gray-200">
+                <button onClick={() => setPage(1)} disabled={page === 1}
+                  className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h1.5v10H3V3zm3.5 5L12 3v10L6.5 8z"/></svg>
+                </button>
+                <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}
+                  className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all">
+                  <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><path d="M8.5 1L1.5 7l7 6"/></svg>
+                </button>
+                {(() => {
+                  const half = 2;
+                  let start = Math.max(1, page - half);
+                  let end = Math.min(totalPages, start + 4);
+                  if (end - start < 4) start = Math.max(1, end - 4);
+                  return Array.from({ length: end - start + 1 }, (_, i) => start + i).map((p) => (
+                    <button key={p} onClick={() => setPage(p)}
+                      className={`w-9 h-9 flex items-center justify-center rounded text-sm font-bold transition-all ${
+                        p === page ? 'bg-[#0A2C5A] text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'
+                      }`}>
+                      {p}
+                    </button>
+                  ));
+                })()}
+                <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages}
+                  className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all">
+                  <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><path d="M1.5 1l7 6-7 6"/></svg>
+                </button>
+                <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
+                  className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13 3h-1.5v10H13V3zM9.5 8L4 3v10l5.5-5z"/></svg>
+                </button>
               </div>
             )}
           </>

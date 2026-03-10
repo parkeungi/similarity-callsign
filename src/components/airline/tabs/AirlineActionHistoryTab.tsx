@@ -176,116 +176,92 @@ export function AirlineActionHistoryTab({
 
   return (
     <div className="space-y-6">
-      {/* 통계 카드 섹션 */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-        <h3 className="text-sm font-bold text-gray-600 mb-4 uppercase tracking-widest">
-          📋 조치이력 요약
-        </h3>
 
-        <div className="grid grid-cols-4 gap-3">
-          {/* 전체 */}
-          <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50 cursor-pointer hover:shadow-md transition-shadow">
-            <div className="text-xs font-bold text-blue-600 uppercase mb-2">전체</div>
-            <div className="text-2xl font-black text-blue-700">{stats.total}</div>
-          </div>
-
-          {/* 미조치 */}
-          <div className="border-2 border-orange-200 rounded-lg p-4 bg-orange-50 cursor-pointer hover:shadow-md transition-shadow">
-            <div className="text-xs font-bold text-orange-600 uppercase mb-2">미조치</div>
-            <div className="text-2xl font-black text-orange-700">{stats.pending}</div>
-          </div>
-
-          {/* 진행중 */}
-          <div className="border-2 border-rose-200 rounded-lg p-4 bg-rose-50 cursor-pointer hover:shadow-md transition-shadow">
-            <div className="text-xs font-bold text-rose-600 uppercase mb-2">진행중</div>
-            <div className="text-2xl font-black text-rose-700">{stats.inProgress}</div>
-          </div>
-
-          {/* 완료 */}
-          <div className="border-2 border-emerald-200 rounded-lg p-4 bg-emerald-50 cursor-pointer hover:shadow-md transition-shadow">
-            <div className="text-xs font-bold text-emerald-600 uppercase mb-2">완료</div>
-            <div className="text-2xl font-black text-emerald-700">{stats.completed}</div>
-          </div>
+      {/* 통계 - 가로 한줄 바 */}
+      <div className="bg-white border border-gray-200 shadow-sm">
+        <div className="flex divide-x divide-gray-100">
+          {[
+            { label: '전체', value: stats.total, color: '#6366f1' },
+            { label: '조치완료', value: stats.completed, color: '#10b981' },
+            { label: '조치필요', value: stats.pending + stats.inProgress, color: '#ef4444' },
+            { label: '진행중', value: stats.inProgress, color: '#f97316' },
+          ].map(({ label, value, color }) => (
+            <div
+              key={label}
+              className="flex-1 px-5 py-3 hover:bg-gray-50 transition-all"
+              style={{ borderLeft: `3px solid ${color}` }}
+            >
+              <div className="text-xs text-gray-500 mb-1">{label}</div>
+              <div className="text-2xl font-black text-gray-900">{value}</div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* 날짜 및 필터 바 */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-        {/* 첫 줄: 날짜 + 퀵 버튼 + LIMIT + 다운로드 */}
-        <div className="flex flex-wrap items-center gap-3 mb-4">
+      {/* 필터 바 - 한 줄 */}
+      <div className="w-full border border-gray-200 bg-white px-4 py-2.5 shadow-sm">
+        <div className="flex w-full items-center gap-2">
           {/* 날짜 범위 */}
-          <div className="bg-gray-50 border border-gray-300 rounded-none px-3 py-2 flex items-center gap-2 hover:border-blue-400 transition-colors">
+          <div className="flex items-center gap-1.5 border border-gray-200 bg-white px-3 h-9 shrink-0">
             <input
               type="date"
               value={startDate}
               onChange={onStartDateChange}
-              className="bg-transparent border-none p-0 text-sm font-bold text-gray-900 focus:ring-0 cursor-pointer outline-none"
+              className="w-[110px] border-none bg-transparent p-0 text-sm font-semibold text-gray-900 outline-none focus:ring-0"
             />
-            <span className="text-gray-300 font-bold mx-1">~</span>
+            <span className="text-sm text-gray-300">~</span>
             <input
               type="date"
               value={endDate}
               onChange={onEndDateChange}
-              className="bg-transparent border-none p-0 text-sm font-bold text-gray-900 focus:ring-0 cursor-pointer outline-none"
+              className="w-[110px] border-none bg-transparent p-0 text-sm font-semibold text-gray-900 outline-none focus:ring-0"
             />
           </div>
 
-          {/* Quick Range 버튼들 */}
-          <div className="flex rounded-none border border-gray-200 overflow-hidden h-full">
-            {(['today', '1w', '2w', '1m'] as const).map((range) => {
-              const labels: Record<typeof range, string> = {
-                'today': '오늘',
-                '1w': '1주',
-                '2w': '2주',
-                '1m': '1개월',
-              };
-              return (
-                <button
-                  key={range}
-                  type="button"
-                  onClick={() => onApplyQuickRange(range)}
-                  className={`px-4 py-2.5 text-[13px] font-black tracking-tight transition-all border-r border-gray-200 last:border-r-0 ${
-                    activeRange === range
-                      ? 'bg-[#00205b] text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {labels[range]}
-                </button>
-              );
-            })}
+          {/* 빠른 기간 */}
+          <div className="flex h-9 overflow-hidden border border-gray-200 shrink-0">
+            {(['today', '1w', '2w', '1m'] as const).map((range) => (
+              <button
+                key={range}
+                type="button"
+                onClick={() => onApplyQuickRange(range)}
+                className={`px-3 text-[13px] font-bold transition-colors ${
+                  activeRange === range ? 'bg-[#0f1b40] text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                } ${range !== '1m' ? 'border-r border-gray-200' : ''}`}
+              >
+                {range === 'today' ? '오늘' : range === '1w' ? '1주' : range === '2w' ? '2주' : '1개월'}
+              </button>
+            ))}
           </div>
 
-          {/* LIMIT 드롭다운 */}
+          {/* 상태 필터 */}
           <select
-            value={actionLimit}
-            onChange={(e) => {
-              onLimitChange(Number(e.target.value));
-              onPageChange(1);
-            }}
-            className="px-3 py-2 border border-gray-300 rounded-none bg-white text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+            value={actionStatusFilter}
+            onChange={(e) => onStatusFilterChange(e.target.value as 'all' | 'pending' | 'in_progress' | 'completed')}
+            className="h-9 border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 outline-none shrink-0"
           >
-            <option value={10}>LIMIT 10건</option>
-            <option value={20}>LIMIT 20건</option>
-            <option value={50}>LIMIT 50건</option>
-            <option value={100}>LIMIT 100건</option>
+            <option value="all">전체</option>
+            <option value="pending">미조치</option>
+            <option value="in_progress">진행중</option>
+            <option value="completed">완료</option>
           </select>
 
-          {/* 엑셀 다운로드 */}
-          <button
-            onClick={onExport}
-            className="ml-auto px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-none hover:bg-emerald-700 transition-colors flex items-center gap-2"
+          {/* LIMIT */}
+          <select
+            value={actionLimit}
+            onChange={(e) => { onLimitChange(Number(e.target.value)); onPageChange(1); }}
+            className="h-9 border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 outline-none shrink-0"
           >
-            ⬇ 엑셀 다운로드
-          </button>
-        </div>
+            <option value={9}>9건</option>
+            <option value={18}>18건</option>
+            <option value={27}>27건</option>
+            <option value={54}>54건</option>
+          </select>
 
-        {/* 두 번째 줄: 검색 + 상태 필터 + 검색 버튼 */}
-        <div className="flex flex-col md:flex-row gap-3 items-center">
-          {/* 검색 입력 */}
-          <div className="flex-1 relative group">
-            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-600 transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {/* 검색 */}
+          <div className="relative flex-1 group">
+            <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
@@ -295,28 +271,16 @@ export function AirlineActionHistoryTab({
               onChange={(e) => onSearchInputChange(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="호출부호, 조치유형 검색..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className="w-full h-9 border border-gray-200 pl-9 pr-4 text-sm font-semibold text-gray-900 outline-none transition focus:border-[#0f1b40]"
             />
           </div>
 
-          {/* 상태 필터 */}
-          <select
-            value={actionStatusFilter}
-            onChange={(e) => onStatusFilterChange(e.target.value as 'all' | 'pending' | 'in_progress' | 'completed')}
-            className="px-4 py-2 border border-gray-300 rounded-none bg-white text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
-          >
-            <option value="all">모든 상태</option>
-            <option value="pending">미조치</option>
-            <option value="in_progress">진행중</option>
-            <option value="completed">완료</option>
-          </select>
-
-          {/* 검색 버튼 */}
+          {/* 엑셀 */}
           <button
-            onClick={onSearchSubmit}
-            className="px-6 py-2 bg-[#00205b] text-white text-sm font-black rounded-none hover:bg-[#001540] transition-colors"
+            onClick={onExport}
+            className="h-9 px-4 text-[13px] font-bold bg-green-600 text-white hover:bg-green-700 shrink-0 transition-colors"
           >
-            SEARCH
+            EXCEL
           </button>
         </div>
       </div>
@@ -342,8 +306,9 @@ export function AirlineActionHistoryTab({
                 return (
                   <div
                     key={`${action.id}-${idx}`}
-                    className="bg-white border-l-4 rounded-lg p-4 shadow-sm hover:shadow-md transition-all"
-                    style={{ borderLeftColor: getCardBorderColor(action.status) }}
+                    className={`bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all border-2 ${
+                      action.status === 'completed' ? 'border-blue-200' : 'border-red-400'
+                    }`}
                   >
                     {/* 헤더: 호출부호 + 버튼 */}
                     <div className="flex justify-between items-start mb-3">
@@ -464,23 +429,36 @@ export function AirlineActionHistoryTab({
 
             {/* 페이지네이션 */}
             {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mt-6">
-                <button
-                  onClick={() => onPageChange(Math.max(1, actionPage - 1))}
-                  disabled={actionPage === 1}
-                  className="px-3 py-1 text-sm font-semibold text-gray-600 hover:text-gray-900 disabled:text-gray-300"
-                >
-                  이전
+              <div className="py-6 flex items-center justify-center gap-1">
+                <button onClick={() => onPageChange(1)} disabled={actionPage === 1}
+                  className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h1.5v10H3V3zm3.5 5L12 3v10L6.5 8z"/></svg>
                 </button>
-                <span className="text-sm text-gray-600">
-                  {actionPage} / {totalPages}
-                </span>
-                <button
-                  onClick={() => onPageChange(Math.min(totalPages, actionPage + 1))}
-                  disabled={actionPage === totalPages}
-                  className="px-3 py-1 text-sm font-semibold text-gray-600 hover:text-gray-900 disabled:text-gray-300"
-                >
-                  다음
+                <button onClick={() => onPageChange(Math.max(1, actionPage - 1))} disabled={actionPage === 1}
+                  className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all">
+                  <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><path d="M8.5 1L1.5 7l7 6"/></svg>
+                </button>
+                {(() => {
+                  const half = 2;
+                  let start = Math.max(1, actionPage - half);
+                  let end = Math.min(totalPages, start + 4);
+                  if (end - start < 4) start = Math.max(1, end - 4);
+                  return Array.from({ length: end - start + 1 }, (_, i) => start + i).map((p) => (
+                    <button key={p} onClick={() => onPageChange(p)}
+                      className={`w-9 h-9 flex items-center justify-center rounded text-sm font-bold transition-all ${
+                        p === actionPage ? 'bg-[#0A2C5A] text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'
+                      }`}>
+                      {p}
+                    </button>
+                  ));
+                })()}
+                <button onClick={() => onPageChange(Math.min(totalPages, actionPage + 1))} disabled={actionPage >= totalPages}
+                  className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all">
+                  <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><path d="M1.5 1l7 6-7 6"/></svg>
+                </button>
+                <button onClick={() => onPageChange(totalPages)} disabled={actionPage === totalPages}
+                  className="w-9 h-9 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 disabled:text-gray-200 transition-all">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13 3h-1.5v10H13V3zM9.5 8L4 3v10l5.5-5z"/></svg>
                 </button>
               </div>
             )}

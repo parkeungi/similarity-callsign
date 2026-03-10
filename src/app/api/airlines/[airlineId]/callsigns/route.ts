@@ -150,7 +150,7 @@ export async function GET(
 
       // 조치 상태 조회 (취소되지 않은 조치만)
       const actionsResult = await query(
-        `SELECT id, callsign_id, status, action_type, completed_at
+        `SELECT id, callsign_id, status, action_type, description, completed_at
          FROM actions
          WHERE callsign_id IN (${inPlaceholders})
            AND airline_id = $${callsignIds.length + 1}
@@ -257,6 +257,7 @@ export async function GET(
           action_id: latestAction?.id || null,
           action_status: latestAction?.status || 'no_action',
           action_type: latestAction?.action_type || null,
+          action_description: latestAction?.description || null,
           action_completed_at: latestAction?.completed_at || null,
           // camelCase 별칭
           airlineId: callsign.airline_id,
@@ -280,6 +281,7 @@ export async function GET(
           actionId: latestAction?.id || null,
           actionStatus: latestAction?.status || 'no_action',
           actionType: latestAction?.action_type || null,
+          actionDescription: latestAction?.description || null,
           actionCompletedAt: latestAction?.completed_at || null,
         };
       }),

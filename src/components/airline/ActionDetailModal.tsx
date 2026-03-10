@@ -148,14 +148,16 @@ export function ActionDetailModal({
                 </div>
               </div>
               {/* 조치 상세내용 */}
-              {callsign.action_description && (
-                <div className="pt-3 border-t border-blue-800/40">
-                  <div className="text-[11px] font-medium text-slate-400 mb-1.5">상세내용</div>
+              <div className="pt-3 border-t border-blue-800/40">
+                <div className="text-[11px] font-medium text-slate-400 mb-1.5">상세내용</div>
+                {callsign.action_description ? (
                   <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
                     {callsign.action_description}
                   </p>
-                </div>
-              )}
+                ) : (
+                  <p className="text-sm text-slate-500 italic">-</p>
+                )}
+              </div>
             </div>
           )}
 
