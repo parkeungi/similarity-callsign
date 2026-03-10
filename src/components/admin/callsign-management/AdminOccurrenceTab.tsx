@@ -495,17 +495,25 @@ export function AdminOccurrenceTab() {
                     </div>
                   )}
 
-                  {/* 발생 이력 타임라인 (시간순 오름차순) */}
+                  {/* 발생 이력 타임라인 (일자별 최초 1건, 시간순 오름차순) */}
                   {incident.occurrences && incident.occurrences.length > 0 && (
                     <div>
-                      <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (날짜·시간, 시간순)</div>
+                      <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (일자별 최초 검출, 시간순)</div>
                       <div className="flex flex-wrap gap-1.5">
-                        {[...incident.occurrences]
-                          .sort((a: any, b: any) => {
+                        {(() => {
+                          const sorted = [...incident.occurrences].sort((a: any, b: any) => {
                             const dateA = `${a.occurredDate || ''} ${a.occurredTime || '00:00'}`;
                             const dateB = `${b.occurredDate || ''} ${b.occurredTime || '00:00'}`;
                             return dateA.localeCompare(dateB);
-                          })
+                          });
+                          const seen = new Set<string>();
+                          return sorted.filter((o: any) => {
+                            const d = o.occurredDate || '';
+                            if (seen.has(d)) return false;
+                            seen.add(d);
+                            return true;
+                          });
+                        })()
                           .map((occurrence: any, i: number) => {
                           const { monthDay, time } = formatOccurrenceBadge(
                             occurrence.occurredDate,
