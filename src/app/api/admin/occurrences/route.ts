@@ -71,12 +71,12 @@ export async function GET(request: NextRequest) {
       callsignIds
     );
 
-    // 3. 전체 발생 이력 한 번에 조회
+    // 3. 전체 발생 이력 한 번에 조회 (날짜별 중복 제거)
     const occurrencesResult = await query(
-      `SELECT callsign_id, occurred_date, occurred_time, error_type, sub_error
+      `SELECT DISTINCT ON (callsign_id, occurred_date) callsign_id, occurred_date, occurred_time, error_type, sub_error
        FROM callsign_occurrences
        WHERE callsign_id IN (${inPlaceholders})
-       ORDER BY occurred_date DESC, COALESCE(occurred_time::text, '00:00:00') DESC`,
+       ORDER BY callsign_id, occurred_date DESC, occurred_time DESC NULLS LAST`,
       callsignIds
     );
 
