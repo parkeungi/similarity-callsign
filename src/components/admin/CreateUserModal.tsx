@@ -11,7 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/store/authStore';
-import { useAirlines } from '@/hooks/useAirlines';
+import { useAdminAirlines } from '@/hooks/useAirlines';
 import { PASSWORD_REGEX, PASSWORD_RULE } from '@/lib/constants';
 
 interface CreateUserModalProps {
@@ -31,7 +31,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
   const [success, setSuccess] = useState(false);
   const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.accessToken);
-  const { data: airlines = [], isLoading: airlinesLoading } = useAirlines();
+  const { data: airlines = [], isLoading: airlinesLoading } = useAdminAirlines();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

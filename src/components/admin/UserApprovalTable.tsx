@@ -13,7 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useUsers, useUserMutations } from '@/hooks/useUsers';
-import { useAirlines } from '@/hooks/useAirlines';
+import { useAdminAirlines } from '@/hooks/useAirlines';
 import { User } from '@/types/user';
 import { CreateUserModal } from './CreateUserModal';
 
@@ -50,7 +50,7 @@ export function UserApprovalTable() {
     error,
   } = useUsers(filter === 'all' ? undefined : (filter as 'active' | 'suspended'));
 
-  const { data: airlines = [], isLoading: airlinesLoading } = useAirlines();
+  const { data: airlines = [], isLoading: airlinesLoading } = useAdminAirlines();
   const { approve, reject, suspend, activate, updateAirline, deleteUser } = useUserMutations();
 
   async function handleAirlineChange(userId: string, newAirlineCode: string) {

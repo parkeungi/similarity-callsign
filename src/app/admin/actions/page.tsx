@@ -5,7 +5,7 @@ import { ActionModal } from '@/components/actions/ActionModal';
 import { AdminActionsFilters } from '@/components/actions/AdminActionsFilters';
 import { AdminActionsTable } from '@/components/actions/AdminActionsTable';
 import { useAllActions, useAirlineCallsigns } from '@/hooks/useActions';
-import { useAirlines } from '@/hooks/useAirlines';
+import { useAdminAirlines } from '@/hooks/useAirlines';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 
@@ -35,7 +35,7 @@ export default function AdminActionsPage() {
   const [limit] = useState(20);
 
   // 항공사 목록 조회
-  const airlinesQuery = useAirlines();
+  const airlinesQuery = useAdminAirlines();
 
   // 전체 조치 목록 조회
   const actionsQuery = useAllActions({
