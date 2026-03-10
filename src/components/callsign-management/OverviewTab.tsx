@@ -788,11 +788,11 @@ export function OverviewTab() {
       {/* 호출부호 상세 모달 */}
       {isCallsignDetailModalOpen && selectedCallsignForDetail && callsignDetailMeta && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto"
           onClick={() => setIsCallsignDetailModalOpen(false)}
         >
           <div
-            className="w-[900px] max-w-[95vw] bg-slate-900 rounded-none shadow-2xl shadow-black/50 border border-slate-800 p-8 my-8"
+            className="w-[900px] max-w-[95vw] bg-white rounded-xl shadow-2xl shadow-black/20 border border-gray-200 p-8 my-8"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 헤더 */}
@@ -814,12 +814,12 @@ export function OverviewTab() {
                     );
                   })()}
                 </h2>
-                <p className="text-sm text-slate-400 mt-2">발생내역 상세정보</p>
+                <p className="text-sm text-gray-500 mt-2">발생내역 상세정보</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCallsignDetailModalOpen(false)}
-                className="text-2xl text-slate-500 hover:text-slate-300 transition-colors"
+                className="text-2xl text-gray-400 hover:text-gray-600 transition-colors"
               >
                 ×
               </button>
@@ -827,117 +827,117 @@ export function OverviewTab() {
 
             {/* 상세정보 그리드 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="p-4 border border-slate-700 rounded-none bg-slate-800/50">
-                <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">발생건수</p>
+              <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">발생건수</p>
                 <p className="text-2xl font-black text-rose-500">{callsignDetailMeta.occurrenceCount}건</p>
               </div>
-              <div className="p-4 border border-slate-700 rounded-none bg-slate-800/50">
-                <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">최근 발생일</p>
-                <p className="text-sm font-bold text-slate-100">{formatDisplayDate(callsignDetailMeta.lastOccurredAt)}</p>
+              <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">최근 발생일</p>
+                <p className="text-sm font-bold text-gray-900">{formatDisplayDate(callsignDetailMeta.lastOccurredAt)}</p>
               </div>
-              <div className="p-4 border border-slate-700 rounded-none bg-slate-800/50">
-                <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">유사성</p>
-                <p className="text-sm font-bold text-slate-100">{callsignDetailMeta.similarity}</p>
+              <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">유사성</p>
+                <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.similarity}</p>
               </div>
-              <div className="p-4 border border-slate-700 rounded-none bg-slate-800/50">
-                <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">오류가능성</p>
-                <p className="text-sm font-bold text-slate-100">{callsignDetailMeta.riskLevel}</p>
+              <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">오류가능성</p>
+                <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.riskLevel}</p>
               </div>
             </div>
 
             {/* 호출부호 정보 */}
-            <div className="grid grid-cols-2 gap-6 mb-6 p-4 bg-slate-800/50 rounded-none border border-slate-700">
+            <div className="grid grid-cols-2 gap-6 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <div>
-                <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">자사 호출부호</p>
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">자사 호출부호</p>
                 <p className="text-lg font-bold text-slate-100">{callsignDetailMeta.myCallsign}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">타사 호출부호</p>
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">타사 호출부호</p>
                 <p className="text-lg font-bold text-slate-100">{callsignDetailMeta.otherCallsign}</p>
               </div>
             </div>
 
             {/* 오류 정보 */}
-            <div className="grid grid-cols-2 gap-6 p-4 bg-slate-800/50 rounded-none border border-slate-700 mb-6">
+            <div className="grid grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg border border-gray-200 mb-6">
               <div>
-                <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">오류 유형</p>
-                <p className="text-sm font-bold text-slate-100">{callsignDetailMeta.errorType}</p>
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">오류 유형</p>
+                <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.errorType}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">세부 오류</p>
-                <p className="text-sm font-bold text-slate-100">{callsignDetailMeta.subError}</p>
+                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">세부 오류</p>
+                <p className="text-sm font-bold text-gray-900">{callsignDetailMeta.subError}</p>
               </div>
             </div>
 
             {/* 항공사 조치 상세내용 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               {/* 자사 조치 */}
-              <div className="p-4 bg-blue-900/20 border border-blue-900/50 rounded-none">
-                <p className="text-xs font-bold text-blue-400 mb-3 uppercase tracking-wide">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs font-bold text-blue-600 mb-3 uppercase tracking-wide">
                   ✈ 자사 조치 ({callsignDetailMeta.myAirlineCode})
                 </p>
                 {callsignDetailMeta.myActionType ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-400 w-16 flex-shrink-0">조치유형</span>
-                      <span className="text-sm font-bold text-slate-100">{callsignDetailMeta.myActionType}</span>
+                      <span className="text-xs font-semibold text-gray-500 w-16 flex-shrink-0">조치유형</span>
+                      <span className="text-sm font-bold text-gray-900">{callsignDetailMeta.myActionType}</span>
                     </div>
                     {callsignDetailMeta.myManagerName && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-slate-400 w-16 flex-shrink-0">담당자</span>
-                        <span className="text-sm text-slate-300">{callsignDetailMeta.myManagerName}</span>
+                        <span className="text-xs font-semibold text-gray-500 w-16 flex-shrink-0">담당자</span>
+                        <span className="text-sm text-gray-700">{callsignDetailMeta.myManagerName}</span>
                       </div>
                     )}
                     {callsignDetailMeta.myCompletedAt && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-slate-400 w-16 flex-shrink-0">처리일자</span>
-                        <span className="text-sm text-slate-300">{formatDisplayDate(callsignDetailMeta.myCompletedAt)}</span>
+                        <span className="text-xs font-semibold text-gray-500 w-16 flex-shrink-0">처리일자</span>
+                        <span className="text-sm text-gray-700">{formatDisplayDate(callsignDetailMeta.myCompletedAt)}</span>
                       </div>
                     )}
                     {callsignDetailMeta.myActionDescription && (
-                      <div className="mt-2 pt-2 border-t border-blue-900/50">
+                      <div className="mt-2 pt-2 border-t border-blue-200">
                         <span className="text-xs font-semibold text-slate-400 block mb-1">상세내용</span>
-                        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{callsignDetailMeta.myActionDescription}</p>
+                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{callsignDetailMeta.myActionDescription}</p>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500 font-medium">미등록</p>
+                  <p className="text-sm text-gray-400 font-medium">미등록</p>
                 )}
               </div>
 
               {/* 타사 조치 */}
-              <div className="p-4 bg-slate-800/30 border border-slate-700/50 rounded-none">
-                <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide">
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <p className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wide">
                   ✈ 타사 조치 ({callsignDetailMeta.otherAirlineCode})
                 </p>
                 {callsignDetailMeta.otherActionType ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-400 w-16 flex-shrink-0">조치유형</span>
-                      <span className="text-sm font-bold text-slate-100">{callsignDetailMeta.otherActionType}</span>
+                      <span className="text-xs font-semibold text-gray-500 w-16 flex-shrink-0">조치유형</span>
+                      <span className="text-sm font-bold text-gray-900">{callsignDetailMeta.otherActionType}</span>
                     </div>
                     {callsignDetailMeta.otherManagerName && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-slate-400 w-16 flex-shrink-0">담당자</span>
-                        <span className="text-sm text-slate-300">{callsignDetailMeta.otherManagerName}</span>
+                        <span className="text-xs font-semibold text-gray-500 w-16 flex-shrink-0">담당자</span>
+                        <span className="text-sm text-gray-700">{callsignDetailMeta.otherManagerName}</span>
                       </div>
                     )}
                     {callsignDetailMeta.otherCompletedAt && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-slate-400 w-16 flex-shrink-0">처리일자</span>
-                        <span className="text-sm text-slate-300">{formatDisplayDate(callsignDetailMeta.otherCompletedAt)}</span>
+                        <span className="text-xs font-semibold text-gray-500 w-16 flex-shrink-0">처리일자</span>
+                        <span className="text-sm text-gray-700">{formatDisplayDate(callsignDetailMeta.otherCompletedAt)}</span>
                       </div>
                     )}
                     {callsignDetailMeta.otherActionDescription && (
-                      <div className="mt-2 pt-2 border-t border-slate-700/50">
+                      <div className="mt-2 pt-2 border-t border-gray-200">
                         <span className="text-xs font-semibold text-slate-400 block mb-1">상세내용</span>
-                        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{callsignDetailMeta.otherActionDescription}</p>
+                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{callsignDetailMeta.otherActionDescription}</p>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500 font-medium">미등록</p>
+                  <p className="text-sm text-gray-400 font-medium">미등록</p>
                 )}
               </div>
             </div>
@@ -945,12 +945,12 @@ export function OverviewTab() {
             {/* 오류유형별 집계 (동적) */}
             {Object.keys(callsignDetailMeta.errorTypeCounts).length > 0 && (() => {
               const PALETTE = [
-                { bg: 'bg-rose-900/20', border: 'border-rose-900/50', text: 'text-rose-400' },
-                { bg: 'bg-amber-900/20', border: 'border-amber-900/50', text: 'text-amber-400' },
-                { bg: 'bg-blue-900/20', border: 'border-blue-900/50', text: 'text-blue-400' },
-                { bg: 'bg-violet-900/20', border: 'border-violet-900/50', text: 'text-violet-400' },
-                { bg: 'bg-emerald-900/20', border: 'border-emerald-900/50', text: 'text-emerald-400' },
-                { bg: 'bg-slate-800/50', border: 'border-slate-700', text: 'text-slate-300' },
+                { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-600' },
+                { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-600' },
+                { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600' },
+                { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-600' },
+                { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-600' },
+                { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-600' },
               ];
               const entries = Object.entries(callsignDetailMeta.errorTypeCounts).sort((a, b) => b[1] - a[1]);
               return (
@@ -971,8 +971,8 @@ export function OverviewTab() {
 
             {/* 발생이력 섹션 */}
             {callsignDetailMeta.occurrenceDates && (
-              <div className="p-4 bg-slate-800/30 border border-slate-700/50 rounded-none">
-                <p className="text-xs font-semibold text-slate-400 mb-3 uppercase tracking-wide">🕐 발생이력</p>
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <p className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">🕐 발생이력</p>
                 <div className="flex flex-wrap gap-2">
                   {callsignDetailMeta.occurrenceDates
                     .split(',')
@@ -981,7 +981,7 @@ export function OverviewTab() {
                     .map((time: string, idx: number) => (
                       <span
                         key={idx}
-                        className="inline-block bg-slate-800 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-none text-xs font-semibold"
+                        className="inline-block bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-md text-xs font-semibold"
                       >
                         {time.trim()}
                       </span>
