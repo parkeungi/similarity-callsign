@@ -72,31 +72,32 @@ export function AdminOccurrenceTab() {
     queryKey: ['admin-all-occurrences', accessToken, airlines.length],
     queryFn: async () => {
       if (!accessToken || airlines.length === 0) return [];
-      const allIncidents: OccurrenceIncident[] = [];
-      for (const airline of airlines) {
-        const response = await fetch(
-          `/api/airlines/${airline.id}/callsigns?page=1&limit=10000`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        if (!response.ok) continue;
-        const result = await response.json();
-        const incidents = (result.data || []).map((cs: any) => ({
-          id: cs.id,
-          pair: cs.callsign_pair,
-          risk: cs.risk_level === '매우높음' ? 'very_high' : cs.risk_level === '높음' ? 'high' : 'low',
-          count: cs.occurrence_count || 0,
-          lastDate: cs.last_occurred_at,
-          similarity: cs.similarity,
-          actionStatus: cs.action_status,
-          errorType: cs.error_type,
-          errorTypeSummary: cs.errorTypeSummary || [],
-          occurrences: cs.occurrences || [],
-          airlineName: airline.name_ko,
-          airlineCode: airline.code,
-        } as OccurrenceIncident));
-        allIncidents.push(...incidents);
-      }
-      return allIncidents;
+      // 병렬 요청으로 성능 개선 (순차 → Promise.all)
+      const results = await Promise.all(
+        airlines.map(async (airline) => {
+          const response = await fetch(
+            `/api/airlines/${airline.id}/callsigns?page=1&limit=10000`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+          if (!response.ok) return [];
+          const result = await response.json();
+          return (result.data || []).map((cs: any) => ({
+            id: cs.id,
+            pair: cs.callsign_pair,
+            risk: cs.risk_level === '매우높음' ? 'very_high' : cs.risk_level === '높음' ? 'high' : 'low',
+            count: cs.occurrence_count || 0,
+            lastDate: cs.last_occurred_at,
+            similarity: cs.similarity,
+            actionStatus: cs.action_status,
+            errorType: cs.error_type,
+            errorTypeSummary: cs.errorTypeSummary || [],
+            occurrences: cs.occurrences || [],
+            airlineName: airline.name_ko,
+            airlineCode: airline.code,
+          } as OccurrenceIncident));
+        })
+      );
+      return results.flat();
     },
     enabled: !!accessToken && selectedAirlineId === 'all' && airlines.length > 0,
     staleTime: 1000 * 60 * 5,
