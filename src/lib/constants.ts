@@ -68,6 +68,7 @@ export const ROUTES = {
   ADMIN_CALLSIGN_MANAGEMENT: '/admin/callsign-management',
   ADMIN_SETTINGS: '/admin/settings/action-types',
   ADMIN_SETTINGS_ACTION_TYPES: '/admin/settings/action-types',
+  ADMIN_DATABASE: '/admin/database',
   CALLSIGN_MANAGEMENT: '/callsign-management',
 };
 

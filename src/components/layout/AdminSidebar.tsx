@@ -31,6 +31,8 @@ export function AdminSidebar() {
             setActiveMenu('announcements');
         } else if (pathname.startsWith('/admin/settings')) {
             setActiveMenu('settings-action-types');
+        } else if (pathname.startsWith('/admin/database')) {
+            setActiveMenu('database');
         }
     }, [pathname, searchParams]);
 
@@ -76,6 +78,38 @@ export function AdminSidebar() {
 
                 {/* 설정 메뉴 */}
                 {ADMIN_SIDEBAR_ITEMS.filter(i => i.group === 'settings').map((item) => {
+                    const isActive = activeMenu === item.id;
+                    return (
+                        <Link
+                            key={item.id}
+                            href={item.href}
+                            className={`w-full group flex items-center gap-4 px-4 py-3.5 rounded-none text-sm font-bold tracking-tight transition-all text-left border-l-4 ${isActive
+                                ? 'bg-navy text-white shadow-[0_10px_20px_rgba(30,58,95,0.2)] border-primary'
+                                : 'text-gray-500 hover:bg-gray-50 border-transparent hover:border-gray-200'
+                                }`}
+                        >
+                            <NanoIcon
+                                icon={item.icon as any}
+                                color={item.color as any}
+                                size="sm"
+                                isActive={isActive}
+                            />
+                            <span className={`transition-all duration-300 ${isActive ? 'translate-x-1' : 'group-hover:translate-x-1'}`}>
+                                {item.label}
+                            </span>
+                        </Link>
+                    );
+                })}
+
+                {/* 데이터베이스 그룹 구분선 */}
+                <div className="pt-4 pb-1">
+                    <p className="px-4 text-[10px] font-black text-gray-300 uppercase tracking-[0.25em]">
+                        데이터베이스
+                    </p>
+                </div>
+
+                {/* 데이터베이스 메뉴 */}
+                {ADMIN_SIDEBAR_ITEMS.filter(i => i.group === 'database').map((item) => {
                     const isActive = activeMenu === item.id;
                     return (
                         <Link

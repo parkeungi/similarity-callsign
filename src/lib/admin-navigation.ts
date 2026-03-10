@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Users, Plane, Megaphone, LockKeyhole, Settings } from 'lucide-react';
+import { Users, Plane, Megaphone, LockKeyhole, Settings, Database } from 'lucide-react';
 import { ROUTES } from '@/lib/constants';
 
 export const ADMIN_LINKS = {
@@ -12,9 +12,10 @@ export const ADMIN_LINKS = {
   CALLSIGN_MANAGEMENT: ROUTES.ADMIN_CALLSIGN_MANAGEMENT,
   FILE_UPLOADS: ROUTES.ADMIN_FILE_UPLOADS,
   SETTINGS_ACTION_TYPES: ROUTES.ADMIN_SETTINGS_ACTION_TYPES,
+  DATABASE: ROUTES.ADMIN_DATABASE,
 } as const;
 
-type SidebarColor = 'info' | 'purple' | 'orange' | 'danger' | 'navy';
+type SidebarColor = 'info' | 'purple' | 'orange' | 'danger' | 'navy' | 'success';
 
 export interface AdminSidebarItem {
   id: string;
@@ -22,7 +23,7 @@ export interface AdminSidebarItem {
   href: string;
   icon: LucideIcon;
   color: SidebarColor;
-  group?: 'main' | 'settings';
+  group?: 'main' | 'settings' | 'database';
 }
 
 export const ADMIN_SIDEBAR_ITEMS: AdminSidebarItem[] = [
@@ -65,6 +66,14 @@ export const ADMIN_SIDEBAR_ITEMS: AdminSidebarItem[] = [
     icon: Settings,
     color: 'navy',
     group: 'settings',
+  },
+  {
+    id: 'database',
+    label: '데이터베이스 관리',
+    href: ADMIN_LINKS.DATABASE,
+    icon: Database,
+    color: 'success',
+    group: 'database',
   },
 ];
 
