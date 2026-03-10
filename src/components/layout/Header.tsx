@@ -95,7 +95,7 @@ export function Header() {
             유사호출부호 경고시스템
           </span>
           <div className="flex items-center gap-3 mt-1.5">
-            <p className="text-cyan-400 text-[10px] font-black uppercase tracking-[0.4em]">KAC Aviation Safety Portal</p>
+            <p className="text-cyan-400 text-[10px] font-black uppercase tracking-[0.4em]">Similar Callsign Warning System</p>
           </div>
         </Link>
 

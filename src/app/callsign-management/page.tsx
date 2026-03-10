@@ -107,7 +107,7 @@ export default function CallsignManagementPublicPage() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex flex-wrap gap-6 items-center justify-center">
             <div className="text-sm font-medium text-white">
-              Callsign Safety Management Platform | Korea Airports Corporation
+              Similar Callsign Warning System | Korea Airports Corporation
             </div>
             <div className="flex gap-5 text-sm">
               <span className="text-gray-400">Aviation Safety Division</span>
