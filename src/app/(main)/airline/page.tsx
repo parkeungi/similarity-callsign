@@ -402,7 +402,6 @@ export default function AirlinePage() {
             )}
           </div>
         </div>
-      </main>
 
       {/* 조치 등록/수정 모달 */}
       {modal.type === 'action' && (modal.data as Incident) && callsignsData && (
@@ -580,6 +579,7 @@ export default function AirlinePage() {
           </div>
         </div>
       </footer>
+      </main>
     </>
   );
 }

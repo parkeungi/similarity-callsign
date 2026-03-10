@@ -98,7 +98,6 @@ export default function CallsignManagementPage() {
           </div>
         </div>
 
-      </main>
       {/* 푸터 */}
       <footer className="py-5 bg-gray-800 text-gray-300 border-t border-gray-700">
         <div className="max-w-6xl mx-auto px-6">
@@ -123,6 +122,7 @@ export default function CallsignManagementPage() {
           </div>
         </div>
       </footer>
+      </main>
     </div>
   );
 }
