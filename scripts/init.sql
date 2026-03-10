@@ -1,4 +1,4 @@
--- KATC1 인증 시스템 데이터베이스 초기화
+-- 항공교통본부 인증 시스템 데이터베이스 초기화
 -- 이 스크립트는 Docker 컨테이너 시작 시 자동 실행됨
 
 -- 항공사 테이블 생성
@@ -24,6 +24,13 @@ CREATE TABLE IF NOT EXISTS users (
   is_default_password BOOLEAN DEFAULT true,
   password_change_required BOOLEAN DEFAULT true,
   last_password_changed_at TIMESTAMP,
+
+  -- 로그인 보안 (행안부 지침)
+  failed_login_attempts INT NOT NULL DEFAULT 0,   -- 연속 실패 횟수 (5회 초과 시 잠금)
+  locked_until TIMESTAMP NULL,                     -- 계정 잠금 해제 시각
+
+  -- JWT RefreshToken 무효화
+  refresh_token_hash VARCHAR(64) NULL,             -- SHA-256 해시 (로그아웃 시 NULL)
 
   -- 기타 필드
   last_login_at TIMESTAMP,

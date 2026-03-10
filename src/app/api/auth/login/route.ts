@@ -12,8 +12,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
-import { generateAccessToken } from '@/lib/jwt';
+import { generateAccessToken, generateRefreshToken, hashRefreshToken } from '@/lib/jwt';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { COOKIE_OPTIONS } from '@/lib/constants';
 import * as authQueries from '@/lib/db/queries/auth';
 
 const MAX_FAILED_ATTEMPTS = 5;       // 계정 잠금 임계값
@@ -158,6 +159,15 @@ export async function POST(request: NextRequest) {
       airlineId: user.airline_id,
     });
 
+    const refreshToken = generateRefreshToken(user.id);
+    const tokenHash = hashRefreshToken(refreshToken);
+
+    // RefreshToken 해시 DB 저장 (로그아웃/탈취 무효화용)
+    await query(
+      `UPDATE users SET refresh_token_hash = ? WHERE id = ?`,
+      [tokenHash, user.id]
+    );
+
     const airline = user.airline_code
       ? {
           id: user.airline_id,
@@ -181,10 +191,21 @@ export async function POST(request: NextRequest) {
       forceChangePassword: needsPasswordChange,
     };
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { user: sanitizedUser, accessToken, forceChangePassword: needsPasswordChange },
       { status: 200 }
     );
+
+    // RefreshToken httpOnly 쿠키 설정
+    response.cookies.set(COOKIE_OPTIONS.REFRESH_TOKEN_NAME, refreshToken, {
+      httpOnly: COOKIE_OPTIONS.HTTP_ONLY,
+      secure: COOKIE_OPTIONS.SECURE,
+      sameSite: COOKIE_OPTIONS.SAME_SITE,
+      maxAge: COOKIE_OPTIONS.REFRESH_TOKEN_MAX_AGE,
+      path: COOKIE_OPTIONS.PATH,
+    });
+
+    return response;
   } catch (error) {
     console.error('[api/auth/login] error:', error);
     return NextResponse.json(

@@ -1,6 +1,6 @@
 # KATC 유사호출부호 경고시스템 - 시스템 매뉴얼
 
-> **문서 버전**: v1.0
+> **문서 버전**: v1.2
 > **최종 수정**: 2026-03-10
 > **시스템명**: KATC 유사호출부호 경고시스템 (Similar Callsign Warning System)
 > **운영 주체**: 국토교통부 항공교통본부
@@ -928,39 +928,85 @@ users (1) ────── (N) actions        : 사용자가 여러 조치 등
 
 ## 9. 보안 및 인증 체계
 
-### 9.1 JWT 토큰
+### 9.1 JWT 토큰 구조
 
-| 항목 | 값 |
-|------|-----|
-| 알고리즘 | HS256 |
-| Payload | userId, email, role, status, airlineId |
-| 저장소 | sessionStorage (브라우저 탭 닫으면 만료) |
+| 항목 | AccessToken | RefreshToken |
+|------|------------|--------------|
+| 알고리즘 | HS256 | HS256 |
+| 서명 Secret | `JWT_SECRET` | `REFRESH_TOKEN_SECRET` (별도 분리) |
+| audience | `katc1:access` | `katc1:refresh` |
+| issuer | `katc1` | `katc1` |
+| 만료 | 1시간 | 7일 |
+| 저장 | sessionStorage | httpOnly 쿠키 |
+| DB 저장 | 없음 | SHA-256 해시 저장 (`users.refresh_token_hash`) |
 
-### 9.2 API 보호
+**토큰 혼용 공격 차단**: audience/issuer 검증으로 RefreshToken을 AccessToken 자리에 사용하는 공격 차단
+
+### 9.2 RefreshToken 무효화 흐름
+
+```
+로그인:
+  → RefreshToken 생성 → SHA-256 해시 → DB 저장 + httpOnly 쿠키 설정
+
+토큰 갱신 (/api/auth/refresh):
+  → 쿠키의 RefreshToken JWT 서명 검증
+  → 해시 계산 → DB 저장값과 비교 (불일치 = 탈취 토큰 → 401)
+  → 통과 시: 새 토큰 생성 + 새 해시 DB 저장 (이전 토큰 즉시 무효)
+
+로그아웃:
+  → DB refresh_token_hash = NULL (탈취된 토큰도 즉시 무효화)
+  → 쿠키 삭제
+```
+
+### 9.3 로그인 보안 (행안부 정보보호 지침)
+
+| 정책 | 설정 |
+|------|------|
+| IP Rate Limiting | 10회/분 초과 시 429 응답 |
+| 계정 잠금 | 5회 연속 실패 → 15분 잠금 |
+| 잠금 자동 해제 | 15분 경과 후 자동 해제 |
+| 비밀번호 만료 | 90일마다 변경 강제 |
+| 비밀번호 이력 | 최근 5개 재사용 방지 |
+| 비밀번호 복잡도 | 8자 이상, 대/소문자+숫자+특수문자 |
+| 비밀번호 찾기 | 이메일 발송 없음 → 관리자 문의 안내 |
+
+관련 DB 컬럼: `users.failed_login_attempts`, `users.locked_until`
+
+### 9.4 API 보호
 
 ```
 모든 API 요청:
   → Authorization: Bearer {accessToken} 헤더 필수
-  → 서버에서 JWT 검증 → 실패 시 401 응답
-  → 관리자 API: role === 'admin' 추가 검증 → 실패 시 403 응답
+  → 서버에서 JWT 검증 (audience, issuer, 서명 모두 확인) → 실패 시 401
+  → 관리자 API: role === 'admin' 추가 검증 → 실패 시 403
 ```
 
-### 9.3 SQL Injection 방지
+### 9.5 SQL Injection 방지
 
 ```
 모든 DB 쿼리는 파라미터화 쿼리 사용:
-  ✅ pool.query('SELECT * FROM users WHERE id = $1', [userId])
-  ❌ pool.query(`SELECT * FROM users WHERE id = '${userId}'`)
+  ✅ query('SELECT * FROM users WHERE id = ?', [userId])
+  ❌ query(`SELECT * FROM users WHERE id = '${userId}'`)
+
+DB 관리 API: 테이블명 화이트리스트 검증 (ALLOWED_TABLES Set)
 ```
 
-### 9.4 입력값 검증
+### 9.6 입력값 검증
 
 | 검증 대상 | 규칙 |
 |-----------|------|
 | 이메일 | 유효한 이메일 형식 |
-| 비밀번호 | 8자 이상, 대/소문자+숫자+특수문자 |
+| 비밀번호 | 8자 이상, 대/소문자+숫자+특수문자 (`PASSWORD_REGEX`) |
 | 위험도 | "매우높음", "높음", "낮음" 만 허용 |
 | 상태값 | 정의된 enum 값만 허용 |
+| DB 테이블명 | ALLOWED_TABLES 화이트리스트 |
+
+### 9.7 필수 환경변수 (보안)
+
+| 변수명 | 용도 | 생성 방법 |
+|--------|------|-----------|
+| `JWT_SECRET` | AccessToken 서명 | `openssl rand -base64 32` |
+| `REFRESH_TOKEN_SECRET` | RefreshToken 서명 (JWT_SECRET과 반드시 다른 값) | `openssl rand -base64 32` |
 
 ---
 
