@@ -107,22 +107,10 @@ export function Header() {
         {/* 국토교통부 항공교통본부 */}
         <div className="flex items-center gap-3 pr-6 border-r border-white/15">
           {/* 태극 SVG 심볼 */}
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* 흰색 배경 원 */}
-            <circle cx="20" cy="20" r="18" fill="white"/>
-            {/* 태극 - 상단(파란색) */}
-            <path
-              d="M20 4 A16 16 0 0 1 20 36 A8 8 0 0 0 20 20 A8 8 0 0 1 20 4Z"
-              fill="#0047AB"
-            />
-            {/* 태극 - 하단(빨간색) */}
-            <path
-              d="M20 4 A16 16 0 0 0 20 36 A8 8 0 0 1 20 20 A8 8 0 0 0 20 4Z"
-              fill="#CD2E3A"
-            />
-            {/* 중앙 작은 원 */}
-            <circle cx="20" cy="12" r="3.5" fill="#0047AB"/>
-            <circle cx="20" cy="28" r="3.5" fill="#CD2E3A"/>
+          <svg width="40" height="40" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="32" cy="32" r="30" fill="white"/>
+            <path d="M32,2 A30,30 0 0,1 32,62 A15,15 0 0,1 32,32 A15,15 0 0,0 32,2" fill="#C60C30"/>
+            <path d="M32,62 A30,30 0 0,1 32,2 A15,15 0 0,0 32,32 A15,15 0 0,1 32,62" fill="#003478"/>
           </svg>
           {/* 부처명 두 줄 */}
           <div className="flex flex-col">
