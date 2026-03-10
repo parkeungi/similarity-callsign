@@ -12,7 +12,6 @@ import { useActiveAnnouncements, useAnnouncementHistory } from '@/hooks/useAnnou
 import { useDateRangeFilter, formatDateInput, toInputDate } from '@/hooks/useDateRangeFilter';
 import { useAirlineModal } from '@/hooks/useAirlineModal';
 import { ActionModal } from '@/components/actions/ActionModal';
-import { Header } from '@/components/layout/Header';
 import { AirlineStatisticsTab } from '@/components/airline/AirlineStatisticsTab';
 import { AnnouncementsTab, AirlineOccurrenceTab, AirlineActionHistoryTab, AirlineCallsignListTab } from '@/components/airline/tabs';
 import { AnnouncementPopup } from '@/components/airline/AnnouncementPopup';
@@ -298,9 +297,8 @@ export default function AirlinePage() {
   const displayAirlineCode = (airlineCode || 'KAC').toUpperCase();
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <Header />
-      <main className="flex flex-1 min-h-0 overflow-y-auto">
+    <>
+    <main className="flex flex-1 min-h-0 overflow-y-auto">
         {/* 왼쪽 사이드바 */}
         <aside className="w-72 bg-white border-r border-gray-100 flex flex-col pt-4 shrink-0 h-full overflow-y-auto">
           <nav className="flex-1 px-4 space-y-2">
@@ -582,6 +580,6 @@ export default function AirlinePage() {
           </div>
         </div>
       </footer>
-    </div>
+    </>
   );
 }
