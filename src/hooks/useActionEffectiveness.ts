@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { authStore } from '@/store/authStore';
+import { useAuthStore } from '@/store/authStore';
+import { apiFetch } from '@/lib/api/client';
 
 interface ActionEffectivenessData {
   actionType: string;
@@ -12,22 +13,12 @@ interface ActionEffectivenessData {
 }
 
 export function useActionEffectiveness() {
-  const accessToken = authStore((state) => state.accessToken);
+  const accessToken = useAuthStore((state) => state.accessToken);
 
   return useQuery<ActionEffectivenessData[]>({
     queryKey: ['actionEffectiveness'],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
-      const response = await fetch('/api/admin/action-effectiveness', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await apiFetch('/api/admin/action-effectiveness');
 
       if (!response.ok) {
         const errorData = await response.json();

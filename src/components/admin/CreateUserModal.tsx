@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useAuthStore } from '@/store/authStore';
+import { apiFetch } from '@/lib/api/client';
 import { useAdminAirlines } from '@/hooks/useAirlines';
 import { PASSWORD_REGEX, PASSWORD_RULE } from '@/lib/constants';
 
@@ -30,7 +30,6 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const queryClient = useQueryClient();
-  const token = useAuthStore((s) => s.accessToken);
   const { data: airlines = [], isLoading: airlinesLoading } = useAdminAirlines();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -56,12 +55,8 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await apiFetch('/api/admin/users', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           email,
           password,

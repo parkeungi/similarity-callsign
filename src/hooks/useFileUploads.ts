@@ -4,6 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
+import { apiFetch } from '@/lib/api/client';
 
 export interface FileUploadItem {
   id: string;
@@ -57,20 +58,12 @@ export function useFileUploads(
   return useQuery({
     queryKey: ['file-uploads', filters?.status, page, limit],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       const params = new URLSearchParams();
       if (filters?.status) params.append('status', filters.status);
       params.append('page', String(page));
       params.append('limit', String(limit));
 
-      const response = await fetch(`/api/admin/file-uploads?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await apiFetch(`/api/admin/file-uploads?${params.toString()}`);
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -96,19 +89,11 @@ export function useFileUploads(
  */
 export function useDeleteFileUpload() {
   const queryClient = useQueryClient();
-  const accessToken = useAuthStore((s) => s.accessToken);
 
   return useMutation({
     mutationFn: async (fileUploadId: string) => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
-      const response = await fetch(`/api/admin/file-uploads/${fileUploadId}`, {
+      const response = await apiFetch(`/api/admin/file-uploads/${fileUploadId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
       });
 
       if (!response.ok) {
@@ -142,24 +127,15 @@ export function useDeleteFileUpload() {
  */
 export function useForceDeleteFileUpload() {
   const queryClient = useQueryClient();
-  const accessToken = useAuthStore((s) => s.accessToken);
 
   return useMutation({
     mutationFn: async ({ fileUploadId, adminPassword }: { fileUploadId: string; adminPassword: string }) => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       if (!adminPassword) {
         throw new Error('관리자 비밀번호가 필요합니다.');
       }
 
-      const response = await fetch(`/api/admin/file-uploads/${fileUploadId}/force-delete`, {
+      const response = await apiFetch(`/api/admin/file-uploads/${fileUploadId}/force-delete`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ adminPassword }),
       });
 

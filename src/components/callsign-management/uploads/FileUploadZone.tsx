@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { useAuthStore } from '@/store/authStore';
+import { useState, useRef, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/client';
 import { NanoIcon } from '@/components/ui/NanoIcon';
 import { FileSpreadsheet, UploadCloud } from 'lucide-react';
 
@@ -16,7 +16,28 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { accessToken } = useAuthStore((s) => ({ accessToken: s.accessToken }));
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // 업로드 중 페이지 이탈 경고 (beforeunload)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isUploading) {
+        e.preventDefault();
+        e.returnValue = '엑셀 업로드가 진행 중입니다. 페이지를 떠나면 업로드가 중단될 수 있습니다.';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isUploading]);
+
+  // 컴포넌트 언마운트 시에만 fetch 중단 (isUploading 변경 시 abort 방지)
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -51,18 +72,19 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
     const formData = new FormData();
     formData.append('file', selectedFile);
 
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     try {
       // 진행률 시뮬레이션
       const progressInterval = setInterval(() => {
         setProgress((prev) => Math.min(prev + Math.random() * 20, 90));
       }, 200);
 
-      const res = await fetch('/api/admin/upload-callsigns', {
+      const res = await apiFetch('/api/admin/upload-callsigns', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
         body: formData,
+        signal: abortController.signal,
       });
 
       clearInterval(progressInterval);
@@ -79,9 +101,14 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
         fileInputRef.current.value = '';
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '업로드 실패');
-      console.error(err);
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('업로드가 중단되었습니다.');
+      } else {
+        setError(err instanceof Error ? err.message : '업로드 실패');
+        console.error(err);
+      }
     } finally {
+      abortControllerRef.current = null;
       setIsUploading(false);
       setTimeout(() => setProgress(0), 1000);
     }

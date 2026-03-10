@@ -7,9 +7,11 @@ import { useCallsignsWithActions } from '@/hooks/useActions';
 import { useAirlines } from '@/hooks/useAirlines';
 import { useAuthStore } from '@/store/authStore';
 import { useActiveActionTypes } from '@/hooks/useActionTypes';
+import { apiFetch } from '@/lib/api/client';
 import { StatCard } from './StatCard';
 import { Callsign } from '@/types/action';
 import { AIRLINES } from '@/lib/constants';
+import { Pagination } from '@/components/common/Pagination';
 
 const DOMESTIC_AIRLINE_CODES = new Set<string>(AIRLINES.map((a) => a.code));
 
@@ -66,21 +68,13 @@ export function OverviewTab() {
   const statsQuery = useQuery({
     queryKey: ['callsigns-stats', selectedRiskLevel],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       const params = new URLSearchParams();
       if (selectedRiskLevel) params.append('riskLevel', selectedRiskLevel);
       if (selectedAirlineId) params.append('airlineId', selectedAirlineId);
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
 
-      const response = await fetch(`/api/callsigns/stats?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await apiFetch(`/api/callsigns/stats?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error('통계 조회 실패');
@@ -107,8 +101,6 @@ export function OverviewTab() {
   const totalItems = pagination?.total ?? 0;
   const totalPagesFromApi = pagination?.totalPages ?? 0;
   const computedTotalPages = totalPagesFromApi > 0 ? totalPagesFromApi : 1;
-  const startItem = totalItems === 0 ? 0 : (page - 1) * limit + 1;
-  const endItem = totalItems === 0 ? 0 : Math.min(page * limit, totalItems);
 
   // 상태별 필터링
   const filteredRows = useMemo(() => {
@@ -538,40 +530,40 @@ export function OverviewTab() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100/80">
-                  <th className="px-6 py-5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     호출부호
                   </th>
-                  <th className="px-6 py-5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     위험도
                   </th>
-                  <th className="px-6 py-5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     유사도
                   </th>
-                  <th className="px-6 py-5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     오류유형
                   </th>
-                  <th className="px-6 py-5 text-center text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-center text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     발생
                   </th>
-                  <th className="px-6 py-5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     최근발생일
                   </th>
-                  <th className="px-6 py-5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     조치유형
                   </th>
-                  <th className="px-6 py-5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     처리일자
                   </th>
-                  <th className="px-6 py-5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     자사 조치
                   </th>
-                  <th className="px-6 py-5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     타사 조치
                   </th>
-                  <th className="px-6 py-5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     상태
                   </th>
-                  <th className="px-6 py-5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     등록일
                   </th>
                 </tr>
@@ -587,7 +579,7 @@ export function OverviewTab() {
                     }}
                   >
                     {/* 호출부호 - 외항사는 주황색, 국내항공사는 숫자 동일 시 파란색/다르면 빨간색 */}
-                    <td className="px-6 py-5 whitespace-nowrap text-[15px] font-bold">
+                    <td className="px-3 py-2.5 whitespace-nowrap text-[15px] font-bold">
                       {(() => {
                         const myCode = callsign.my_airline_code || callsign.my_callsign?.slice(0, 3) || '';
                         const otherCode = callsign.other_airline_code || callsign.other_callsign?.slice(0, 3) || '';
@@ -611,7 +603,7 @@ export function OverviewTab() {
                     </td>
 
                     {/* 위험도 */}
-                    <td className="px-6 py-5">
+                    <td className="px-3 py-2.5">
                       <span
                         className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[11px] font-black tracking-wide whitespace-nowrap ${callsign.risk_level === '매우높음'
                           ? 'bg-red-500 text-white ring-1 ring-red-600/30'
@@ -625,7 +617,7 @@ export function OverviewTab() {
                     </td>
 
                     {/* 유사도 */}
-                    <td className="px-6 py-5">
+                    <td className="px-3 py-2.5">
                       <span
                         className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap ${callsign.similarity === '매우높음'
                           ? 'bg-red-500 text-white'
@@ -639,13 +631,13 @@ export function OverviewTab() {
                     </td>
 
                     {/* 오류유형 */}
-                    <td className="px-6 py-5 text-slate-600 font-medium whitespace-nowrap">{callsign.error_type || '-'}</td>
+                    <td className="px-3 py-2.5 text-slate-600 font-medium whitespace-nowrap">{callsign.error_type || '-'}</td>
 
                     {/* 발생횟수 */}
-                    <td className="px-6 py-5 font-bold text-slate-800 whitespace-nowrap text-center text-[15px]">{callsign.occurrence_count ?? 0}</td>
+                    <td className="px-3 py-2.5 font-bold text-slate-800 whitespace-nowrap text-center text-[15px]">{callsign.occurrence_count ?? 0}</td>
 
                     {/* 최근 발생일 */}
-                    <td className="px-6 py-5 text-slate-500 font-medium whitespace-nowrap text-[13px]">
+                    <td className="px-3 py-2.5 text-slate-500 font-medium whitespace-nowrap text-[13px]">
                       {callsign.last_occurred_at
                         ? new Date(callsign.last_occurred_at).toLocaleDateString('ko-KR', {
                           month: 'long',
@@ -655,12 +647,12 @@ export function OverviewTab() {
                     </td>
 
                     {/* 조치유형 */}
-                    <td className="px-6 py-5 text-slate-600 font-semibold whitespace-nowrap">
+                    <td className="px-3 py-2.5 text-slate-600 font-semibold whitespace-nowrap">
                       {callsign.action_type || '-'}
                     </td>
 
                     {/* 처리일자 */}
-                    <td className="px-6 py-5 text-slate-500 font-medium whitespace-nowrap text-[13px]">
+                    <td className="px-3 py-2.5 text-slate-500 font-medium whitespace-nowrap text-[13px]">
                       {callsign.action_completed_at
                         ? new Date(callsign.action_completed_at).toLocaleDateString('ko-KR', {
                           month: 'long',
@@ -670,7 +662,7 @@ export function OverviewTab() {
                     </td>
 
                     {/* 자사 조치 상태 */}
-                    <td className="px-6 py-5">
+                    <td className="px-3 py-2.5">
                       {(() => {
                         const meta = getActionStatusMeta(callsign.my_action_status);
                         return (
@@ -687,7 +679,7 @@ export function OverviewTab() {
                     </td>
 
                     {/* 타사 조치 상태 */}
-                    <td className="px-6 py-5">
+                    <td className="px-3 py-2.5">
                       {(() => {
                         const meta = getActionStatusMeta(callsign.other_action_status);
                         return (
@@ -704,7 +696,7 @@ export function OverviewTab() {
                     </td>
 
                     {/* 전체 완료 여부 - 3가지 상태 */}
-                    <td className="px-6 py-5">
+                    <td className="px-3 py-2.5">
                       <div className="flex flex-col gap-1.5 justify-center">
                         {callsign.final_status === 'complete' ? (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-[8px] text-[10px] font-bold border bg-emerald-50 text-emerald-600 border-emerald-100 whitespace-nowrap w-fit">
@@ -732,7 +724,7 @@ export function OverviewTab() {
                     </td>
 
                     {/* 등록일 */}
-                    <td className="px-6 py-5 text-slate-400 font-medium whitespace-nowrap text-[13px]">
+                    <td className="px-3 py-2.5 text-slate-400 font-medium whitespace-nowrap text-[13px]">
                       {callsign.uploaded_at
                         ? new Date(callsign.uploaded_at).toLocaleDateString('ko-KR', {
                           month: 'long',
@@ -756,31 +748,8 @@ export function OverviewTab() {
 
         {/* 페이지네이션 */}
         {filteredRows.length > 0 && (
-          <div className="px-8 py-6 border-t border-slate-100/50 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white">
-            <span className="text-[12px] font-bold text-slate-400 tracking-wide">
-              총 <span className="text-slate-700">{totalItems}</span>건 중 {startItem}-{endItem}
-            </span>
-            <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200/60">
-              <button
-                onClick={() => setPage(Math.max(1, page - 1))}
-                disabled={page === 1}
-                className="px-4 py-1.5 rounded-lg text-sm font-bold text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm disabled:opacity-40 disabled:hover:bg-transparent disabled:shadow-none transition-all"
-              >
-                이전
-              </button>
-              <div className="w-px h-4 bg-slate-200"></div>
-              <span className="px-3 text-sm font-bold text-slate-700">
-                {page} <span className="text-slate-400 mx-1">/</span> {computedTotalPages}
-              </span>
-              <div className="w-px h-4 bg-slate-200"></div>
-              <button
-                onClick={() => setPage(page + 1)}
-                disabled={page >= computedTotalPages || rows.length === 0}
-                className="px-4 py-1.5 rounded-lg text-sm font-bold text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm disabled:opacity-40 disabled:hover:bg-transparent disabled:shadow-none transition-all"
-              >
-                다음
-              </button>
-            </div>
+          <div className="border-t border-slate-100/50 bg-white">
+            <Pagination page={page} totalPages={computedTotalPages} onPageChange={setPage} />
           </div>
         )}
       </div>

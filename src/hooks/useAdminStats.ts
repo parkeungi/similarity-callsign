@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
+import { apiFetch } from '@/lib/api/client';
 
 /**
  * 조치 유형별 분포 통계
@@ -24,19 +25,11 @@ export function useActionTypeStats(dateRange?: DateRange) {
   return useQuery({
     queryKey: ['admin-action-type-stats', dateRange?.dateFrom, dateRange?.dateTo],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       const params = new URLSearchParams();
       if (dateRange?.dateFrom) params.append('dateFrom', dateRange.dateFrom);
       if (dateRange?.dateTo) params.append('dateTo', dateRange.dateTo);
 
-      const response = await fetch(`/api/admin/action-type-stats?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await apiFetch(`/api/admin/action-type-stats?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error('통계 조회 실패');
@@ -84,15 +77,7 @@ export function useDuplicateCallsignsStats() {
   return useQuery({
     queryKey: ['admin-duplicate-callsigns-stats'],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
-      const response = await fetch('/api/admin/duplicate-callsigns-stats', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await apiFetch('/api/admin/duplicate-callsigns-stats');
 
       if (!response.ok) {
         throw new Error('통계 조회 실패');
@@ -127,19 +112,11 @@ export function useAirlineDetailStats(dateRange?: DateRange) {
   return useQuery({
     queryKey: ['admin-airline-stats', dateRange?.dateFrom, dateRange?.dateTo],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       const params = new URLSearchParams();
       if (dateRange?.dateFrom) params.append('dateFrom', dateRange.dateFrom);
       if (dateRange?.dateTo) params.append('dateTo', dateRange.dateTo);
 
-      const response = await fetch(`/api/admin/airline-stats?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await apiFetch(`/api/admin/airline-stats?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error('통계 조회 실패');
@@ -172,19 +149,11 @@ export function useSystemStats(dateRange?: DateRange) {
   return useQuery({
     queryKey: ['admin-system-stats', dateRange?.dateFrom, dateRange?.dateTo],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       const params = new URLSearchParams();
       if (dateRange?.dateFrom) params.append('dateFrom', dateRange.dateFrom);
       if (dateRange?.dateTo) params.append('dateTo', dateRange.dateTo);
 
-      const response = await fetch(`/api/admin/comprehensive-stats?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await apiFetch(`/api/admin/comprehensive-stats?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error('통계 조회 실패');

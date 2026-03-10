@@ -5,6 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
+import { apiFetch } from '@/lib/api/client';
 import { supabaseClient } from '@/lib/supabase/client';
 import {
   Announcement,
@@ -316,12 +317,7 @@ export function useAdminAnnouncements(
       params.append('page', page.toString());
       params.append('limit', limit.toString());
 
-      const res = await fetch(`/api/admin/announcements?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const res = await apiFetch(`/api/admin/announcements?${params.toString()}`);
 
       if (!res.ok) {
         throw new Error('공지사항 목록 조회 실패');
@@ -388,17 +384,12 @@ export function useViewAnnouncement() {
  * POST /api/admin/announcements
  */
 export function useCreateAnnouncement() {
-  const { accessToken } = useAuthStore();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: CreateAnnouncementRequest) => {
-      const res = await fetch('/api/admin/announcements', {
+      const res = await apiFetch('/api/admin/announcements', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(data),
       });
 
@@ -423,7 +414,6 @@ export function useCreateAnnouncement() {
  * PATCH /api/admin/announcements/{id}
  */
 export function useUpdateAnnouncement() {
-  const { accessToken } = useAuthStore();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -431,12 +421,8 @@ export function useUpdateAnnouncement() {
       id,
       ...data
     }: { id: string } & UpdateAnnouncementRequest) => {
-      const res = await fetch(`/api/admin/announcements/${id}`, {
+      const res = await apiFetch(`/api/admin/announcements/${id}`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(data),
       });
 
@@ -466,17 +452,12 @@ export function useUpdateAnnouncement() {
  * DELETE /api/admin/announcements/{id}
  */
 export function useDeleteAnnouncement() {
-  const { accessToken } = useAuthStore();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/announcements/${id}`, {
+      const res = await apiFetch(`/api/admin/announcements/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
       });
 
       if (!res.ok) {

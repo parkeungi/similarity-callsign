@@ -17,6 +17,7 @@ interface AuthStore {
   // 액션
   setAuth: (user: User, accessToken: string) => void;
   setUser: (user: User) => void;
+  setAccessToken: (accessToken: string) => void;
   setLoading: (loading: boolean) => void;
   logout: () => void;
 
@@ -47,6 +48,13 @@ export const authStore = create<AuthStore>((set, get) => ({
 
   setUser: (user) => {
     set({ user });
+  },
+
+  setAccessToken: (accessToken) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('accessToken', accessToken);
+    }
+    set({ accessToken });
   },
 
   setLoading: (loading) => {

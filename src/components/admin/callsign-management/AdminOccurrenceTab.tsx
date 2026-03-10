@@ -3,13 +3,20 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
+import { apiFetch } from '@/lib/api/client';
 import { useAdminAirlines } from '@/hooks/useAirlines';
 import { Incident, RISK_LEVEL_ORDER } from '@/types/airline';
 import { formatOccurrenceBadge } from '@/lib/occurrence-format';
+import { Pagination } from '@/components/common/Pagination';
+
+const DOMESTIC_AIRLINE_CODES = new Set([
+  'KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR', 'ARK',
+]);
 
 interface OccurrenceIncident extends Incident {
   airlineName?: string;
   airlineCode?: string;
+  otherAirlineCode?: string;
 }
 
 type SortOrder = 'priority' | 'risk' | 'count' | 'latest';
@@ -19,7 +26,7 @@ export function AdminOccurrenceTab() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const airlinesQuery = useAdminAirlines();
 
-  const [selectedAirlineId, setSelectedAirlineId] = useState<'all' | string>('all');
+  const [selectedAirlineId, setSelectedAirlineId] = useState<'all' | 'foreign_domestic' | 'foreign_foreign' | string>('all');
   const [startDate, setStartDate] = useState<string>(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -41,10 +48,7 @@ export function AdminOccurrenceTab() {
   const allOccurrencesQuery = useQuery({
     queryKey: ['admin-all-occurrences-v2', accessToken],
     queryFn: async () => {
-      if (!accessToken) return [];
-      const response = await fetch('/api/admin/occurrences', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const response = await apiFetch('/api/admin/occurrences');
       if (!response.ok) return [];
       const result = await response.json();
       return (result.data || []).map((cs: any) => ({
@@ -60,6 +64,7 @@ export function AdminOccurrenceTab() {
         occurrences: cs.occurrences || [],
         airlineName: cs.airline_name_ko,
         airlineCode: cs.airline_code,
+        otherAirlineCode: cs.other_airline_code,
         airlineId: cs.airline_id,
       } as OccurrenceIncident));
     },
@@ -72,8 +77,35 @@ export function AdminOccurrenceTab() {
   const rawIncidents: OccurrenceIncident[] = useMemo(() => {
     const all = allOccurrencesQuery.data || [];
     if (selectedAirlineId === 'all') return all;
-    return all.filter((i) => (i as any).airlineId === selectedAirlineId);
-  }, [allOccurrencesQuery.data, selectedAirlineId]);
+    if (selectedAirlineId === 'foreign_domestic') {
+      // 국내↔외항사: 한쪽만 국내 항공사인 쌍
+      return all.filter((i) => {
+        const a = (i as any).airlineCode || '';
+        const b = (i as any).otherAirlineCode || '';
+        const aIsDomestic = DOMESTIC_AIRLINE_CODES.has(a);
+        const bIsDomestic = DOMESTIC_AIRLINE_CODES.has(b);
+        return aIsDomestic !== bIsDomestic; // 한쪽만 국내
+      });
+    }
+    if (selectedAirlineId === 'foreign_foreign') {
+      // 외항사↔외항사: 양쪽 모두 국내 항공사 아닌 쌍
+      return all.filter((i) => {
+        const a = (i as any).airlineCode || '';
+        const b = (i as any).otherAirlineCode || '';
+        return !DOMESTIC_AIRLINE_CODES.has(a) && !DOMESTIC_AIRLINE_CODES.has(b);
+      });
+    }
+    // 특정 항공사: airlineCode 또는 otherAirlineCode가 해당 항공사인 쌍
+    const selectedAirline = airlines.find(al => al.id === selectedAirlineId);
+    if (selectedAirline) {
+      return all.filter((i) => {
+        const a = (i as any).airlineCode || '';
+        const b = (i as any).otherAirlineCode || '';
+        return a === selectedAirline.code || b === selectedAirline.code;
+      });
+    }
+    return all;
+  }, [allOccurrencesQuery.data, selectedAirlineId, airlines]);
 
   // 날짜 필터링
   const filteredByDate = useMemo(() => {
@@ -225,41 +257,6 @@ export function AdminOccurrenceTab() {
 
   return (
     <div className="space-y-6">
-      {/* 통계 카드 */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-        <div className="flex items-baseline gap-3 mb-1">
-          <span className="text-4xl font-black text-gray-900">{stats.total}</span>
-          <span className="text-sm font-medium text-gray-500">(유사호출부호 쌍)</span>
-        </div>
-        <div className="text-xs text-gray-500 mb-4">
-          ※ 오류 유형별 건수는 발생 이력 기준이며, 전체 유사호출부호 쌍 수와 일치하지 않습니다.
-        </div>
-        {Object.keys(stats.errorTypeCounts).length === 0 ? (
-          <div className="text-sm text-gray-400 py-2">발생 이력이 없습니다.</div>
-        ) : (
-          <div
-            className="grid gap-3"
-            style={{ gridTemplateColumns: `repeat(${Math.min(Object.keys(stats.errorTypeCounts).length, 4)}, minmax(0, 1fr))` }}
-          >
-            {Object.entries(stats.errorTypeCounts)
-              .sort((a, b) => b[1] - a[1])
-              .map(([type, count], idx) => {
-                const palette = ERROR_TYPE_PALETTE[idx % ERROR_TYPE_PALETTE.length];
-                const pct = stats.totalOcc > 0 ? Math.round((count / stats.totalOcc) * 100) : 0;
-                return (
-                  <div key={type} className={`border-2 ${palette.border} ${palette.bg} rounded-lg p-4`}>
-                    <div className={`text-xs font-bold ${palette.label} mb-2`}>{type}</div>
-                    <div className="flex items-baseline gap-2">
-                      <span className={`text-2xl font-black ${palette.value}`}>{count}</span>
-                      <span className={`text-xs font-bold ${palette.pct}`}>{pct}%</span>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        )}
-      </div>
-
       {/* 필터 바 */}
       <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
@@ -277,6 +274,8 @@ export function AdminOccurrenceTab() {
                   {airline.name_ko} ({airline.code})
                 </option>
               ))}
+              <option value="foreign_domestic">── 국내↔외항사</option>
+              <option value="foreign_foreign">── 외항사↔외항사</option>
             </select>
           </div>
 
@@ -348,6 +347,44 @@ export function AdminOccurrenceTab() {
         </div>
       </div>
 
+      {/* 통계 카드 */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+        <div className="flex items-baseline gap-3 mb-1">
+          <span className="text-4xl font-black text-gray-900">{stats.total}</span>
+          <span className="text-sm font-medium text-gray-500">(유사호출부호 쌍)</span>
+        </div>
+        <div className="text-xs text-gray-500 mb-4 space-y-0.5">
+          <p>※ 오류 유형별 건수는 발생 이력 기준이며, 전체 유사호출부호 쌍 수와 일치하지 않습니다.</p>
+          <p>※ 발생일수: 최초 발생이력 기준 하루 1건으로 카운트 (같은 날 다른 섹터 중복 검출은 1건)</p>
+          <p>※ 오류유형: 하루 동일 항공기라도 서로 다른 섹터에서 검출 시 오류유형별로 각각 집계</p>
+          <p>※ 예외: 당일 출도착 변경 시 최대 2건 카운트 가능 (극히 드묾)</p>
+        </div>
+        {Object.keys(stats.errorTypeCounts).length === 0 ? (
+          <div className="text-sm text-gray-400 py-2">발생 이력이 없습니다.</div>
+        ) : (
+          <div
+            className="grid gap-3"
+            style={{ gridTemplateColumns: `repeat(${Math.min(Object.keys(stats.errorTypeCounts).length, 4)}, minmax(0, 1fr))` }}
+          >
+            {Object.entries(stats.errorTypeCounts)
+              .sort((a, b) => b[1] - a[1])
+              .map(([type, count], idx) => {
+                const palette = ERROR_TYPE_PALETTE[idx % ERROR_TYPE_PALETTE.length];
+                const pct = stats.totalOcc > 0 ? Math.round((count / stats.totalOcc) * 100) : 0;
+                return (
+                  <div key={type} className={`border-2 ${palette.border} ${palette.bg} rounded-lg p-4`}>
+                    <div className={`text-xs font-bold ${palette.label} mb-2`}>{type}</div>
+                    <div className="flex items-baseline gap-2">
+                      <span className={`text-2xl font-black ${palette.value}`}>{count}</span>
+                      <span className={`text-xs font-bold ${palette.pct}`}>{pct}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
+
       {/* 발생현황 목록 */}
       <div className="space-y-4">
         <div className="text-sm font-bold text-gray-600 flex items-center justify-between">
@@ -407,8 +444,14 @@ export function AdminOccurrenceTab() {
                   {/* 정보 테이블 */}
                   <div className="grid grid-cols-4 gap-2 text-sm mb-2 pb-2 border-b border-gray-200">
                     <div>
-                      <div className="text-[11px] text-gray-500 font-semibold mb-0.5">발생건수</div>
-                      <div className="font-bold text-red-600 text-sm">{incident.count || 0}건</div>
+                      <div className="text-[11px] text-gray-500 font-semibold mb-0.5">발생일수</div>
+                      <div className="font-bold text-red-600 text-sm">
+                        {(() => {
+                          const occs = incident.occurrences || [];
+                          const uniqueDays = new Set(occs.map((o: any) => o.occurredDate)).size;
+                          return `${uniqueDays || incident.count || 0}일`;
+                        })()}
+                      </div>
                     </div>
                     <div>
                       <div className="text-[11px] text-gray-500 font-semibold mb-0.5">최근발생일</div>
@@ -452,12 +495,18 @@ export function AdminOccurrenceTab() {
                     </div>
                   )}
 
-                  {/* 발생 이력 타임라인 */}
+                  {/* 발생 이력 타임라인 (시간순 오름차순) */}
                   {incident.occurrences && incident.occurrences.length > 0 && (
                     <div>
-                      <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (날짜·시간)</div>
+                      <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (날짜·시간, 시간순)</div>
                       <div className="flex flex-wrap gap-1.5">
-                        {incident.occurrences.map((occurrence: any, i: number) => {
+                        {[...incident.occurrences]
+                          .sort((a: any, b: any) => {
+                            const dateA = `${a.occurredDate || ''} ${a.occurredTime || '00:00'}`;
+                            const dateB = `${b.occurredDate || ''} ${b.occurredTime || '00:00'}`;
+                            return dateA.localeCompare(dateB);
+                          })
+                          .map((occurrence: any, i: number) => {
                           const { monthDay, time } = formatOccurrenceBadge(
                             occurrence.occurredDate,
                             occurrence.occurredTime
@@ -485,39 +534,7 @@ export function AdminOccurrenceTab() {
         )}
 
         {/* 페이지네이션 */}
-        {totalPages > 1 && (
-          <div className="px-6 py-6 border-t border-gray-200">
-            <div className="text-center mb-4">
-              <span className="text-[12px] font-bold text-gray-600">
-                총 <span className="text-gray-800 font-black">{allFilteredIncidents.length}</span>건 중{' '}
-                <span className="text-blue-600">{(page - 1) * limit + 1}-{Math.min(page * limit, allFilteredIncidents.length)}</span>
-              </span>
-            </div>
-            <div className="flex items-center justify-center gap-1">
-              <button onClick={() => setPage(1)} disabled={page === 1}
-                className="px-3 py-2 rounded border border-gray-300 text-gray-600 font-bold text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:border-gray-200 disabled:text-gray-300 disabled:bg-gray-50 transition-all">
-                ⏮
-              </button>
-              <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}
-                className="px-3 py-2 rounded border border-gray-300 text-gray-600 font-bold text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:border-gray-200 disabled:text-gray-300 disabled:bg-gray-50 transition-all">
-                ◀
-              </button>
-              <div className="px-4 py-2 mx-1 rounded border border-blue-300 bg-blue-50">
-                <span className="text-sm font-black text-blue-600">
-                  {page} <span className="text-gray-400 font-bold">/ {totalPages}</span>
-                </span>
-              </div>
-              <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages}
-                className="px-3 py-2 rounded border border-gray-300 text-gray-600 font-bold text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:border-gray-200 disabled:text-gray-300 disabled:bg-gray-50 transition-all">
-                ▶
-              </button>
-              <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
-                className="px-3 py-2 rounded border border-gray-300 text-gray-600 font-bold text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:border-gray-200 disabled:text-gray-300 disabled:bg-gray-50 transition-all">
-                ⏭
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       </div>
     </div>
   );

@@ -9,6 +9,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
+import { apiFetch } from '@/lib/api/client';
 import { supabaseClient } from '@/lib/supabase/client';
 import {
   Action,
@@ -44,10 +45,6 @@ export function useAllActions(
   return useQuery({
     queryKey: ['all-actions', filters?.airlineId, filters?.status, filters?.search, filters?.dateFrom, filters?.dateTo, page, limit],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       const params = new URLSearchParams();
       if (filters?.airlineId) params.append('airlineId', filters.airlineId);
       if (filters?.status) params.append('status', filters.status);
@@ -57,16 +54,9 @@ export function useAllActions(
       params.append('page', String(page));
       params.append('limit', String(limit));
 
-      const response = await fetch(`/api/actions?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await apiFetch(`/api/actions?${params.toString()}`);
 
       if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('인증이 필요합니다.');
-        }
         throw new Error('조치 목록 조회 실패');
       }
 
@@ -100,10 +90,6 @@ export function useAirlineActions(filters?: {
   return useQuery({
     queryKey: ['airline-actions', filters?.airlineId, filters?.status, filters?.search, filters?.dateFrom, filters?.dateTo, page, limit],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       if (!filters?.airlineId) {
         throw new Error('항공사 ID가 필요합니다.');
       }
@@ -116,16 +102,9 @@ export function useAirlineActions(filters?: {
       params.append('page', String(page));
       params.append('limit', String(limit));
 
-      const response = await fetch(`/api/airlines/${filters.airlineId}/actions?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await apiFetch(`/api/airlines/${filters.airlineId}/actions?${params.toString()}`);
 
       if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('인증이 필요합니다.');
-        }
         throw new Error('조치 목록 조회 실패');
       }
 
@@ -186,10 +165,6 @@ export function useAirlineCallsigns(
   return useQuery({
     queryKey: ['airline-callsigns', airlineId, filters?.riskLevel, page, limit],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       if (!airlineId) {
         throw new Error('항공사 ID가 필요합니다.');
       }
@@ -199,19 +174,11 @@ export function useAirlineCallsigns(
       params.append('page', String(page));
       params.append('limit', String(limit));
 
-      const response = await fetch(
-        `/api/airlines/${airlineId}/callsigns?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
+      const response = await apiFetch(
+        `/api/airlines/${airlineId}/callsigns?${params.toString()}`
       );
 
       if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('인증이 필요합니다.');
-        }
         throw new Error('호출부호 목록 조회 실패');
       }
 
@@ -417,10 +384,6 @@ export function useAirlineActionStats(
   return useQuery({
     queryKey: ['airline-action-stats', airlineId, filters?.dateFrom, filters?.dateTo],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       if (!airlineId) {
         throw new Error('항공사 ID가 필요합니다.');
       }
@@ -430,13 +393,8 @@ export function useAirlineActionStats(
       if (filters?.dateTo) params.append('dateTo', filters.dateTo);
 
       const qs = params.toString();
-      const response = await fetch(
-        `/api/airlines/${airlineId}/actions/stats${qs ? `?${qs}` : ''}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
+      const response = await apiFetch(
+        `/api/airlines/${airlineId}/actions/stats${qs ? `?${qs}` : ''}`
       );
 
       if (!response.ok) {
@@ -461,15 +419,7 @@ export function useAction(actionId: string | undefined) {
   return useQuery({
     queryKey: ['action', actionId],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
-      const response = await fetch(`/api/actions/${actionId}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await apiFetch(`/api/actions/${actionId}`);
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -490,23 +440,14 @@ export function useAction(actionId: string | undefined) {
  * 조치 등록 (인증된 사용자 모두)
  */
 export function useCreateAction() {
-  const accessToken = useAuthStore((s) => s.accessToken);
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: CreateActionRequest & { airlineId: string }) => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       const { airlineId, ...actionData } = data;
 
-      const response = await fetch(`/api/airlines/${airlineId}/actions`, {
+      const response = await apiFetch(`/api/airlines/${airlineId}/actions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
         body: JSON.stringify(actionData),
       });
 
@@ -516,8 +457,6 @@ export function useCreateAction() {
           const error = await response.json();
           throw new Error(error.error || '조치 등록 실패');
         } else {
-          const text = await response.text();
-          console.error('API 응답 오류:', text);
           throw new Error('조치 등록 실패: 서버 오류');
         }
       }
@@ -537,23 +476,14 @@ export function useCreateAction() {
  * 조치 상태 업데이트 (관리자만)
  */
 export function useUpdateAction() {
-  const accessToken = useAuthStore((s) => s.accessToken);
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: UpdateActionRequest & { id: string }) => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       const { id, ...updateData } = data;
 
-      const response = await fetch(`/api/actions/${id}`, {
+      const response = await apiFetch(`/api/actions/${id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
         body: JSON.stringify(updateData),
       });
 
@@ -563,8 +493,6 @@ export function useUpdateAction() {
           const error = await response.json();
           throw new Error(error.error || '조치 업데이트 실패');
         } else {
-          const text = await response.text();
-          console.error('API 응답 오류:', text);
           throw new Error('조치 업데이트 실패: 서버 오류');
         }
       }
@@ -585,20 +513,12 @@ export function useUpdateAction() {
  * 조치 삭제 (관리자만)
  */
 export function useDeleteAction() {
-  const accessToken = useAuthStore((s) => s.accessToken);
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
-      const response = await fetch(`/api/actions/${id}`, {
+      const response = await apiFetch(`/api/actions/${id}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
       });
 
       if (!response.ok) {
@@ -607,8 +527,6 @@ export function useDeleteAction() {
           const error = await response.json();
           throw new Error(error.error || '조치 삭제 실패');
         } else {
-          const text = await response.text();
-          console.error('API 응답 오류:', text);
           throw new Error('조치 삭제 실패: 서버 오류');
         }
       }
@@ -649,10 +567,6 @@ export function useCallsignsWithActions(
   return useQuery({
     queryKey: ['callsigns-with-actions', filters?.riskLevel, filters?.airlineId, filters?.myActionStatus, filters?.actionType, filters?.dateFrom, filters?.dateTo, page, limit],
     queryFn: async () => {
-      if (!accessToken) {
-        throw new Error('인증 토큰이 없습니다.');
-      }
-
       const params = new URLSearchParams();
       if (filters?.riskLevel) params.append('riskLevel', filters.riskLevel);
       if (filters?.airlineId) params.append('airlineId', filters.airlineId);
@@ -663,13 +577,8 @@ export function useCallsignsWithActions(
       params.append('page', String(page));
       params.append('limit', String(limit));
 
-      const response = await fetch(
-        `/api/callsigns-with-actions?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
+      const response = await apiFetch(
+        `/api/callsigns-with-actions?${params.toString()}`
       );
 
       if (!response.ok) {
