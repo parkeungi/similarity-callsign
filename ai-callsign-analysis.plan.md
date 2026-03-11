@@ -38,12 +38,14 @@ CREATE TABLE IF NOT EXISTS callsign_ai_analysis (
   callsign_pair TEXT NOT NULL UNIQUE,
   ai_score INT NOT NULL CHECK (ai_score BETWEEN 1 AND 100),
   ai_reason TEXT NOT NULL,
+  reason_type TEXT NOT NULL DEFAULT 'LOW_RISK',
   analyzed_at TIMESTAMPTZ DEFAULT NOW(),
   analyzed_by TEXT DEFAULT 'claude'
 );
 
 CREATE INDEX idx_ai_analysis_pair ON callsign_ai_analysis(callsign_pair);
 CREATE INDEX idx_ai_analysis_score ON callsign_ai_analysis(ai_score DESC);
+CREATE INDEX idx_ai_analysis_reason_type ON callsign_ai_analysis(reason_type);
 ```
 
 | 컬럼 | 타입 | 설명 |
@@ -51,11 +53,42 @@ CREATE INDEX idx_ai_analysis_score ON callsign_ai_analysis(ai_score DESC);
 | `id` | SERIAL PK | 자동 증가 ID |
 | `callsign_pair` | TEXT UNIQUE | 호출부호 쌍 ("ESR887 \| KAL887") |
 | `ai_score` | INT (1~100) | AI 우선순위 점수 |
-| `ai_reason` | TEXT | 항공사 설득용 조치 근거 (2~3문장) |
+| `ai_reason` | TEXT | 항공사 설득용 조치 근거 (2~3문장, 횟수 미언급) |
+| `reason_type` | TEXT | 혼동 유형 분류 (아래 표 참고) |
 | `analyzed_at` | TIMESTAMPTZ | 분석 일시 |
 | `analyzed_by` | TEXT | 분석 주체 (기본값: 'claude') |
 
-### 2.2 기존 테이블 변경: 없음
+### 2.2 reason_type 유형 분류
+
+| reason_type | 설명 | 예시 | 점수 범위 |
+|-------------|------|------|-----------|
+| `SAME_NUMBER` | 다른 항공사, 편명번호 완전 동일 | ESR887 ↔ KAL887 | 84~96 |
+| `CONTAINMENT` | 짧은 번호가 긴 번호에 포함 | KAL126 ↔ KAL1256 | 78~88 |
+| `TRANSPOSITION` | 숫자 자릿수 전치 | TWB301 ↔ TWB310 | 70~82 |
+| `SIMILAR_CODE` | 항공사코드 발음 유사 + 편명 유사 | JNA301 ↔ JJA301 | 70~96 |
+| `DIGIT_OVERLAP` | 같은 항공사, 앞/뒤 숫자 겹침 | AAR701 ↔ AAR731 | 40~68 |
+| `PHONETIC_DIGIT` | 발음 혼동 숫자 조합 포함 | AAR135 ↔ AAR195 | 55~78 |
+| `LOW_RISK` | 유사성 낮음 | 코드/번호 모두 다름 | 15~39 |
+
+**활용:**
+- 프론트엔드에서 유형별 필터링 가능
+- 항공사에 "편명동일 유형 5건, 전치 유형 3건" 식으로 요약 전달 가능
+- 같은 유형끼리 묶어서 일괄 조치 요청 가능
+
+### 2.3 ICAO 무선교신 발음 혼동 숫자 쌍
+
+| 숫자 | ICAO 발음 | 혼동 대상 | 이유 |
+|------|----------|----------|------|
+| 5 (Fife) | 파이프 | 9 (Niner) | 끝 발음 유사 |
+| 9 (Niner) | 나이너 | 5 (Fife) | 끝 발음 유사 |
+| 3 (Tree) | 트리 | 8 (Ait) | 잡음 환경에서 혼동 |
+| 0 (Zero) | 제로 | 4 (FOW-er) | 약한 혼동 |
+| 1 (Wun) | 원 | 9 (Niner) | 짧은 교신 시 |
+| 13 | 서틴 | 30 (서티) | 한국어에서도 혼동 |
+| 14 | 포틴 | 40 (포티) | 한국어에서도 혼동 |
+| 15 | 피프틴 | 50 (피프티) | 한국어에서도 혼동 |
+
+### 2.4 기존 테이블 변경: 없음
 - `callsigns` 테이블은 수정하지 않음
 - `callsign_pair` 문자열로 JOIN하여 연결
 
