@@ -9,7 +9,7 @@ import {
 } from '@/types/airline';
 
 type ActionStatusFilter = 'all' | 'no_action' | 'in_progress' | 'completed';
-type SortOrder = 'risk' | 'count' | 'latest' | 'priority';
+type SortOrder = 'risk' | 'count' | 'latest' | 'priority' | 'ai_score';
 
 interface IncidentFiltersProps {
   dateFilter: DateRangeFilterState & {
@@ -107,6 +107,7 @@ export function IncidentFilters({
             className="h-9 border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 outline-none shrink-0"
           >
             <option value="priority">우선순위순</option>
+            <option value="ai_score">AI분석순</option>
             <option value="latest">최신순</option>
             <option value="count">발생건수순</option>
             <option value="risk">오류가능성순</option>

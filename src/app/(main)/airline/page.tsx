@@ -181,6 +181,10 @@ export default function AirlinePage() {
       actionStatus: cs.action_status || cs.actionStatus || 'no_action',
       actionType: cs.action_type || cs.actionType || null,
       actionCompletedAt: cs.action_completed_at || cs.actionCompletedAt || null,
+      // AI 분석 데이터
+      aiScore: cs.ai_score ?? cs.aiScore ?? null,
+      aiReason: cs.ai_reason ?? cs.aiReason ?? null,
+      reasonType: cs.reason_type ?? cs.reasonType ?? null,
     }));
   }, [callsignsData]);
 
@@ -298,7 +302,7 @@ export default function AirlinePage() {
 
   return (
     <>
-    <main className="flex flex-1 min-h-0 overflow-y-auto">
+    <main className="flex flex-1 min-h-0">
         {/* 왼쪽 사이드바 */}
         <aside className="w-72 bg-white border-r border-gray-100 flex flex-col pt-4 shrink-0 h-full overflow-y-auto">
           <nav className="flex-1 px-4 space-y-2">
@@ -324,8 +328,8 @@ export default function AirlinePage() {
         </aside>
 
         {/* 오른쪽 콘텐츠 영역 */}
-        <div className="flex-1 overflow-y-auto h-full bg-gray-50">
-          <div className="w-full max-w-[90rem] mx-auto px-4 py-10 space-y-8 animate-fade-in flex flex-col">
+        <div className="flex-1 flex flex-col overflow-y-auto bg-gray-50">
+          <div className="w-full px-4 py-10 space-y-8 animate-fade-in flex flex-col">
             {activeTab === 'occurrence' && (
               <AirlineOccurrenceTab
                 incidents={incidents}
@@ -401,6 +405,31 @@ export default function AirlinePage() {
               />
             )}
           </div>
+
+          {/* Footer */}
+          <footer className="mt-auto py-5 bg-slate-100 text-slate-500 border-t border-slate-200">
+            <div className="max-w-6xl mx-auto">
+              <div className="flex flex-wrap gap-6 items-center justify-center">
+                <div className="text-sm font-semibold text-slate-700">
+                  Similar Callsign Warning System | Korea Airports Corporation
+                </div>
+                <div className="flex gap-5 text-sm">
+                  <span className="text-slate-400">Aviation Safety Division</span>
+                  <div>
+                    <span className="text-slate-400">T.</span>
+                    <span className="font-medium ml-1">1588-2311</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">E.</span>
+                    <span className="font-medium ml-1">info@airport.kr</span>
+                  </div>
+                </div>
+              </div>
+              <div className="border-t border-slate-200 mt-3 pt-3 text-xs text-slate-400 text-center">
+                © 2026 Korea Airports Corporation. All Rights Reserved.
+              </div>
+            </div>
+          </footer>
         </div>
 
       {/* 조치 등록/수정 모달 */}
@@ -555,30 +584,6 @@ export default function AirlinePage() {
         />
       )}
 
-      {/* Footer */}
-      <footer className="mt-10 py-5 bg-gray-800 text-gray-300 border-t border-gray-700">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-wrap gap-6 items-center justify-center">
-            <div className="text-sm font-medium text-white">
-              Similar Callsign Warning System | Korea Airports Corporation
-            </div>
-            <div className="flex gap-5 text-sm">
-              <span className="text-gray-400">Aviation Safety Division</span>
-              <div>
-                <span className="text-gray-400">T.</span>
-                <span className="font-medium ml-1">1588-2311</span>
-              </div>
-              <div>
-                <span className="text-gray-400">E.</span>
-                <span className="font-medium ml-1">info@airport.kr</span>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-gray-600 mt-3 pt-3 text-xs text-gray-400 text-center">
-            © 2026 Korea Airports Corporation. All Rights Reserved.
-          </div>
-        </div>
-      </footer>
       </main>
     </>
   );

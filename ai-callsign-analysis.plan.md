@@ -1,7 +1,8 @@
 # 기능 설계서: AI 유사호출부호 우선순위 분석
 
 > 작성일: 2026-03-11
-> 상태: 설계 완료 / 구현 대기
+> 최종 수정: 2026-03-12
+> 상태: 항공사 페이지 AI 표시 구현 완료 / 나머지 AI 분석 INSERT 진행 중
 
 ---
 
@@ -179,61 +180,224 @@ CREATE INDEX idx_ai_analysis_reason_type ON callsign_ai_analysis(reason_type);
 
 ---
 
-## 5. 프론트엔드 변경
+## 5. 프론트엔드 변경 - 항공사 페이지 (구현 완료)
 
-### 5.1 API 변경 (`GET /api/admin/occurrences`)
-- 기존 callsigns 쿼리에 `callsign_ai_analysis` LEFT JOIN 추가
-- 응답에 `ai_score`, `ai_reason` 필드 추가
+> 2026-03-12 구현 완료
 
-### 5.2 UI 변경 (`AdminOccurrenceTab.tsx`)
+### 5.1 API 변경 (`GET /api/airlines/[airlineId]/callsigns`)
 
-#### 정렬 옵션 추가
-```
-기존: 우선순위 | 위험도 | 발생건수 | 최근발생
-추가: AI 우선순위  ← ai_score 내림차순
+#### JOIN 방식
+```sql
+SELECT
+  c.*,
+  ai.ai_score,
+  ai.ai_reason,
+  ai.reason_type
+FROM callsigns c
+LEFT JOIN callsign_ai_analysis ai
+  ON ai.callsign_pair = c.callsign_a || ' | ' || c.callsign_b
+WHERE (c.airline_a_code = $1 OR c.airline_b_code = $1)
 ```
 
-#### 카드 내 AI 뱃지 표시
+- `callsign_ai_analysis.callsign_pair`는 **원본 형식** (`callsign_a | callsign_b`)으로 저장
+- 항공사 관점 재구성(`my | other`)이 아닌 **원본 pair로 JOIN**해야 정확히 매칭
+- 응답에 `ai_score`, `ai_reason`, `reason_type` 필드 추가 (snake_case + camelCase 양쪽)
+
+#### 응답 필드 추가
+```typescript
+{
+  // ... 기존 필드 ...
+  ai_score: number | null,      // AI 우선순위 점수 (1~100)
+  ai_reason: string | null,     // 혼동 사유 설명 (2~3문장)
+  reason_type: string | null,   // 혼동 유형 (SAME_NUMBER 등 7종)
+  // camelCase 별칭
+  aiScore: number | null,
+  aiReason: string | null,
+  reasonType: string | null,
+}
 ```
-┌──────────────────────────────────────┐
-│ ESR887  ↔  KAL887       ✓ 조치완료  │
-│ 이스타항공 (ESR)                      │
-│                                      │
-│ 발생일수  최근발생  유사성  오류가능성 │
-│ 3일      03.07.   매우높음  매우높음  │
-│                                      │
-│ 🤖 AI 긴급 (88점)                    │  ← 새로 추가
-│ 편명번호 887이 완전 동일합니다...     │  ← reason 표시
-└──────────────────────────────────────┘
+
+### 5.2 타입 변경
+
+#### `src/types/action.ts` - Callsign 인터페이스
+```typescript
+// AI 분석 데이터 (6개 필드 추가)
+ai_score?: number | null;
+ai_reason?: string | null;
+reason_type?: string | null;
+aiScore?: number | null;
+aiReason?: string | null;
+reasonType?: string | null;
 ```
+
+#### `src/types/airline.ts` - Incident 인터페이스
+```typescript
+// AI 분석 데이터 (3개 필드 추가)
+aiScore?: number | null;
+aiReason?: string | null;
+reasonType?: string | null;
+```
+
+#### `src/types/airline.ts` - 신규 상수/함수
+```typescript
+// reason_type 한글 라벨 및 색상 매핑
+export const REASON_TYPE_CONFIG: Record<string, { label: string; bgColor: string; textColor: string }> = {
+  SAME_NUMBER:    { label: '편명번호 동일',   bgColor: 'bg-red-50',    textColor: 'text-red-700' },
+  CONTAINMENT:    { label: '편명 포함관계',   bgColor: 'bg-orange-50', textColor: 'text-orange-700' },
+  TRANSPOSITION:  { label: '숫자 전치',       bgColor: 'bg-amber-50',  textColor: 'text-amber-700' },
+  SIMILAR_CODE:   { label: '항공사코드 유사', bgColor: 'bg-purple-50', textColor: 'text-purple-700' },
+  DIGIT_OVERLAP:  { label: '숫자 겹침',       bgColor: 'bg-blue-50',   textColor: 'text-blue-700' },
+  PHONETIC_DIGIT: { label: '발음 혼동',       bgColor: 'bg-indigo-50', textColor: 'text-indigo-700' },
+  LOW_RISK:       { label: '낮은 위험',       bgColor: 'bg-gray-50',   textColor: 'text-gray-600' },
+};
+
+// AI 점수 등급별 색상
+export function getAiScoreColor(score: number) {
+  if (score >= 80) return { bg: 'bg-red-100',    text: 'text-red-700',    label: '긴급' };
+  if (score >= 60) return { bg: 'bg-orange-100', text: 'text-orange-700', label: '주의' };
+  if (score >= 40) return { bg: 'bg-yellow-100', text: 'text-yellow-700', label: '관찰' };
+  return                   { bg: 'bg-green-100',  text: 'text-green-700',  label: '낮음' };
+}
+```
+
+### 5.3 데이터 매핑 (`src/app/(main)/airline/page.tsx`)
+
+Callsign → Incident 변환 시 AI 필드 매핑:
+```typescript
+aiScore: cs.ai_score ?? cs.aiScore ?? null,
+aiReason: cs.ai_reason ?? cs.aiReason ?? null,
+reasonType: cs.reason_type ?? cs.reasonType ?? null,
+```
+
+### 5.4 UI 변경 - 발생현황 카드 (`AirlineOccurrenceTab.tsx`)
+
+#### 카드 내 AI 분석 영역
+정보 테이블(`발생일수 | 최근발생 | 유사성 | 오류가능성`) 바로 아래, 오류유형 위에 표시.
+AI 데이터가 없는 쌍은 영역 자체가 숨겨짐 (`incident.aiScore != null` 조건).
+
+```
+┌─ 카드 ─────────────────────────────────┐
+│ [KAL887] ↔ [ESR887]     [조치등록]     │
+│ 발생일수: 5  최근: 03-08  유사성  위험도│
+│                                        │
+│ ┌─ AI 분석 ──────────────────────────┐ │
+│ │ [AI 92점] [편명번호 동일]          │ │
+│ │ "편명번호 887이 완전 동일합니다.   │ │
+│ │  이스타항공과 대한항공이 같은 번호를│ │
+│ │  사용하면 관제지시 혼동 위험이..."  │ │
+│ └────────────────────────────────────┘ │
+│                                        │
+│ [관제사오류 3건] [조종사오류 2건]       │
+│ 03-01 09:30 | 03-03 14:20 | ...        │
+└────────────────────────────────────────┘
+```
+
+- **점수 배지**: `AI {점수}점` - 등급별 색상 (`getAiScoreColor`)
+- **유형 배지**: reason_type 한글 라벨 - 유형별 색상 (`REASON_TYPE_CONFIG`)
+- **사유 텍스트**: 기본 2줄 표시 (`line-clamp-2`), 호버 시 전체 펼침
 
 #### 뱃지 색상 기준
-| 점수 | 색상 | 라벨 |
-|------|------|------|
-| 80~100 | 빨강 (`bg-rose-100`) | AI 긴급 (92점) |
-| 60~79 | 주황 (`bg-orange-100`) | AI 주의 (67점) |
-| 40~59 | 노랑 (`bg-amber-100`) | AI 관찰 (48점) |
-| 1~39 | 회색 (`bg-gray-100`) | AI 낮음 (23점) |
-| 미분석 | 표시 없음 | - |
+| 점수 | 배경색 | 텍스트색 | 라벨 |
+|------|--------|----------|------|
+| 80~100 | `bg-red-100` | `text-red-700` | 긴급 |
+| 60~79 | `bg-orange-100` | `text-orange-700` | 주의 |
+| 40~59 | `bg-yellow-100` | `text-yellow-700` | 관찰 |
+| 1~39 | `bg-green-100` | `text-green-700` | 낮음 |
+| 미분석 | 표시 없음 | - | - |
+
+### 5.5 정렬 옵션 추가
+
+#### 변경된 정렬 드롭다운 (`IncidentFilters.tsx`)
+```
+우선순위순 | AI분석순 | 최신순 | 발생건수순 | 오류가능성순
+           ^^^^^^^^ 신규 추가
+```
+
+#### AI 분석순 정렬 로직 (`AirlineOccurrenceTab.tsx`)
+```typescript
+// ai_score 정렬: 높은 점수 → 낮은 점수, 동점 시 발생건수 내림차순
+case 'ai_score':
+  scoreA = a.aiScore ?? 0;
+  scoreB = b.aiScore ?? 0;
+  if (scoreB !== scoreA) return scoreB - scoreA;
+  return (b.count || 0) - (a.count || 0);
+```
+
+### 5.6 reason_type 필터 버튼
+
+오류유형 통계 바와 필터 바 사이에 위치. AI 데이터가 있는 경우에만 표시.
+
+```
+┌─ AI 혼동 유형별 필터 ────────────────────────────────┐
+│ [전체 44] [편명번호 동일 12] [항공사코드 유사 8]     │
+│ [숫자 전치 5] [발음 혼동 3] [숫자 겹침 10] ...       │
+└──────────────────────────────────────────────────────┘
+```
+
+- 버튼 클릭 시 해당 유형만 필터링 (토글)
+- 각 버튼에 건수 표시
+- 활성화 시 해당 유형의 `REASON_TYPE_CONFIG` 색상 적용
 
 ---
 
-## 6. 파일 변경 목록
+## 6. 프론트엔드 변경 - 관리자 페이지 (미구현)
+
+### 6.1 API 변경 (`GET /api/admin/occurrences`)
+- 기존 callsigns 쿼리에 `callsign_ai_analysis` LEFT JOIN 추가
+- 응답에 `ai_score`, `ai_reason`, `reason_type` 필드 추가
+
+### 6.2 UI 변경 (`AdminOccurrenceTab.tsx`)
+- 항공사 페이지와 동일한 AI 분석 영역 추가
+- AI 정렬 옵션 추가
+- reason_type 필터 추가
+
+---
+
+## 7. 파일 변경 목록
+
+### 구현 완료 (2026-03-12)
 
 | 파일 | 작업 | 설명 |
 |------|------|------|
-| `scripts/migrations/006_ai_analysis.sql` | CREATE | 테이블 생성 SQL |
-| `src/app/api/admin/occurrences/route.ts` | MODIFY | LEFT JOIN 추가 |
-| `src/components/admin/callsign-management/AdminOccurrenceTab.tsx` | MODIFY | 정렬/뱃지 UI |
+| `scripts/migrations/006_ai_analysis.sql` | CREATE | 테이블 생성 DDL + 인덱스 3개 |
+| `docs/01-plan/ai-analysis-prompt.md` | CREATE | 재사용 가능한 AI 분석 프롬프트 |
+| `src/app/api/airlines/[airlineId]/callsigns/route.ts` | MODIFY | LEFT JOIN 추가, AI 필드 응답 |
+| `src/types/action.ts` | MODIFY | Callsign에 AI 필드 6개 추가 |
+| `src/types/airline.ts` | MODIFY | Incident에 AI 필드 3개 + REASON_TYPE_CONFIG + getAiScoreColor |
+| `src/app/(main)/airline/page.tsx` | MODIFY | AI 필드 매핑 (Callsign → Incident) |
+| `src/components/airline/tabs/AirlineOccurrenceTab.tsx` | MODIFY | AI 분석 영역 + 정렬 + 필터 |
+| `src/components/airline/tabs/IncidentFilters.tsx` | MODIFY | "AI분석순" 정렬 옵션 추가 |
+
+### 미구현
+
+| 파일 | 작업 | 설명 |
+|------|------|------|
+| `src/app/api/admin/occurrences/route.ts` | MODIFY | 관리자 API에 LEFT JOIN 추가 |
+| `src/components/admin/callsign-management/AdminOccurrenceTab.tsx` | MODIFY | 관리자 페이지 AI 표시 |
 
 ---
 
-## 7. 검증 체크리스트
+## 8. 검증 체크리스트
 
-- [ ] Supabase에 `callsign_ai_analysis` 테이블 생성 확인
-- [ ] Claude가 분석 데이터 INSERT 성공 확인
-- [ ] 발생현황 API 응답에 `ai_score`/`ai_reason` 포함 확인
-- [ ] "AI 우선순위" 정렬 동작 확인
-- [ ] AI 뱃지 + reason 표시 확인
-- [ ] 미분석 건은 뱃지 미표시 확인
-- [ ] `npm run build` 성공
+### DB & 데이터
+- [x] Supabase에 `callsign_ai_analysis` 테이블 생성 확인
+- [x] reason_type 컬럼 추가 확인
+- [x] 인덱스 3개 생성 확인 (pair, score, reason_type)
+- [x] Claude가 SAME_NUMBER 유형 44건 INSERT 성공 확인
+- [ ] 나머지 ~992건 AI 분석 INSERT (CONTAINMENT, TRANSPOSITION 등)
+
+### 항공사 페이지 (구현 완료)
+- [x] 항공사 API 응답에 `ai_score`/`ai_reason`/`reason_type` 포함
+- [x] 발생현황 카드에 AI 분석 영역 표시
+- [x] AI 점수 배지 색상 (긴급/주의/관찰/낮음)
+- [x] reason_type 한글 배지 (7종)
+- [x] ai_reason 텍스트 (2줄 + 호버 펼침)
+- [x] "AI분석순" 정렬 옵션 동작
+- [x] reason_type별 필터 버튼 동작
+- [x] AI 데이터 없는 쌍은 영역 미표시
+- [x] TypeScript 타입 에러 없음 (신규 코드)
+
+### 관리자 페이지 (미구현)
+- [ ] 관리자 API에 LEFT JOIN 추가
+- [ ] 관리자 발생현황 카드에 AI 표시
+- [ ] 관리자 정렬/필터 추가

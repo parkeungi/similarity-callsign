@@ -42,7 +42,16 @@ export interface Callsign {
   airline_id: string;
   airline_code: string;
 
-  // 호출부호 쌍 정보
+  // 글로벌 쌍 키 (신규: 알파벳 순 정렬)
+  callsign_a?: string;        // LEAST(편명1, 편명2)
+  callsign_b?: string;        // GREATEST(편명1, 편명2)
+  airline_a_code?: string;
+  airline_b_code?: string;
+  action_status_a?: 'no_action' | 'pending' | 'in_progress' | 'completed';
+  action_status_b?: 'no_action' | 'pending' | 'in_progress' | 'completed';
+  error_probability_score?: number | null;
+
+  // 호출부호 쌍 정보 (하위 호환 - optional로 유지)
   callsign_pair: string; // "KAL852 | KAL851"
   my_callsign: string; // "KAL852"
   other_callsign: string; // "KAL851"
@@ -153,6 +162,14 @@ export interface Callsign {
   atcCount?: number; // camelCase 버전
   pilotCount?: number; // camelCase 버전
   unknownCount?: number; // camelCase 버전
+
+  // AI 분석 데이터
+  ai_score?: number | null;
+  ai_reason?: string | null;
+  reason_type?: string | null;
+  aiScore?: number | null;
+  aiReason?: string | null;
+  reasonType?: string | null;
 }
 
 /**

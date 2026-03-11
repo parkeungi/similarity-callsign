@@ -69,6 +69,10 @@ export interface Incident {
   actionStatus?: 'no_action' | 'pending' | 'in_progress' | 'completed';
   actionType?: string | null;
   actionCompletedAt?: string | null;
+  // AI 분석 데이터
+  aiScore?: number | null;
+  aiReason?: string | null;
+  reasonType?: string | null;
 }
 
 /**
@@ -278,6 +282,29 @@ export const AIRLINE_CODE_MAP: AirlineCodeMap = {
   ARK: { n: '에어로케이항공' },
   APZ: { n: '에어프레미아' },
 };
+
+/**
+ * AI 분석 reason_type 한글 라벨 및 색상
+ */
+export const REASON_TYPE_CONFIG: Record<string, { label: string; bgColor: string; textColor: string }> = {
+  SAME_NUMBER: { label: '편명번호 동일', bgColor: 'bg-red-50', textColor: 'text-red-700' },
+  CONTAINMENT: { label: '편명 포함관계', bgColor: 'bg-orange-50', textColor: 'text-orange-700' },
+  TRANSPOSITION: { label: '숫자 전치', bgColor: 'bg-amber-50', textColor: 'text-amber-700' },
+  SIMILAR_CODE: { label: '항공사코드 유사', bgColor: 'bg-purple-50', textColor: 'text-purple-700' },
+  DIGIT_OVERLAP: { label: '숫자 겹침', bgColor: 'bg-blue-50', textColor: 'text-blue-700' },
+  PHONETIC_DIGIT: { label: '발음 혼동', bgColor: 'bg-indigo-50', textColor: 'text-indigo-700' },
+  LOW_RISK: { label: '낮은 위험', bgColor: 'bg-gray-50', textColor: 'text-gray-600' },
+};
+
+/**
+ * AI 점수 등급별 색상
+ */
+export function getAiScoreColor(score: number): { bg: string; text: string; label: string } {
+  if (score >= 80) return { bg: 'bg-red-100', text: 'text-red-700', label: '긴급' };
+  if (score >= 60) return { bg: 'bg-orange-100', text: 'text-orange-700', label: '주의' };
+  if (score >= 40) return { bg: 'bg-yellow-100', text: 'text-yellow-700', label: '관찰' };
+  return { bg: 'bg-green-100', text: 'text-green-700', label: '낮음' };
+}
 
 /**
  * 공지사항 레벨 메타 정보
