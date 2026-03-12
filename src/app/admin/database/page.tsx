@@ -25,12 +25,16 @@ const TABLE_LABELS: Record<string, string> = {
   users: '사용자',
   airlines: '항공사',
   callsigns: '유사호출부호',
+  callsign_occurrences: '발생이력',
   actions: '조치이력',
-  announcements: '공지사항',
-  file_uploads: '파일업로드',
+  action_history: '조치변경이력',
   action_types: '조치유형',
-  occurrences: '발생이력',
+  announcements: '공지사항',
+  announcement_views: '공지확인이력',
+  file_uploads: '파일업로드',
   callsign_ai_analysis: 'AI 분석결과',
+  password_history: '비밀번호이력',
+  audit_logs: '감사로그',
 };
 
 export default function AdminDatabasePage() {

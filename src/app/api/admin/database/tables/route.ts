@@ -8,12 +8,16 @@ const ALLOWED_TABLES = [
   'users',
   'airlines',
   'callsigns',
+  'callsign_occurrences',
   'actions',
-  'announcements',
-  'file_uploads',
+  'action_history',
   'action_types',
-  'occurrences',
+  'announcements',
+  'announcement_views',
+  'file_uploads',
   'callsign_ai_analysis',
+  'password_history',
+  'audit_logs',
 ];
 
 export async function GET(request: NextRequest) {

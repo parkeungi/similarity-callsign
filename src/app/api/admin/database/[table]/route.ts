@@ -8,12 +8,16 @@ const ALLOWED_TABLES = new Set([
   'users',
   'airlines',
   'callsigns',
+  'callsign_occurrences',
   'actions',
-  'announcements',
-  'file_uploads',
+  'action_history',
   'action_types',
-  'occurrences',
+  'announcements',
+  'announcement_views',
+  'file_uploads',
   'callsign_ai_analysis',
+  'password_history',
+  'audit_logs',
 ]);
 
 // 마스킹할 컬럼 (비밀번호 등 민감 정보)
