@@ -322,26 +322,3 @@ export const ANNOUNCEMENT_STATUS_META: Record<'active' | 'expired', Announcement
   active: { label: '진행중', badge: 'bg-emerald-50 text-emerald-600' },
   expired: { label: '종료', badge: 'bg-gray-100 text-gray-500' },
 };
-
-/**
- * AI 분석 - reason_type 유형별 설정
- */
-export const REASON_TYPE_CONFIG: Record<string, { label: string; bgColor: string; textColor: string }> = {
-  SAME_NUMBER:    { label: '편명번호 동일',   bgColor: 'bg-red-50',    textColor: 'text-red-700' },
-  CONTAINMENT:    { label: '편명 포함관계',   bgColor: 'bg-orange-50', textColor: 'text-orange-700' },
-  TRANSPOSITION:  { label: '숫자 전치',       bgColor: 'bg-amber-50',  textColor: 'text-amber-700' },
-  SIMILAR_CODE:   { label: '항공사코드 유사', bgColor: 'bg-purple-50', textColor: 'text-purple-700' },
-  DIGIT_OVERLAP:  { label: '숫자 겹침',       bgColor: 'bg-blue-50',   textColor: 'text-blue-700' },
-  PHONETIC_DIGIT: { label: '발음 혼동',       bgColor: 'bg-indigo-50', textColor: 'text-indigo-700' },
-  LOW_RISK:       { label: '낮은 위험',       bgColor: 'bg-gray-50',   textColor: 'text-gray-600' },
-};
-
-/**
- * AI 점수 등급별 색상 반환
- */
-export function getAiScoreColor(score: number): { bg: string; text: string; label: string } {
-  if (score >= 80) return { bg: 'bg-red-100',    text: 'text-red-700',    label: '긴급' };
-  if (score >= 60) return { bg: 'bg-orange-100', text: 'text-orange-700', label: '주의' };
-  if (score >= 40) return { bg: 'bg-yellow-100', text: 'text-yellow-700', label: '관찰' };
-  return                   { bg: 'bg-green-100',  text: 'text-green-700',  label: '낮음' };
-}
