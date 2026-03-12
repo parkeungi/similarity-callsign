@@ -119,21 +119,6 @@ export function IncidentFilters({
           </select>
         )}
 
-        {/* AI 추천 토글 버튼 */}
-        {onAiRecommendToggle && (
-          <button
-            type="button"
-            onClick={onAiRecommendToggle}
-            className={`h-9 px-3 text-[13px] font-bold shrink-0 transition-colors border ${
-              showAiRecommend
-                ? 'bg-purple-600 text-white border-purple-600'
-                : 'bg-white text-purple-600 border-purple-300 hover:bg-purple-50'
-            }`}
-          >
-            🤖 AI 추천
-          </button>
-        )}
-
         {/* LIMIT */}
         <select
           value={incidentsLimit}
@@ -146,22 +131,7 @@ export function IncidentFilters({
           <option value="54">54건</option>
         </select>
 
-        {/* 검색 입력창 */}
-        <div className="relative flex-1 group">
-          <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <input
-            type="text"
-            placeholder="항공사명 또는 편명(호출부호)을 입력하여 검색하세요"
-            value={incidentsSearchInput}
-            onChange={(e) => onSearchInputChange(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') onSearchSubmit(); }}
-            className="w-full h-9 border border-gray-200 pl-9 pr-4 text-sm font-semibold text-gray-900 outline-none transition focus:border-[#0f1b40]"
-          />
-        </div>
+        <div className="flex-1" />
 
         {/* 엑셀 */}
         <button

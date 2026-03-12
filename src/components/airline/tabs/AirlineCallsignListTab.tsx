@@ -34,6 +34,7 @@ export function AirlineCallsignListTab({
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'pending'>('all');
   const [selectedCallsign, setSelectedCallsign] = useState<Callsign | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // API가 이미 airline_code로 필터링하므로 모든 데이터가 현재 항공사의 호출부호
   const airlineCallsigns = useMemo(() => {
@@ -55,18 +56,30 @@ export function AirlineCallsignListTab({
     });
   }, [airlineCallsigns, dateFilter.startDate, dateFilter.endDate]);
 
+  // 검색 필터링
+  const searchFilteredCallsigns = useMemo(() => {
+    if (!searchQuery.trim()) return dateFilteredCallsigns;
+    const q = searchQuery.trim().toLowerCase();
+    return dateFilteredCallsigns.filter(cs =>
+      (cs.callsign_pair && cs.callsign_pair.toLowerCase().includes(q)) ||
+      (cs.error_type && cs.error_type.toLowerCase().includes(q)) ||
+      (cs.action_type && cs.action_type.toLowerCase().includes(q)) ||
+      (cs.risk_level && cs.risk_level.toLowerCase().includes(q))
+    );
+  }, [dateFilteredCallsigns, searchQuery]);
+
   // 상태 필터링
   const statusFilteredCallsigns = useMemo(() => {
-    if (statusFilter === 'all') return dateFilteredCallsigns;
+    if (statusFilter === 'all') return searchFilteredCallsigns;
     if (statusFilter === 'completed') {
-      return dateFilteredCallsigns.filter(cs => cs.action_status === 'completed');
+      return searchFilteredCallsigns.filter(cs => cs.action_status === 'completed');
     }
     if (statusFilter === 'pending') {
       // 조치필요 = 완료되지 않은 모든 항목 (in_progress + no_action)
-      return dateFilteredCallsigns.filter(cs => cs.action_status !== 'completed');
+      return searchFilteredCallsigns.filter(cs => cs.action_status !== 'completed');
     }
-    return dateFilteredCallsigns;
-  }, [dateFilteredCallsigns, statusFilter]);
+    return searchFilteredCallsigns;
+  }, [searchFilteredCallsigns, statusFilter]);
 
   // 상태별 배지 색상
   const getActionStatusMeta = (status?: string) => {
@@ -99,12 +112,12 @@ export function AirlineCallsignListTab({
   // 통계 계산
   const stats = useMemo(() => {
     return {
-      total: dateFilteredCallsigns.length,
-      completed: dateFilteredCallsigns.filter(cs => cs.action_status === 'completed').length,
-      pending: dateFilteredCallsigns.filter(cs => cs.action_status !== 'completed' && cs.action_status !== 'no_action').length,
-      notStarted: dateFilteredCallsigns.filter(cs => cs.action_status === 'no_action').length,
+      total: searchFilteredCallsigns.length,
+      completed: searchFilteredCallsigns.filter(cs => cs.action_status === 'completed').length,
+      pending: searchFilteredCallsigns.filter(cs => cs.action_status !== 'completed' && cs.action_status !== 'no_action').length,
+      notStarted: searchFilteredCallsigns.filter(cs => cs.action_status === 'no_action').length,
     };
-  }, [dateFilteredCallsigns]);
+  }, [searchFilteredCallsigns]);
 
   // 정렬 로직
   const sortedCallsigns = useMemo(() => {
@@ -245,6 +258,32 @@ export function AirlineCallsignListTab({
           </select>
 
           <div className="flex-1" />
+
+          {/* 검색 */}
+          <div className="relative shrink-0">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+              placeholder="호출부호, 오류유형 검색"
+              className="h-9 w-[200px] border border-gray-200 bg-white pl-8 pr-3 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            />
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            {searchQuery && (
+              <button
+                onClick={() => { setSearchQuery(''); setPage(1); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
 
           {/* 엑셀 */}
           <button

@@ -286,14 +286,6 @@ export function AirlineOccurrenceTab({
         sortOrder={sortOrder}
         onSortOrderChange={setSortOrder}
         onActionStatusFilterChange={setActionStatusFilter}
-        showAiRecommend={showAiRecommend}
-        onAiRecommendToggle={() => {
-          setShowAiRecommend(!showAiRecommend);
-          // AI 추천 활성화 시 자동으로 AI분석순 정렬
-          if (!showAiRecommend) {
-            setSortOrder('ai_score');
-          }
-        }}
       />
 
       {/* 통계 카드 섹션 */}
@@ -340,16 +332,58 @@ export function AirlineOccurrenceTab({
 
       {/* 가이드라인 */}
       <div className="text-xs text-gray-500 space-y-0.5 bg-white border border-gray-200 rounded-lg px-4 py-3">
-        <p>※ 발생일수: 최초 발생이력 기준 하루 1건으로 카운트 (같은 날 다른 섹터 중복 검출은 1건)</p>
-        <p>※ 오류유형: 하루 동일 항공기라도 서로 다른 섹터에서 검출 시 오류유형별로 각각 집계</p>
-        <p>※ 예외: 당일 출도착 변경 시 최대 2건 카운트 가능 (극히 드묾)</p>
+        <p>※ 발생건수: 섹터별 검출 건수를 모두 포함한 전체 발생건수</p>
+        <p>※ 오류유형: 전체 발생건수 기준으로 오류유형별 집계</p>
+        <p>※ 발생이력: 같은 날이라도 다른 섹터에서 검출된 건은 별도 표시</p>
       </div>
 
       {/* 발생현황 카드 그리드 */}
       <div className="space-y-4">
-        <div className="text-sm font-bold text-gray-600 flex items-center justify-between">
-          <span>⚠️ 유사호출부호 발생현황 ({allFilteredIncidents.length}건)</span>
-          <span className="text-xs text-gray-500">{incidentsPage} / {totalPages} 페이지</span>
+        <div className="text-sm font-bold text-gray-600 flex items-center gap-3">
+          <span className="shrink-0">⚠️ 유사호출부호 발생현황 ({allFilteredIncidents.length}건)</span>
+          {/* 검색 */}
+          <div className="relative flex-1 max-w-[300px]">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="호출부호 검색"
+              value={incidentsSearchInput}
+              onChange={(e) => onSearchInputChange(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') onSearchSubmit(); }}
+              className="w-full h-8 border border-gray-200 rounded pl-8 pr-8 text-sm font-medium text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            />
+            {incidentsSearchInput && (
+              <button
+                onClick={() => { onSearchInputChange(''); onSearchSubmit(); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {/* AI 추천 토글 */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showAiRecommend;
+              setShowAiRecommend(next);
+              if (next) setSortOrder('ai_score');
+            }}
+            className={`h-8 px-3 text-[12px] font-bold shrink-0 transition-colors border rounded ${
+              showAiRecommend
+                ? 'bg-purple-600 text-white border-purple-600'
+                : 'bg-white text-purple-600 border-purple-300 hover:bg-purple-50'
+            }`}
+          >
+            🤖 AI 추천
+          </button>
+          <span className="text-xs text-gray-500 ml-auto shrink-0">{incidentsPage} / {totalPages} 페이지</span>
         </div>
 
         {pagedIncidents.length > 0 ? (
@@ -403,12 +437,11 @@ export function AirlineOccurrenceTab({
                 {/* 정보 테이블 */}
                 <div className="grid grid-cols-4 gap-2 text-sm mb-2 pb-2 border-b border-gray-200">
                   <div>
-                    <div className="text-[11px] text-gray-500 font-semibold mb-0.5">발생일수</div>
+                    <div className="text-[11px] text-gray-500 font-semibold mb-0.5">발생건수</div>
                     <div className="font-bold text-red-600 text-sm">
                       {(() => {
                         const occs = incident.occurrences || [];
-                        const uniqueDays = new Set(occs.map((o) => o.occurredDate)).size;
-                        return `${uniqueDays || incident.count || 0}일`;
+                        return `${occs.length || incident.count || 0}건`;
                       })()}
                     </div>
                   </div>
@@ -494,25 +527,16 @@ export function AirlineOccurrenceTab({
                   </div>
                 )}
 
-                {/* 발생 이력 타임라인 (일자별 최초 1건, 시간순 오름차순) */}
+                {/* 발생 이력 타임라인 (전체 발생건수, 시간순 오름차순) */}
                 {incident.occurrences && incident.occurrences.length > 0 && (
                   <div>
-                    <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (일자별 최초 검출, 시간순)</div>
+                    <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (전체 검출, 시간순)</div>
                     <div className="flex flex-wrap gap-1.5">
-                      {(() => {
-                        const sorted = [...incident.occurrences].sort((a, b) => {
+                      {[...incident.occurrences].sort((a, b) => {
                           const dateA = `${a.occurredDate || ''} ${a.occurredTime || '00:00'}`;
                           const dateB = `${b.occurredDate || ''} ${b.occurredTime || '00:00'}`;
                           return dateA.localeCompare(dateB);
-                        });
-                        const seen = new Set<string>();
-                        return sorted.filter((o) => {
-                          const d = o.occurredDate || '';
-                          if (seen.has(d)) return false;
-                          seen.add(d);
-                          return true;
-                        });
-                      })().map((occurrence, i) => {
+                        }).map((occurrence, i) => {
                         const { monthDay, time } = formatOccurrenceBadge(
                           occurrence.occurredDate,
                           occurrence.occurredTime

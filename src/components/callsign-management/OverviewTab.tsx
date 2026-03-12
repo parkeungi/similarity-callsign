@@ -43,6 +43,7 @@ export function OverviewTab() {
   const [dateTo, setDateTo] = useState<string>(getDefaultDateTo());
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [searchQuery, setSearchQuery] = useState('');
   const pageSizeOptions = [10, 30, 50, 100];
   const accessToken = useAuthStore((s) => s.accessToken);
 
@@ -103,10 +104,23 @@ export function OverviewTab() {
   const computedTotalPages = totalPagesFromApi > 0 ? totalPagesFromApi : 1;
 
   // 상태별 필터링
-  const filteredRows = useMemo(() => {
+  const statusFilteredRows = useMemo(() => {
     if (selectedStatusFilter === 'all') return rows;
     return rows.filter(r => r.final_status === selectedStatusFilter);
   }, [rows, selectedStatusFilter]);
+
+  // 검색 필터링
+  const filteredRows = useMemo(() => {
+    if (!searchQuery.trim()) return statusFilteredRows;
+    const q = searchQuery.trim().toLowerCase();
+    return statusFilteredRows.filter(r =>
+      (r.callsign_pair && r.callsign_pair.toLowerCase().includes(q)) ||
+      (r.error_type && r.error_type.toLowerCase().includes(q)) ||
+      (r.action_type && r.action_type.toLowerCase().includes(q)) ||
+      (r.airline_code && r.airline_code.toLowerCase().includes(q)) ||
+      (r.other_airline_code && r.other_airline_code.toLowerCase().includes(q))
+    );
+  }, [statusFilteredRows, searchQuery]);
 
   // 필터 적용 여부 확인
   const hasFilters = selectedRiskLevel || selectedAirlineId || selectedActionStatus;
@@ -210,6 +224,7 @@ export function OverviewTab() {
     setSelectedActionStatus('');
     setSelectedActionType('');
     setSelectedStatusFilter('all');
+    setSearchQuery('');
     setDateFrom(getDefaultDateFrom());
     setDateTo(getDefaultDateTo());
     setPage(1);
@@ -470,6 +485,30 @@ export function OverviewTab() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+              placeholder="호출부호, 항공사 검색"
+              className="h-9 w-[220px] border border-slate-200 rounded-xl bg-white pl-9 pr-8 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 shadow-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => { setSearchQuery(''); setPage(1); }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
           <button
             onClick={handleReset}
             className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 rounded-xl transition-all shadow-sm"

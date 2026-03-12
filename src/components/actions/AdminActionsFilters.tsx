@@ -11,6 +11,8 @@ interface AdminActionsFiltersProps {
   selectedStatus: ActionStatus;
   dateFrom: string;
   dateTo: string;
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
   onAirlineChange: (value: string) => void;
   onStatusChange: (value: ActionStatus) => void;
   onDateFromChange: (value: string) => void;
@@ -34,6 +36,8 @@ export function AdminActionsFilters({
   selectedStatus,
   dateFrom,
   dateTo,
+  searchQuery,
+  onSearchChange,
   onAirlineChange,
   onStatusChange,
   onDateFromChange,
@@ -109,7 +113,7 @@ export function AdminActionsFilters({
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
         <button
           onClick={onOpenCreate}
           disabled={!canCreate}
@@ -117,6 +121,31 @@ export function AdminActionsFilters({
         >
           조치 등록
         </button>
+        <div className="flex-1" />
+        <div className="relative">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="호출부호, 조치유형, 담당자 검색"
+            className="h-9 w-[240px] border border-gray-300 rounded-lg bg-white pl-9 pr-8 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-400"
+          />
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          {searchQuery && (
+            <button
+              onClick={() => onSearchChange('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+        </div>
         <button
           onClick={onExport}
           disabled={!canExport}

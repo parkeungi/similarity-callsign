@@ -186,7 +186,7 @@ export async function GET(
         }
       }
 
-      // 발생 이력 상세 조회 (callsign_occurrences 테이블) - 날짜와 시간 모두 포함
+      // 발생 이력 상세 조회 (callsign_occurrences 테이블) - 전체 발생건수 (섹터별 모든 검출 포함)
       const occPlaceholders = callsignIds.map((_: any, i: number) => `$${i + 1}`).join(',');
       const occurrencesResult = await query(
         `SELECT callsign_id, occurred_date, occurred_time, error_type, sub_error

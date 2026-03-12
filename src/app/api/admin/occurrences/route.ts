@@ -77,9 +77,9 @@ export async function GET(request: NextRequest) {
       callsignIds
     );
 
-    // 3. 전체 발생 이력 한 번에 조회 (날짜별 중복 제거)
+    // 3. 전체 발생 이력 한 번에 조회 (섹터별 모든 검출 포함)
     const occurrencesResult = await query(
-      `SELECT DISTINCT ON (callsign_id, occurred_date) callsign_id, occurred_date, occurred_time, error_type, sub_error
+      `SELECT callsign_id, occurred_date, occurred_time, error_type, sub_error
        FROM callsign_occurrences
        WHERE callsign_id IN (${inPlaceholders})
        ORDER BY callsign_id, occurred_date DESC, occurred_time DESC NULLS LAST`,

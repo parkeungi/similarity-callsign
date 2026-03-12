@@ -396,9 +396,9 @@ export function AdminOccurrenceTab() {
         </div>
         <div className="text-xs text-gray-500 mb-4 space-y-0.5">
           <p>※ 오류 유형별 건수는 발생 이력 기준이며, 전체 유사호출부호 쌍 수와 일치하지 않습니다.</p>
-          <p>※ 발생일수: 최초 발생이력 기준 하루 1건으로 카운트 (같은 날 다른 섹터 중복 검출은 1건)</p>
-          <p>※ 오류유형: 하루 동일 항공기라도 서로 다른 섹터에서 검출 시 오류유형별로 각각 집계</p>
-          <p>※ 예외: 당일 출도착 변경 시 최대 2건 카운트 가능 (극히 드묾)</p>
+          <p>※ 발생건수: 섹터별 검출 건수를 모두 포함한 전체 발생건수</p>
+          <p>※ 오류유형: 전체 발생건수 기준으로 오류유형별 집계</p>
+          <p>※ 발생이력: 같은 날이라도 다른 섹터에서 검출된 건은 별도 표시</p>
         </div>
         {Object.keys(stats.errorTypeCounts).length === 0 ? (
           <div className="text-sm text-gray-400 py-2">발생 이력이 없습니다.</div>
@@ -485,12 +485,11 @@ export function AdminOccurrenceTab() {
                   {/* 정보 테이블 */}
                   <div className="grid grid-cols-4 gap-2 text-sm mb-2 pb-2 border-b border-gray-200">
                     <div>
-                      <div className="text-[11px] text-gray-500 font-semibold mb-0.5">발생일수</div>
+                      <div className="text-[11px] text-gray-500 font-semibold mb-0.5">발생건수</div>
                       <div className="font-bold text-red-600 text-sm">
                         {(() => {
                           const occs = incident.occurrences || [];
-                          const uniqueDays = new Set(occs.map((o: any) => o.occurredDate)).size;
-                          return `${uniqueDays || incident.count || 0}일`;
+                          return `${occs.length || incident.count || 0}건`;
                         })()}
                       </div>
                     </div>
@@ -566,25 +565,16 @@ export function AdminOccurrenceTab() {
                     </div>
                   )}
 
-                  {/* 발생 이력 타임라인 (일자별 최초 1건, 시간순 오름차순) */}
+                  {/* 발생 이력 타임라인 (전체 발생건수, 시간순 오름차순) */}
                   {incident.occurrences && incident.occurrences.length > 0 && (
                     <div>
-                      <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (일자별 최초 검출, 시간순)</div>
+                      <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (전체 검출, 시간순)</div>
                       <div className="flex flex-wrap gap-1.5">
-                        {(() => {
-                          const sorted = [...incident.occurrences].sort((a: any, b: any) => {
+                        {[...incident.occurrences].sort((a: any, b: any) => {
                             const dateA = `${a.occurredDate || ''} ${a.occurredTime || '00:00'}`;
                             const dateB = `${b.occurredDate || ''} ${b.occurredTime || '00:00'}`;
                             return dateA.localeCompare(dateB);
-                          });
-                          const seen = new Set<string>();
-                          return sorted.filter((o: any) => {
-                            const d = o.occurredDate || '';
-                            if (seen.has(d)) return false;
-                            seen.add(d);
-                            return true;
-                          });
-                        })()
+                          })
                           .map((occurrence: any, i: number) => {
                           const { monthDay, time } = formatOccurrenceBadge(
                             occurrence.occurredDate,

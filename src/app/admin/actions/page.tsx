@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ActionModal } from '@/components/actions/ActionModal';
 import { AdminActionsFilters } from '@/components/actions/AdminActionsFilters';
 import { AdminActionsTable } from '@/components/actions/AdminActionsTable';
@@ -30,6 +30,7 @@ export default function AdminActionsPage() {
   const [selectedStatus, setSelectedStatus] = useState<ActionStatusFilter>('');
   const [dateFrom, setDateFrom] = useState<string>(getDefaultDateFrom());
   const [dateTo, setDateTo] = useState<string>(getDefaultDateTo());
+  const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [limit] = useState(20);
@@ -69,7 +70,27 @@ export default function AdminActionsPage() {
   };
 
   const airlines = airlinesQuery.data ?? [];
-  const actionsData = actionsQuery.data;
+  const actionsDataRaw = actionsQuery.data;
+
+  // 검색 필터링 (클라이언트 사이드)
+  const actionsData = useMemo(() => {
+    if (!actionsDataRaw) return actionsDataRaw;
+    if (!searchQuery.trim()) return actionsDataRaw;
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = actionsDataRaw.data.filter((a) =>
+      (a.callsign?.callsign_pair && a.callsign.callsign_pair.toLowerCase().includes(q)) ||
+      (a.action_type && a.action_type.toLowerCase().includes(q)) ||
+      (a.manager_name && a.manager_name.toLowerCase().includes(q)) ||
+      (a.airline?.code && a.airline.code.toLowerCase().includes(q)) ||
+      (a.airline?.name_ko && a.airline.name_ko.toLowerCase().includes(q))
+    );
+    return {
+      ...actionsDataRaw,
+      data: filtered,
+      pagination: { ...actionsDataRaw.pagination, total: filtered.length },
+    };
+  }, [actionsDataRaw, searchQuery]);
+
   const canExport = (actionsData?.data.length ?? 0) > 0;
   const summary = actionsData
     ? {
@@ -101,6 +122,7 @@ export default function AdminActionsPage() {
     setSelectedStatus('');
     setDateFrom('');
     setDateTo('');
+    setSearchQuery('');
     setPage(1);
   };
 
@@ -159,6 +181,11 @@ export default function AdminActionsPage() {
           selectedStatus={selectedStatus}
           dateFrom={dateFrom}
           dateTo={dateTo}
+          searchQuery={searchQuery}
+          onSearchChange={(value) => {
+            setSearchQuery(value);
+            setPage(1);
+          }}
           onAirlineChange={(value) => {
             setSelectedAirlineId(value);
             setPage(1);

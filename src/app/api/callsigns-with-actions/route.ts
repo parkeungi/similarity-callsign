@@ -215,15 +215,15 @@ export async function GET(request: NextRequest) {
               (SELECT json_object_agg(COALESCE(error_type, '미분류'), cnt) FROM (
                 SELECT error_type, COUNT(*) as cnt FROM callsign_occurrences WHERE callsign_id = c.id GROUP BY error_type
               ) t) as error_type_counts,
-              -- 발생이력 날짜+시간 목록 (날짜별 중복 제거, MM-DD HH:MM 포맷)
+              -- 발생이력 날짜+시간 목록 (전체 발생건수, MM-DD HH:MM 포맷)
               (SELECT STRING_AGG(
                 TO_CHAR(occurred_date, 'MM-DD') || ' ' || COALESCE(TO_CHAR(occurred_time, 'HH24:MI'), ''),
-                ',' ORDER BY occurred_date DESC
+                ',' ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST
               ) FROM (
-                SELECT DISTINCT ON (occurred_date) occurred_date, occurred_time
+                SELECT occurred_date, occurred_time
                 FROM callsign_occurrences WHERE callsign_id = c.id
                 ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST
-                LIMIT 15
+                LIMIT 30
               ) _occ) as occurrence_dates
        FROM callsigns c
        ${conditions}
