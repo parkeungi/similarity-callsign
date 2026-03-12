@@ -370,8 +370,7 @@ export function AirlineActionHistoryTab({
                         }`}>
                           {action.callsign?.risk_level === '매우높음' ? '매우높음' :
                            action.callsign?.risk_level === '높음' ? '높음' :
-                           action.callsign?.risk_level === '중간' ? '중간' :
-                           action.callsign?.risk_level === '낮음' ? '낮음' : '-'}
+                           action.callsign?.risk_level === '중간' ? '중간' : '-'}
                         </span>
                       </div>
                     </div>

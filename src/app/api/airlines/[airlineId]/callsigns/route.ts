@@ -204,7 +204,7 @@ export async function GET(
         const occurrences = occurrencesMap[callsignId] || [];
         const summary: { [key: string]: number } = {};
         for (const occ of occurrences) {
-          const normalizedType = occ.errorType?.replace(/\s+/g, '') || '미분류';
+          const normalizedType = occ.errorType?.replace(/\s+/g, '') || '오류미발생';
           summary[normalizedType] = (summary[normalizedType] || 0) + 1;
         }
         errorTypeSummaryMap[callsignId] = Object.entries(summary).map(([errorType, count]) => ({

@@ -4,7 +4,7 @@ export function AppFooter() {
       <div className="max-w-6xl mx-auto px-6">
         <div className="flex flex-wrap gap-6 items-center justify-center">
           <div className="text-sm font-medium text-gray-700">
-            Similar Callsign Warning System | Korea Airports Corporation
+            Similar Callsign Sharing System | Korea Airports Corporation
           </div>
           <div className="flex gap-5 text-sm">
             <span className="text-gray-400">한국공항공사 시스템정보부</span>

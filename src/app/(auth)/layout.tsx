@@ -33,9 +33,9 @@ export default function AuthLayout({
               d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
             />
           </svg>
-          <span className="text-white font-bold text-xl tracking-tight">KATC</span>
+          <span className="text-white font-bold text-xl tracking-tight">항공교통본부</span>
         </div>
-        <p className="text-white/70 text-sm">유사호출부호 경고시스템</p>
+        <p className="text-white/70 text-sm">유사호출부호 공유시스템</p>
       </div>
 
       {/* 카드 영역 */}

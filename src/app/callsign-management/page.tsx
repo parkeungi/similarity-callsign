@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppFooter } from '@/components/layout/AppFooter';
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { OverviewTab } from '@/components/callsign-management/OverviewTab';
 // import { ActionsTab } from '@/components/callsign-management/ActionsTab';
@@ -27,7 +27,24 @@ export default function CallsignManagementPublicPage() {
     user: state.user,
     accessToken: state.accessToken,
   }));
+  const isAdmin = useAuthStore((state) => state.isAdmin());
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const activeTab = searchParams.get('tab') || 'occurrences';
+
+  // 인증 및 관리자 권한 확인 - 미인증 또는 비관리자는 접근 차단
+  useEffect(() => {
+    if (!accessToken || !user) {
+      router.replace('/');
+      return;
+    }
+
+    if (!isAdmin) {
+      router.replace('/airline');
+      return;
+    }
+
+    setIsCheckingAuth(false);
+  }, [accessToken, user, isAdmin, router]);
 
   const menuItems = [
     { id: 'occurrences', label: '발생현황', icon: AlertTriangle, color: 'warning' },
@@ -39,6 +56,14 @@ export default function CallsignManagementPublicPage() {
   const handleTabChange = (tabId: string) => {
     router.push(`/callsign-management?tab=${tabId}`);
   };
+
+  if (isCheckingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <p className="text-sm font-semibold text-gray-500">접근 권한을 확인하고 있습니다...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">

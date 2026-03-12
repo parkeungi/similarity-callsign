@@ -76,7 +76,7 @@ export function AirlineOccurrenceTab({
         ? filteredByDate
         : filteredByDate.filter((i) =>
             (i.occurrences || []).some(
-              (occ: any) => (occ.errorType?.trim() || '미분류') === errorTypeFilter
+              (occ: any) => (occ.errorType?.trim() || '오류미발생') === errorTypeFilter
             )
           );
 
@@ -153,7 +153,7 @@ export function AirlineOccurrenceTab({
 
     filteredByDate.forEach((incident) => {
       (incident.occurrences || []).forEach((occ) => {
-        const t = (occ.errorType?.trim()) || '미분류';
+        const t = (occ.errorType?.trim()) || '오류미발생';
         errorTypeCounts[t] = (errorTypeCounts[t] || 0) + 1;
       });
     });

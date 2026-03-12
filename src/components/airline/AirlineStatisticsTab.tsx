@@ -77,17 +77,15 @@ export function AirlineStatisticsTab({
         const counts: Record<string, number> = {
             '매우높음': 0,
             '높음': 0,
-            '낮음': 0,
         };
         visibleIncidents.forEach(inc => {
-            const risk = inc.risk || '낮음';
+            const risk = inc.risk || '높음';
             if (counts[risk] !== undefined) counts[risk]++;
         });
 
         return [
             { name: '매우높음', value: counts['매우높음'], color: COLORS.rose },
             { name: '높음', value: counts['높음'], color: COLORS.amber },
-            { name: '낮음', value: counts['낮음'], color: COLORS.emerald },
         ].filter(item => item.value > 0);
     }, [visibleIncidents]);
 

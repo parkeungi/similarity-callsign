@@ -9,9 +9,6 @@ import { Incident, RISK_LEVEL_ORDER, REASON_TYPE_CONFIG, getAiScoreColor } from 
 import { formatOccurrenceBadge } from '@/lib/occurrence-format';
 import { Pagination } from '@/components/common/Pagination';
 
-const DOMESTIC_AIRLINE_CODES = new Set([
-  'KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR', 'ARK',
-]);
 
 interface OccurrenceIncident extends Incident {
   airlineName?: string;
@@ -29,7 +26,7 @@ export function AdminOccurrenceTab() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const airlinesQuery = useAdminAirlines();
 
-  const [selectedAirlineId, setSelectedAirlineId] = useState<'all' | 'foreign_domestic' | 'foreign_foreign' | string>('all');
+  const [selectedAirlineId, setSelectedAirlineId] = useState<'all' | string>('all');
   const [startDate, setStartDate] = useState<string>(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -86,24 +83,6 @@ export function AdminOccurrenceTab() {
   const rawIncidents: OccurrenceIncident[] = useMemo(() => {
     const all = allOccurrencesQuery.data || [];
     if (selectedAirlineId === 'all') return all;
-    if (selectedAirlineId === 'foreign_domestic') {
-      // 국내↔외항사: 한쪽만 국내 항공사인 쌍
-      return all.filter((i) => {
-        const a = (i as any).airlineCode || '';
-        const b = (i as any).otherAirlineCode || '';
-        const aIsDomestic = DOMESTIC_AIRLINE_CODES.has(a);
-        const bIsDomestic = DOMESTIC_AIRLINE_CODES.has(b);
-        return aIsDomestic !== bIsDomestic; // 한쪽만 국내
-      });
-    }
-    if (selectedAirlineId === 'foreign_foreign') {
-      // 외항사↔외항사: 양쪽 모두 국내 항공사 아닌 쌍
-      return all.filter((i) => {
-        const a = (i as any).airlineCode || '';
-        const b = (i as any).otherAirlineCode || '';
-        return !DOMESTIC_AIRLINE_CODES.has(a) && !DOMESTIC_AIRLINE_CODES.has(b);
-      });
-    }
     // 특정 항공사: airlineCode 또는 otherAirlineCode가 해당 항공사인 쌍
     const selectedAirline = airlines.find(al => al.id === selectedAirlineId);
     if (selectedAirline) {
@@ -135,7 +114,7 @@ export function AdminOccurrenceTab() {
 
     filteredByDate.forEach((incident) => {
       (incident.occurrences || []).forEach((occ: any) => {
-        const t = (occ.errorType?.trim()) || '미분류';
+        const t = (occ.errorType?.trim()) || '오류미발생';
         errorTypeCounts[t] = (errorTypeCounts[t] || 0) + 1;
       });
     });
@@ -179,7 +158,7 @@ export function AdminOccurrenceTab() {
     if (errorTypeFilter) {
       filtered = filtered.filter(i =>
         (i.occurrences || []).some((occ: any) => {
-          const t = (occ.errorType?.trim()) || '미분류';
+          const t = (occ.errorType?.trim()) || '오류미발생';
           return t === errorTypeFilter;
         })
       );
@@ -306,8 +285,6 @@ export function AdminOccurrenceTab() {
                   {airline.name_ko} ({airline.code})
                 </option>
               ))}
-              <option value="foreign_domestic">── 국내↔외항사</option>
-              <option value="foreign_foreign">── 외항사↔외항사</option>
             </select>
           </div>
 

@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
       const occs = occurrencesMap[id] || [];
       const summary: Record<string, number> = {};
       for (const occ of occs) {
-        const t = occ.errorType?.replace(/\s+/g, '') || '미분류';
+        const t = occ.errorType?.replace(/\s+/g, '') || '오류미발생';
         summary[t] = (summary[t] || 0) + 1;
       }
       errorTypeSummaryMap[id] = Object.entries(summary).map(([errorType, count]) => ({ errorType, count }));

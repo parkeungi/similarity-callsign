@@ -192,7 +192,7 @@ export function AirlineCallsignListTab({
         if (cs.occurrences && cs.occurrences.length > 0) {
           const counts: Record<string, number> = {};
           cs.occurrences.forEach((o: any) => {
-            const t = o.errorType || o.error_type || '미분류';
+            const t = o.errorType || o.error_type || '오류미발생';
             counts[t] = (counts[t] || 0) + 1;
           });
           return Object.entries(counts)

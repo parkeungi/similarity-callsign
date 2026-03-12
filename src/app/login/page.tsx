@@ -47,10 +47,10 @@ export default function LoginPage() {
             {/* Title */}
             <div>
               <h1 className="text-3xl font-black text-white tracking-tighter">
-                유사호출부호 경고시스템 | 항공교통본부
+                유사호출부호 공유시스템 | 항공교통본부
               </h1>
               <p className="text-cyan-400 text-xs font-black uppercase tracking-[0.3em] mt-3">
-                SIMILAR CALLSIGN WARNING SYSTEM
+                SIMILAR CALLSIGN SHARING SYSTEM
               </p>
             </div>
 

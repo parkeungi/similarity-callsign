@@ -4,13 +4,12 @@
  *
  * 쿼리 파라미터:
  *   - airlineId: 항공사 ID (필터)
- *   - riskLevel: 위험도 필터 (매우높음|높음|낮음)
+ *   - riskLevel: 위험도 필터 (매우높음|높음)
  *
  * 응답:
  *   - total: 전체 개수
  *   - veryHigh: 매우높음 개수
  *   - high: 높음 개수
- *   - low: 낮음 개수
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -59,7 +58,7 @@ export async function GET(request: NextRequest) {
       params.push(airlineId);
     }
 
-    if (riskLevel && ['매우높음', '높음', '낮음'].includes(riskLevel)) {
+    if (riskLevel && ['매우높음', '높음'].includes(riskLevel)) {
       sql += ` AND risk_level = $${paramIndex++}`;
       params.push(riskLevel);
     }
@@ -83,7 +82,6 @@ export async function GET(request: NextRequest) {
       total: 0,
       veryHigh: 0,
       high: 0,
-      low: 0,
     };
 
     for (const row of result.rows) {
@@ -94,8 +92,6 @@ export async function GET(request: NextRequest) {
         stats.veryHigh = count;
       } else if (row.risk_level === '높음') {
         stats.high = count;
-      } else if (row.risk_level === '낮음') {
-        stats.low = count;
       }
     }
 

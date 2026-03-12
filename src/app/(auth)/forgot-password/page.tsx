@@ -1,7 +1,7 @@
 import { ForgotPasswordForm } from '@/components/forms/ForgotPasswordForm';
 
 export const metadata = {
-  title: '비밀번호 찾기 | KATC 유사호출부호 경고시스템',
+  title: '비밀번호 찾기 | 유사호출부호 공유시스템',
 };
 
 export default function ForgotPasswordPage() {

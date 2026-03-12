@@ -87,7 +87,7 @@ export default function AdminPage() {
         {/* 헤더 */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">관리자 대시보드</h1>
-          <p className="text-gray-600">KATC 유사호출부호 경고시스템 관리</p>
+          <p className="text-gray-600">유사호출부호 공유시스템 관리</p>
         </div>
 
         {/* 관리 카드 그리드 */}

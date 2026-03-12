@@ -32,6 +32,5 @@ export const getCallsignsStats = `SELECT
   COUNT(*) as total,
   SUM(CASE WHEN risk_level = '매우높음' THEN 1 ELSE 0 END) as very_high_risk,
   SUM(CASE WHEN risk_level = '높음' THEN 1 ELSE 0 END) as high_risk,
-  SUM(CASE WHEN risk_level = '낮음' THEN 1 ELSE 0 END) as low_risk,
   SUM(occurrence_count) as total_occurrences
 FROM callsigns`;

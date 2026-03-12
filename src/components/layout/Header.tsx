@@ -126,10 +126,10 @@ export function Header() {
             className="flex flex-col text-white hover:opacity-90 transition-opacity"
           >
             <span className="text-white font-black text-3xl leading-tight tracking-tighter">
-              유사호출부호 경고시스템
+              유사호출부호 공유시스템
             </span>
             <div className="flex items-center gap-3 mt-1.5">
-              <p className="text-violet-400 text-[10px] font-black uppercase tracking-[0.4em]">Similar Callsign Warning System</p>
+              <p className="text-violet-400 text-[10px] font-black uppercase tracking-[0.4em]">Similar Callsign Sharing System</p>
             </div>
           </Link>
 

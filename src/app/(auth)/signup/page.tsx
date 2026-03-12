@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ROUTES } from '@/lib/constants';
 
 export const metadata = {
-  title: '회원가입 | KATC 유사호출부호 경고시스템',
+  title: '회원가입 | 유사호출부호 공유시스템',
 };
 
 export default function SignupPage() {

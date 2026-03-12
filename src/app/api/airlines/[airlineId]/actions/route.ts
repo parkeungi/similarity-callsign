@@ -137,7 +137,7 @@ export async function GET(
         ) FROM (
           SELECT DISTINCT ON (occurred_date) occurred_date, occurred_time FROM callsign_occurrences WHERE callsign_id = cs.id ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST LIMIT 10
         ) _occ) as occurrence_dates,
-        (SELECT json_object_agg(COALESCE(error_type, '미분류'), cnt) FROM (
+        (SELECT json_object_agg(COALESCE(error_type, '오류미발생'), cnt) FROM (
           SELECT error_type, COUNT(*) as cnt FROM callsign_occurrences WHERE callsign_id = cs.id GROUP BY error_type
         ) t) as error_type_counts
       FROM actions a
@@ -217,7 +217,7 @@ export async function GET(
           ) FROM (
             SELECT occurred_date, occurred_time FROM callsign_occurrences WHERE callsign_id = cs.id ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST LIMIT 10
           ) _occ) as occurrence_dates,
-          (SELECT json_object_agg(COALESCE(error_type, '미분류'), cnt) FROM (
+          (SELECT json_object_agg(COALESCE(error_type, '오류미발생'), cnt) FROM (
             SELECT error_type, COUNT(*) as cnt FROM callsign_occurrences WHERE callsign_id = cs.id GROUP BY error_type
           ) t) as error_type_counts
         FROM callsigns cs

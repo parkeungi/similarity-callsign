@@ -81,11 +81,11 @@ export default function Home() {
       <header className="absolute top-10 left-10 z-20 animate-in fade-in slide-in-from-top-4 duration-1000">
         <div>
           <h1 className="text-xl font-black tracking-tight text-white leading-none mb-1.5 uppercase flex items-center gap-2">
-            <span>유사호출부호 경고시스템</span>
+            <span>유사호출부호 공유시스템</span>
             <span className="text-white/40 font-medium">|</span>
             <span>항공교통본부</span>
           </h1>
-          <p className="text-[10px] text-blue-400 font-bold tracking-[0.4em] leading-none uppercase">SIMILAR CALLSIGN WARNING SYSTEM</p>
+          <p className="text-[10px] text-blue-400 font-bold tracking-[0.4em] leading-none uppercase">SIMILAR CALLSIGN SHARING SYSTEM</p>
         </div>
       </header>
 

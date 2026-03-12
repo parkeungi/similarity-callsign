@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const exportData = {
       meta: {
         exportedAt: new Date().toISOString(),
-        system: 'KATC1 유사호출부호 경고시스템',
+        system: '유사호출부호 공유시스템',
         version: '1.0',
       },
       prompt: {

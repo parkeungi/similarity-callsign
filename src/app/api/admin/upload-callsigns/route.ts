@@ -223,6 +223,12 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
+          // 오류가능성(편명유사도)이 '낮음' 또는 '매우낮음'이면 스킵
+          const similarityNormalized = similarity?.replace(/\s+/g, '');
+          if (similarityNormalized && ['낮음', '매우낮음'].includes(similarityNormalized)) {
+            continue;
+          }
+
           // 국내 항공사를 my_callsign으로, 나머지를 other_callsign으로 설정
           let myAirlineCode: string, myCallsign: string, otherCallsign: string, otherAirlineCode: string;
           let myDepartureAirport: string | undefined, myArrivalAirport: string | undefined;

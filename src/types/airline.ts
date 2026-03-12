@@ -12,10 +12,10 @@ export type ErrorType = '관제사 오류' | '조종사 오류' | '오류 미발
 export type SubErrorType = '복창오류' | '무응답/재호출' | '고도이탈' | '비행경로이탈' | '기타';
 
 // 위험도 레벨
-export type RiskLevel = '매우높음' | '높음' | '낮음';
+export type RiskLevel = '매우높음' | '높음';
 
 // 유사성 레벨
-export type SimilarityLevel = '매우높음' | '높음' | '낮음';
+export type SimilarityLevel = '매우높음' | '높음';
 
 // 조치 상태
 export type ActionStatus = 'pending' | 'in_progress' | 'completed';
@@ -230,7 +230,6 @@ export interface ExportConfig {
 export const RISK_COLOR_MAP: Record<RiskLevel, string> = {
   '매우높음': '#dc2626',
   '높음': '#f59e0b',
-  '낮음': '#16a34a',
 };
 
 /**
@@ -239,7 +238,6 @@ export const RISK_COLOR_MAP: Record<RiskLevel, string> = {
 export const RISK_LEVEL_ORDER: Record<RiskLevel, number> = {
   '매우높음': 3,
   '높음': 2,
-  '낮음': 1,
 };
 
 /**

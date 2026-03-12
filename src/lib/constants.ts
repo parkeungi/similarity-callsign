@@ -1,7 +1,7 @@
 /**
  * 환경 변수
  */
-export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'KATC 유사호출부호 경고시스템';
+export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || '유사호출부호 공유시스템';
 
 /**
  * 비밀번호 규칙 (강화됨)

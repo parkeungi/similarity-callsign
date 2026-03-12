@@ -19,7 +19,6 @@ interface StatsResponse {
   total: number;
   veryHigh: number;
   high: number;
-  low: number;
 }
 
 const getDefaultDateFrom = () => {
@@ -94,7 +93,6 @@ export function OverviewTab() {
     total: 0,
     veryHigh: 0,
     high: 0,
-    low: 0,
   };
 
   const rows = callsignsQuery.data?.data ?? [];
@@ -288,9 +286,6 @@ export function OverviewTab() {
                   {airline.code} - {airline.name_ko}
                 </option>
               ))}
-              <option disabled>──────────</option>
-              <option value="foreign">외항사 (외항사↔외항사)</option>
-              <option value="foreign_domestic">국내↔외항사</option>
             </select>
             <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
               <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -353,7 +348,6 @@ export function OverviewTab() {
               <option value="">위험도 전체</option>
               <option value="매우높음">매우높음</option>
               <option value="높음">높음</option>
-              <option value="낮음">낮음</option>
             </select>
             <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
               <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>

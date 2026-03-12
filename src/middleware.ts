@@ -26,9 +26,12 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/admin',
     '/admin/:path*',
+    '/airline',
     '/airline/:path*',
     '/change-password',
+    '/callsign-management',
     '/callsign-management/:path*',
   ],
 };

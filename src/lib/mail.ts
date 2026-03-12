@@ -97,7 +97,7 @@ export async function sendTempPasswordEmail(
   const loginUrl = `${appBaseUrl}${ROUTES.LOGIN}`;
 
   const html = `
-    <h2>KATC1 - 비밀번호 초기화</h2>
+    <h2>유사호출부호 공유시스템 - 비밀번호 초기화</h2>
     <p>안녕하세요,</p>
     <p>비밀번호 초기화를 요청하셨습니다.</p>
     <p><strong>임시 비밀번호:</strong> <code>${tempPassword}</code></p>
@@ -110,7 +110,7 @@ export async function sendTempPasswordEmail(
   `;
 
   const text = `
-KATC1 - 비밀번호 초기화
+유사호출부호 공유시스템 - 비밀번호 초기화
 
 안녕하세요,
 비밀번호 초기화를 요청하셨습니다.
@@ -125,7 +125,7 @@ KATC1 - 비밀번호 초기화
 
   await sendEmail({
     to: email,
-    subject: '[KATC1] 비밀번호 초기화 임시 비밀번호',
+    subject: '[유사호출부호 공유시스템] 비밀번호 초기화 임시 비밀번호',
     html,
     text,
   });

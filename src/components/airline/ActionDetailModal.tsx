@@ -45,7 +45,7 @@ export function ActionDetailModal({
   // occurrences GROUP BY errorType (동적, 하드코딩 없음)
   const errorTypeCounts: Record<string, number> = {};
   ((callsign as any).occurrences || []).forEach((occ: any) => {
-    const t = (occ.errorType?.trim()) || '미분류';
+    const t = (occ.errorType?.trim()) || '오류미발생';
     errorTypeCounts[t] = (errorTypeCounts[t] || 0) + 1;
   });
   const errorTypeEntries = Object.entries(errorTypeCounts).sort((a, b) => b[1] - a[1]);
