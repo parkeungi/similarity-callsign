@@ -51,15 +51,16 @@ export async function GET(request: NextRequest) {
       WHERE 1=1
     `;
     const params: any[] = [];
+    let paramIndex = 1;
 
     // 상태 필터
     if (status && ['pending', 'processing', 'completed', 'failed'].includes(status)) {
-      sql += ` AND fu.status = ?`;
+      sql += ` AND fu.status = $${paramIndex++}`;
       params.push(status);
     }
 
     // 정렬 및 페이지네이션 (최신 순)
-    sql += ` ORDER BY fu.uploaded_at DESC LIMIT ? OFFSET ?`;
+    sql += ` ORDER BY fu.uploaded_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
     params.push(limit, offset);
 
     const result = await query(sql, params);
@@ -67,9 +68,10 @@ export async function GET(request: NextRequest) {
     // 전체 개수 조회
     let countSql = `SELECT COUNT(*) as total FROM file_uploads fu WHERE 1=1`;
     const countParams: any[] = [];
+    let countParamIndex = 1;
 
     if (status && ['pending', 'processing', 'completed', 'failed'].includes(status)) {
-      countSql += ` AND fu.status = ?`;
+      countSql += ` AND fu.status = $${countParamIndex++}`;
       countParams.push(status);
     }
 

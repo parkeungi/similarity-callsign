@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       }
       // 잠금 기간 경과 — 자동 해제
       await query(
-        `UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?`,
+        `UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1`,
         [user.id]
       );
     }
@@ -94,8 +94,8 @@ export async function POST(request: NextRequest) {
         const lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
         await query(
           `UPDATE users
-           SET failed_login_attempts = ?, locked_until = ?
-           WHERE id = ?`,
+           SET failed_login_attempts = $1, locked_until = $2
+           WHERE id = $3`,
           [newFailCount, lockUntil.toISOString(), user.id]
         );
         return NextResponse.json(
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
 
       // 실패 횟수만 증가
       await query(
-        `UPDATE users SET failed_login_attempts = ? WHERE id = ?`,
+        `UPDATE users SET failed_login_attempts = $1 WHERE id = $2`,
         [newFailCount, user.id]
       );
       const remaining = MAX_FAILED_ATTEMPTS - newFailCount;
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
        SET failed_login_attempts = 0,
            locked_until = NULL,
            last_login_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
+       WHERE id = $1`,
       [user.id]
     );
 
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
       if (lastChanged < ninetyDaysAgo) {
         await query(
-          `UPDATE users SET password_change_required = true WHERE id = ?`,
+          `UPDATE users SET password_change_required = true WHERE id = $1`,
           [user.id]
         );
         user.password_change_required = true;
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
 
     // RefreshToken 해시 DB 저장 (로그아웃/탈취 무효화용)
     await query(
-      `UPDATE users SET refresh_token_hash = ? WHERE id = ?`,
+      `UPDATE users SET refresh_token_hash = $1 WHERE id = $2`,
       [tokenHash, user.id]
     );
 

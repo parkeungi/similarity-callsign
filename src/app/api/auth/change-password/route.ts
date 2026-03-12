@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     // 현재 비밀번호 검증
     const userResult = await query(
-      'SELECT id, password_hash FROM users WHERE id = ?',
+      'SELECT id, password_hash FROM users WHERE id = $1',
       [userId]
     );
 
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     // 최근 5개 비밀번호 이력 조회 (재사용 방지)
     const historyResult = await query(
       `SELECT password_hash FROM password_history
-       WHERE user_id = ?
+       WHERE user_id = $1
        ORDER BY changed_at DESC
        LIMIT 5`,
       [userId]
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
       // 1. 비밀번호 이력에 새 비밀번호 기록
       await trx(
         `INSERT INTO password_history (user_id, password_hash, changed_at, changed_by)
-         VALUES (?, ?, CURRENT_TIMESTAMP, ?)`,
+         VALUES ($1, $2, CURRENT_TIMESTAMP, $3)`,
         [userId, newPasswordHash, 'user']
       );
 
@@ -122,12 +122,12 @@ export async function POST(request: NextRequest) {
       // 📌 SQLite boolean 호환성: false 대신 0 사용
       await trx(
         `UPDATE users
-         SET password_hash = ?,
+         SET password_hash = $1,
              is_default_password = 0,
              password_change_required = 0,
              last_password_changed_at = CURRENT_TIMESTAMP,
              updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
+         WHERE id = $2`,
         [newPasswordHash, userId]
       );
     });
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
     const updatedUserResult = await query(
       `SELECT id, email, status, role, airline_id
        FROM users
-       WHERE id = ?`,
+       WHERE id = $1`,
       [userId]
     );
 

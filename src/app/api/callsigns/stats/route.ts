@@ -39,8 +39,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 필터 파라미터
-    const airlineId = request.nextUrl.searchParams.get('airlineId');
+    // 필터 파라미터 — 비관리자는 자기 항공사만 조회 가능
+    let airlineId = request.nextUrl.searchParams.get('airlineId');
+    if (payload.role !== 'admin') {
+      airlineId = payload.airlineId ?? null;
+    }
     const riskLevel = request.nextUrl.searchParams.get('riskLevel');
     const dateFrom = request.nextUrl.searchParams.get('dateFrom');
     const dateTo = request.nextUrl.searchParams.get('dateTo');
@@ -48,25 +51,26 @@ export async function GET(request: NextRequest) {
     // 기본 쿼리
     let sql = `SELECT risk_level, COUNT(*) as count FROM callsigns WHERE 1=1`;
     const params: any[] = [];
+    let paramIndex = 1;
 
     // 필터 조건
     if (airlineId) {
-      sql += ` AND airline_id = ?`;
+      sql += ` AND airline_id = $${paramIndex++}`;
       params.push(airlineId);
     }
 
     if (riskLevel && ['매우높음', '높음', '낮음'].includes(riskLevel)) {
-      sql += ` AND risk_level = ?`;
+      sql += ` AND risk_level = $${paramIndex++}`;
       params.push(riskLevel);
     }
 
     if (dateFrom) {
-      sql += ` AND uploaded_at >= ?`;
+      sql += ` AND uploaded_at >= $${paramIndex++}`;
       params.push(dateFrom);
     }
     if (dateTo) {
       const exclusiveDateTo = getExclusiveDateTo(dateTo);
-      sql += ` AND uploaded_at < ?`;
+      sql += ` AND uploaded_at < $${paramIndex++}`;
       params.push(exclusiveDateTo);
     }
 

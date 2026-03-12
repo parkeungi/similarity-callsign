@@ -116,34 +116,24 @@ export async function GET(
     const callsignsResult = await query(
       `SELECT
          c.id, c.airline_id,
-         c.callsign_a, c.callsign_b, c.airline_a_code, c.airline_b_code,
-         -- 하위 호환: 요청 항공사 관점으로 my/other 재구성
-         CASE WHEN c.airline_a_code = $1 THEN c.callsign_a ELSE c.callsign_b END AS my_callsign,
-         CASE WHEN c.airline_a_code = $1 THEN c.callsign_b ELSE c.callsign_a END AS other_callsign,
-         CASE WHEN c.airline_a_code = $1 THEN c.airline_a_code ELSE c.airline_b_code END AS airline_code,
-         CASE WHEN c.airline_a_code = $1 THEN c.airline_b_code ELSE c.airline_a_code END AS other_airline_code,
-         CASE WHEN c.airline_a_code = $1 THEN c.action_status_a ELSE c.action_status_b END AS my_action_status,
-         CASE WHEN c.airline_a_code = $1 THEN c.action_status_b ELSE c.action_status_a END AS other_action_status,
-         -- 자신의 편명이 항상 앞에 표시
-         CASE WHEN c.airline_a_code = $1
-           THEN c.callsign_a || ' | ' || c.callsign_b
-           ELSE c.callsign_b || ' | ' || c.callsign_a
-         END AS callsign_pair,
+         c.my_callsign, c.other_callsign,
+         c.airline_code, c.other_airline_code,
+         c.my_action_status, c.other_action_status,
+         c.callsign_pair,
          c.error_type, c.sub_error, c.risk_level, c.similarity,
          c.departure_airport1, c.arrival_airport1,
          c.file_upload_id, c.uploaded_at, c.status, c.created_at, c.updated_at,
          COALESCE(c.occurrence_count, 0) AS occurrence_count,
          c.first_occurred_at,
          c.last_occurred_at,
-         -- AI 분석 데이터 (양방향 pair 형식으로 JOIN)
+         -- AI 분석 데이터
          ai.ai_score,
          ai.ai_reason,
          ai.reason_type
        FROM callsigns c
        LEFT JOIN callsign_ai_analysis ai
-         ON ai.callsign_pair = c.callsign_a || ' | ' || c.callsign_b
-         OR ai.callsign_pair = c.callsign_b || ' | ' || c.callsign_a
-       WHERE (c.airline_a_code = $1 OR c.airline_b_code = $1)
+         ON ai.callsign_pair = c.callsign_pair
+       WHERE (c.airline_code = $1 OR c.other_airline_code = $1)
          ${riskLevelCondition}
        ORDER BY
          CASE WHEN c.status = 'in_progress' THEN 0 ELSE 1 END,
@@ -235,7 +225,7 @@ export async function GET(
     const countResult = await query(
       `SELECT COUNT(DISTINCT c.id) as total
        FROM callsigns c
-       WHERE (c.airline_a_code = $1 OR c.airline_b_code = $1)
+       WHERE (c.airline_code = $1 OR c.other_airline_code = $1)
          ${countRiskCondition}`,
       countParams
     );

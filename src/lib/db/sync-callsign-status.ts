@@ -90,7 +90,7 @@ export async function syncCallsignStatus(
     // 트랜잭션 내에서 조회 (기존 로직)
     const callsignResult = await trx(
       `SELECT id, airline_code, other_airline_code, my_action_status, other_action_status
-       FROM callsigns WHERE id = ?`,
+       FROM callsigns WHERE id = $1`,
       [callsignId]
     );
 
@@ -137,8 +137,8 @@ export async function syncCallsignStatus(
   // 6. 단일 UPDATE (원자적 업데이트)
   const updateResult = await trx(
     `UPDATE callsigns
-     SET my_action_status = ?, other_action_status = ?, status = ?
-     WHERE id = ?`,
+     SET my_action_status = $1, other_action_status = $2, status = $3
+     WHERE id = $4`,
     [myStatus, otherStatus, finalStatus, callsignId]
   );
 

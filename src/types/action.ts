@@ -180,6 +180,7 @@ export interface Action {
   id: string;
   airline_id: string;
   callsign_id: string;
+  callsign_pair?: string; // API 응답 시 최상위 포함
 
   // 조치 정보
   action_type: string; // "편명 변경", "브리핑 시행", "모니터링 강화" 등

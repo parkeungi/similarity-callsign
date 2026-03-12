@@ -42,7 +42,7 @@ export async function PATCH(
 
     // 항공사 존재 확인
     const existing = await query(
-      'SELECT id FROM airlines WHERE id = ?',
+      'SELECT id FROM airlines WHERE id = $1',
       [id]
     );
     if (existing.rows.length === 0) {
@@ -55,7 +55,7 @@ export async function PATCH(
     // 코드 중복 확인 (자신 제외)
     if (code) {
       const codeCheck = await query(
-        'SELECT id FROM airlines WHERE code = ? AND id != ?',
+        'SELECT id FROM airlines WHERE code = $1 AND id != $2',
         [code, id]
       );
       if (codeCheck.rows.length > 0) {
@@ -69,21 +69,22 @@ export async function PATCH(
     // 업데이트 필드 동적 구성
     const updates: string[] = [];
     const values: any[] = [];
+    let paramIndex = 1;
 
     if (code !== undefined) {
-      updates.push(`code = ?`);
+      updates.push(`code = $${paramIndex++}`);
       values.push(code);
     }
     if (name_ko !== undefined) {
-      updates.push(`name_ko = ?`);
+      updates.push(`name_ko = $${paramIndex++}`);
       values.push(name_ko);
     }
     if (name_en !== undefined) {
-      updates.push(`name_en = ?`);
+      updates.push(`name_en = $${paramIndex++}`);
       values.push(name_en);
     }
     if (display_order !== undefined) {
-      updates.push(`display_order = ?`);
+      updates.push(`display_order = $${paramIndex++}`);
       values.push(display_order);
     }
 
@@ -96,13 +97,13 @@ export async function PATCH(
 
     values.push(id);
 
-    const sql = `UPDATE airlines SET ${updates.join(', ')} WHERE id = ?`;
+    const sql = `UPDATE airlines SET ${updates.join(', ')} WHERE id = $${paramIndex++}`;
 
     await query(sql, values);
 
     // 업데이트된 항공사 조회
     const updatedResult = await query(
-      'SELECT id, code, name_ko, name_en, display_order FROM airlines WHERE id = ?',
+      'SELECT id, code, name_ko, name_en, display_order FROM airlines WHERE id = $1',
       [id]
     );
 
@@ -143,7 +144,7 @@ export async function DELETE(
 
     // 항공사 존재 확인
     const existing = await query(
-      'SELECT id FROM airlines WHERE id = ?',
+      'SELECT id FROM airlines WHERE id = $1',
       [id]
     );
     if (existing.rows.length === 0) {
@@ -155,7 +156,7 @@ export async function DELETE(
 
     // 사용 중인 사용자 확인
     const userCheck = await query(
-      'SELECT COUNT(*) as count FROM users WHERE airline_id = ?',
+      'SELECT COUNT(*) as count FROM users WHERE airline_id = $1',
       [id]
     );
 
@@ -167,7 +168,7 @@ export async function DELETE(
     }
 
     // 삭제
-    await query('DELETE FROM airlines WHERE id = ?', [id]);
+    await query('DELETE FROM airlines WHERE id = $1', [id]);
 
     return NextResponse.json(
       { message: '항공사가 삭제되었습니다.' },

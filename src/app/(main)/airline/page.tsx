@@ -58,7 +58,7 @@ export default function AirlinePage() {
 
   // 발생현황 탭 상태 (신규)
   const [occurrencePage, setOccurrencePage] = useState(1);
-  const [occurrenceLimit, setOccurrenceLimit] = useState(9);
+  const [occurrenceLimit, setOccurrenceLimit] = useState(10);
   const [occurrenceSearchInput, setOccurrenceSearchInput] = useState('');
 
   // 조치이력 탭 상태
@@ -435,7 +435,7 @@ export default function AirlinePage() {
             description: (modal.data as Action).description,
             plannedDueDate: toInputDate((modal.data as Action).planned_due_date) || undefined,
             completedDate: toInputDate((modal.data as Action).completed_at) || toInputDate((modal.data as Action).registered_at) || undefined,
-            status: (modal.data as Action).status === 'pending' ? 'in_progress' : ((modal.data as Action).status || 'in_progress'),
+            status: ((modal.data as Action).status === 'pending' ? 'in_progress' : ((modal.data as Action).status || 'in_progress')) as 'in_progress' | 'completed',
           }}
           onClose={modal.closeModal}
           onSuccess={handleActionDetailSuccess}
@@ -522,7 +522,7 @@ export default function AirlinePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-gray-500 font-semibold">타사 항공사 코드</p>
-                  <p className="text-lg font-black text-indigo-700 mt-1">{selectedCallsignForDetail.other_airline_code || '-'}</p>
+                  <p className="text-lg font-black text-indigo-700 mt-1">{(modal.data as Callsign)?.other_airline_code || '-'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-semibold">조치 대상</p>
@@ -535,14 +535,14 @@ export default function AirlinePage() {
             <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <h3 className="text-sm font-black text-gray-700 uppercase tracking-widest mb-2">🎯 ATC 관제사 의견</h3>
               <p className="text-sm font-semibold text-gray-900">
-                {selectedCallsignForDetail.atc_recommendation || '별도 의견 없음'}
+                {(modal.data as Callsign)?.atc_recommendation || '별도 의견 없음'}
               </p>
             </div>
 
             {/* 닫기 버튼 */}
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setIsCallsignDetailModalOpen(false)}
+                onClick={() => modal.closeModal()}
                 className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition"
               >
                 확인

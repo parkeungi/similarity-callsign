@@ -55,7 +55,8 @@ export function OverviewTab() {
   const { data: activeActionTypes = [] } = useActiveActionTypes();
   const callsignsQuery = useCallsignsWithActions({
     riskLevel: selectedRiskLevel || undefined,
-    airlineId: selectedAirlineId || undefined,
+    airlineId: (selectedAirlineId === 'foreign' || selectedAirlineId === 'foreign_domestic') ? undefined : (selectedAirlineId || undefined),
+    airlineFilter: (selectedAirlineId === 'foreign' || selectedAirlineId === 'foreign_domestic') ? selectedAirlineId : undefined,
     // 카드 클릭으로 선택한 필터 (selectedStatusFilter)를 API에 전달
     myActionStatus: selectedStatusFilter !== 'all' ? selectedStatusFilter : (selectedActionStatus || undefined),
     actionType: selectedActionType || undefined,
@@ -287,6 +288,9 @@ export function OverviewTab() {
                   {airline.code} - {airline.name_ko}
                 </option>
               ))}
+              <option disabled>──────────</option>
+              <option value="foreign">외항사 (외항사↔외항사)</option>
+              <option value="foreign_domestic">국내↔외항사</option>
             </select>
             <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
               <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>

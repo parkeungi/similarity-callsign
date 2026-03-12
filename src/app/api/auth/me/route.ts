@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
          a.code as airline_code, a.name_ko as airline_name_ko, a.name_en as airline_name_en
        FROM users u
        LEFT JOIN airlines a ON u.airline_id = a.id
-       WHERE u.id = ?`,
+       WHERE u.id = $1`,
       [userId]
     );
 

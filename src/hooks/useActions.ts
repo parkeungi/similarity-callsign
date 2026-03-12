@@ -551,6 +551,7 @@ export function useCallsignsWithActions(
   filters?: {
     riskLevel?: string;
     airlineId?: string;
+    airlineFilter?: string;
     myActionStatus?: string;
     actionType?: string;
     dateFrom?: string;
@@ -565,11 +566,12 @@ export function useCallsignsWithActions(
   const limit = filters?.limit || 20;
 
   return useQuery({
-    queryKey: ['callsigns-with-actions', filters?.riskLevel, filters?.airlineId, filters?.myActionStatus, filters?.actionType, filters?.dateFrom, filters?.dateTo, page, limit],
+    queryKey: ['callsigns-with-actions', filters?.riskLevel, filters?.airlineId, filters?.airlineFilter, filters?.myActionStatus, filters?.actionType, filters?.dateFrom, filters?.dateTo, page, limit],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters?.riskLevel) params.append('riskLevel', filters.riskLevel);
       if (filters?.airlineId) params.append('airlineId', filters.airlineId);
+      if (filters?.airlineFilter) params.append('airlineFilter', filters.airlineFilter);
       if (filters?.myActionStatus) params.append('myActionStatus', filters.myActionStatus);
       if (filters?.actionType) params.append('actionType', filters.actionType);
       if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);

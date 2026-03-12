@@ -62,7 +62,7 @@ export function AirlineActionHistoryTab({
       const q = actionSearchInput.trim().toLowerCase();
       filtered = filtered.filter(
         (action) =>
-          action.callsign_pair?.toLowerCase().includes(q) ||
+          (action.callsign_pair || action.callsign?.callsign_pair)?.toLowerCase().includes(q) ||
           action.action_type?.toLowerCase().includes(q) ||
           action.description?.toLowerCase().includes(q)
       );
@@ -314,11 +314,12 @@ export function AirlineActionHistoryTab({
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-2">
                         {(() => {
-                          const parts = action.callsign_pair?.split(' | ') || [];
+                          const pair = action.callsign_pair || action.callsign?.callsign_pair;
+                          const parts = pair?.split(' | ') || [];
                           return (
                             <>
                               <span className="font-mono font-bold text-sm text-blue-600">
-                                {parts[0] || action.callsign_pair || '-'}
+                                {parts[0] || pair || '-'}
                               </span>
                               <span className="text-gray-400 text-xs">↔</span>
                               <span className="font-mono font-bold text-sm text-red-600">

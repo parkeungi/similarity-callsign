@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       SELECT u.id, u.airline_id, u.role, a.code as airline_code
       FROM users u
       LEFT JOIN airlines a ON u.airline_id = a.id
-      WHERE u.id = ?
+      WHERE u.id = $1
       `,
       [payload.userId]
     );
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
         AND end_date >= CURRENT_TIMESTAMP
         AND (
           target_airlines IS NULL
-          OR (',' || COALESCE(target_airlines, '') || ',') LIKE ?
+          OR (',' || COALESCE(target_airlines, '') || ',') LIKE $1
         )
       ORDER BY start_date DESC
     `;

@@ -23,12 +23,13 @@ export async function GET(request: NextRequest) {
 
         let conditions = '';
         const params: string[] = [];
+        let paramIndex = 1;
         if (dateFrom) {
-            conditions += ' AND DATE(c.uploaded_at) >= DATE(?)';
+            conditions += ` AND DATE(c.uploaded_at) >= DATE($${paramIndex++})`;
             params.push(dateFrom);
         }
         if (dateTo) {
-            conditions += ' AND DATE(c.uploaded_at) <= DATE(?)';
+            conditions += ` AND DATE(c.uploaded_at) <= DATE($${paramIndex++})`;
             params.push(dateTo);
         }
 

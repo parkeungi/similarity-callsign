@@ -51,22 +51,23 @@ export async function GET(request: NextRequest) {
                LEFT JOIN airlines a ON u.airline_id = a.id
                WHERE 1=1`;
     const params: any[] = [];
+    let paramIndex = 1;
 
     // 상태 필터 (active|suspended만 가능)
     if (status && ['active', 'suspended'].includes(status)) {
-      sql += ` AND u.status = ?`;
+      sql += ` AND u.status = $${paramIndex++}`;
       params.push(status);
     }
 
     // 항공사 필터
     if (airlineId) {
-      sql += ` AND u.airline_id = ?`;
+      sql += ` AND u.airline_id = $${paramIndex++}`;
       params.push(airlineId);
     }
 
     // 이메일 검색 (LIKE 검색)
     if (emailSearch) {
-      sql += ` AND u.email LIKE ?`;
+      sql += ` AND u.email LIKE $${paramIndex++}`;
       params.push(`%${emailSearch}%`);
     }
 
@@ -157,7 +158,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 기존 이메일 확인
-    const existingUser = await query('SELECT id FROM users WHERE email = ?', [email]);
+    const existingUser = await query('SELECT id FROM users WHERE email = $1', [email]);
     if (existingUser.rows.length > 0) {
       return NextResponse.json(
         { error: '이미 사용 중인 이메일입니다.' },
@@ -167,8 +168,8 @@ export async function POST(request: NextRequest) {
 
     // 항공사 존재 여부 확인 (code 또는 id로 조회)
     const airlineCheck = airlineCode
-      ? await query('SELECT id FROM airlines WHERE code = ?', [airlineCode])
-      : await query('SELECT id FROM airlines WHERE id = ?', [airlineId]);
+      ? await query('SELECT id FROM airlines WHERE code = $1', [airlineCode])
+      : await query('SELECT id FROM airlines WHERE id = $1', [airlineId]);
     if (airlineCheck.rows.length === 0) {
       return NextResponse.json(
         { error: '존재하지 않는 항공사입니다.' },
@@ -199,7 +200,7 @@ export async function POST(request: NextRequest) {
         `INSERT INTO users (
            email, password_hash, airline_id, status, role,
            is_default_password, password_change_required, created_at, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
         [email, passwordHash, resolvedAirlineId, 'active', role, 1, 1]
       );
     } catch (insertError: any) {
@@ -218,7 +219,7 @@ export async function POST(request: NextRequest) {
     const userResult = await query(
       `SELECT id, email, status, role, airline_id, is_default_password, password_change_required
        FROM users
-       WHERE email = ?`,
+       WHERE email = $1`,
       [email]
     );
 
@@ -233,7 +234,7 @@ export async function POST(request: NextRequest) {
 
     // 항공사 정보 조회
     const airlineResult = await query(
-      'SELECT code, name_ko, name_en FROM airlines WHERE id = ?',
+      'SELECT code, name_ko, name_en FROM airlines WHERE id = $1',
       [resolvedAirlineId]
     );
 

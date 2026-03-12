@@ -11,12 +11,12 @@ export const getUserByEmail = `SELECT
   a.code as airline_code, a.name_ko as airline_name_ko, a.name_en as airline_name_en
 FROM users u
 LEFT JOIN airlines a ON u.airline_id = a.id
-WHERE LOWER(u.email) = LOWER(?)`;
+WHERE LOWER(u.email) = LOWER($1)`;
 
 /**
  * 마지막 로그인 시간 업데이트
  */
-export const updateLastLogin = `UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?`;
+export const updateLastLogin = `UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1`;
 
 /**
  * 사용자 정보 조회 (by ID)
@@ -26,9 +26,9 @@ export const getUserById = `SELECT
   a.code as airline_code, a.name_ko as airline_name_ko, a.name_en as airline_name_en
 FROM users u
 LEFT JOIN airlines a ON u.airline_id = a.id
-WHERE u.id = ?`;
+WHERE u.id = $1`;
 
 /**
  * 비밀번호 변경
  */
-export const updatePassword = `UPDATE users SET password_hash = ?, is_default_password = false, password_change_required = false WHERE id = ?`;
+export const updatePassword = `UPDATE users SET password_hash = $1, is_default_password = false, password_change_required = false WHERE id = $2`;

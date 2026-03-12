@@ -6,32 +6,32 @@
  * 사용자 생성
  */
 export const createUser = `INSERT INTO users (email, password_hash, role, airline_id, status, is_default_password, password_change_required, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`;
+VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`;
 
 /**
  * 사용자 승인/상태 변경
  */
-export const updateUserStatus = `UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+export const updateUserStatus = `UPDATE users SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`;
 
 /**
  * 사용자 항공사 변경
  */
-export const updateUserAirline = `UPDATE users SET airline_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+export const updateUserAirline = `UPDATE users SET airline_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`;
 
 /**
  * 사용자 정보 변경
  */
-export const updateUserInfo = `UPDATE users SET email = ?, airline_id = ?, role = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+export const updateUserInfo = `UPDATE users SET email = $1, airline_id = $2, role = $3, status = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5`;
 
 /**
  * 사용자 삭제
  */
-export const deleteUser = `DELETE FROM users WHERE id = ?`;
+export const deleteUser = `DELETE FROM users WHERE id = $1`;
 
 /**
  * 이메일로 사용자 존재 여부 확인
  */
-export const checkEmailExists = `SELECT 1 FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1`;
+export const checkEmailExists = `SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`;
 
 /**
  * 대기 중인 사용자 조회

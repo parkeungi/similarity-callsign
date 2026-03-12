@@ -31,7 +31,7 @@ export async function GET(
     }
 
     // 항공사 존재 여부 확인
-    const airlineResult = await query('SELECT id FROM airlines WHERE id = ?', [airlineId]);
+    const airlineResult = await query('SELECT id FROM airlines WHERE id = $1', [airlineId]);
     if (airlineResult.rows.length === 0) {
       return NextResponse.json({ error: '항공사를 찾을 수 없습니다.' }, { status: 404 });
     }
@@ -65,8 +65,8 @@ export async function GET(
          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_count,
          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_count
        FROM actions
-       WHERE airline_id = ?
-         AND DATE(registered_at) BETWEEN DATE(?) AND DATE(?)`,
+       WHERE airline_id = $1
+         AND DATE(registered_at) BETWEEN DATE($2) AND DATE($3)`,
       [airlineId, fromDateString, toDateString]
     );
 
@@ -87,11 +87,11 @@ export async function GET(
     const avgResult = await query(
       `SELECT AVG(${dateDiffInDays('completed_at', 'registered_at')}) AS avg_days
        FROM actions
-       WHERE airline_id = ?
+       WHERE airline_id = $1
          AND status = 'completed'
          AND completed_at IS NOT NULL
          AND registered_at IS NOT NULL
-         AND DATE(registered_at) BETWEEN DATE(?) AND DATE(?)`,
+         AND DATE(registered_at) BETWEEN DATE($2) AND DATE($3)`,
       [airlineId, fromDateString, toDateString]
     );
     const averageCompletionDays = avgResult.rows[0]?.avg_days ? Math.round(avgResult.rows[0].avg_days) : 0;
@@ -99,8 +99,8 @@ export async function GET(
     const typeResult = await query(
       `SELECT COALESCE(action_type, '미정의') AS action_type, COUNT(*) AS count
        FROM actions
-       WHERE airline_id = ?
-         AND DATE(registered_at) BETWEEN DATE(?) AND DATE(?)
+       WHERE airline_id = $1
+         AND DATE(registered_at) BETWEEN DATE($2) AND DATE($3)
        GROUP BY 1
        ORDER BY count DESC`,
       [airlineId, fromDateString, toDateString]
@@ -115,8 +115,8 @@ export async function GET(
     const monthlyResult = await query(
       `SELECT ${monthBucket('registered_at')} AS month, COUNT(*) AS count
        FROM actions
-       WHERE airline_id = ?
-         AND DATE(registered_at) BETWEEN DATE(?) AND DATE(?)
+       WHERE airline_id = $1
+         AND DATE(registered_at) BETWEEN DATE($2) AND DATE($3)
        GROUP BY 1
        ORDER BY month DESC
        LIMIT 6`,

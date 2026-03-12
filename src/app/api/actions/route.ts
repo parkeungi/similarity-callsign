@@ -49,7 +49,8 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '20', 10)));
     const offset = (page - 1) * limit;
 
-    // 기본 쿼리 (SQLite 호환)
+    // 기본 쿼리
+    let paramIndex = 1;
     let sql = `
       SELECT
         a.id, a.airline_id, a.callsign_id, a.action_type, a.description,
@@ -68,76 +69,77 @@ export async function GET(request: NextRequest) {
 
     // 필터 조건
     if (airlineId) {
-      sql += ` AND a.airline_id = ?`;
+      sql += ` AND a.airline_id = $${paramIndex++}`;
       queryParams.push(airlineId);
     }
 
     if (status && ['pending', 'in_progress', 'completed'].includes(status)) {
-      sql += ` AND a.status = ?`;
+      sql += ` AND a.status = $${paramIndex++}`;
       queryParams.push(status);
     }
 
-    // 검색 조건 (유사호출부호, 조치유형, 담당자) - SQLite LIKE 사용
+    // 검색 조건 (유사호출부호, 조치유형, 담당자)
     if (search && search.trim()) {
       const searchValue = `%${search}%`;
       sql += ` AND (
-        cs.callsign_pair LIKE ?
-        OR a.action_type LIKE ?
-        OR a.manager_name LIKE ?
+        cs.callsign_pair LIKE $${paramIndex++}
+        OR a.action_type LIKE $${paramIndex++}
+        OR a.manager_name LIKE $${paramIndex++}
       )`;
       queryParams.push(searchValue, searchValue, searchValue);
     }
 
-    // 날짜 필터 (SQLite 호환 - DATE 함수 사용)
+    // 날짜 필터
     if (dateFrom) {
-      sql += ` AND DATE(a.registered_at) >= DATE(?)`;
+      sql += ` AND DATE(a.registered_at) >= DATE($${paramIndex++})`;
       queryParams.push(dateFrom);
     }
 
     if (dateTo) {
-      sql += ` AND DATE(a.registered_at) <= DATE(?)`;
+      sql += ` AND DATE(a.registered_at) <= DATE($${paramIndex++})`;
       queryParams.push(dateTo);
     }
 
     // 페이지네이션
-    sql += ` ORDER BY a.registered_at DESC LIMIT ? OFFSET ?`;
+    sql += ` ORDER BY a.registered_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
     queryParams.push(limit);
     queryParams.push(offset);
 
     // 데이터 조회
     const result = await query(sql, queryParams);
 
-    // 전체 개수 조회 (SQLite 호환)
+    // 전체 개수 조회
+    let countParamIndex = 1;
     let countSql = `SELECT COUNT(*) as total FROM actions a LEFT JOIN callsigns cs ON a.callsign_id = cs.id WHERE COALESCE(a.is_cancelled, false) = false`;
     const countParams: any[] = [];
 
     if (airlineId) {
-      countSql += ` AND a.airline_id = ?`;
+      countSql += ` AND a.airline_id = $${countParamIndex++}`;
       countParams.push(airlineId);
     }
 
     if (status && ['pending', 'in_progress', 'completed'].includes(status)) {
-      countSql += ` AND a.status = ?`;
+      countSql += ` AND a.status = $${countParamIndex++}`;
       countParams.push(status);
     }
 
     if (search && search.trim()) {
       const searchValue = `%${search}%`;
       countSql += ` AND (
-        cs.callsign_pair LIKE ?
-        OR a.action_type LIKE ?
-        OR a.manager_name LIKE ?
+        cs.callsign_pair LIKE $${countParamIndex++}
+        OR a.action_type LIKE $${countParamIndex++}
+        OR a.manager_name LIKE $${countParamIndex++}
       )`;
       countParams.push(searchValue, searchValue, searchValue);
     }
 
     if (dateFrom) {
-      countSql += ` AND DATE(a.registered_at) >= DATE(?)`;
+      countSql += ` AND DATE(a.registered_at) >= DATE($${countParamIndex++})`;
       countParams.push(dateFrom);
     }
 
     if (dateTo) {
-      countSql += ` AND DATE(a.registered_at) <= DATE(?)`;
+      countSql += ` AND DATE(a.registered_at) <= DATE($${countParamIndex++})`;
       countParams.push(dateTo);
     }
 
@@ -145,36 +147,37 @@ export async function GET(request: NextRequest) {
     const total = parseInt(countResult.rows[0].total, 10);
 
     // 상태별 통계 조회 (전체 데이터 기준)
+    let summaryParamIndex = 1;
     let summaryCountParams: any[] = [];
     let summarySql = `SELECT a.status, COUNT(*) as count FROM actions a LEFT JOIN callsigns cs ON a.callsign_id = cs.id WHERE COALESCE(a.is_cancelled, false) = false`;
 
     if (airlineId) {
-      summarySql += ` AND a.airline_id = ?`;
+      summarySql += ` AND a.airline_id = $${summaryParamIndex++}`;
       summaryCountParams.push(airlineId);
     }
 
     if (status && ['pending', 'in_progress', 'completed'].includes(status)) {
-      summarySql += ` AND a.status = ?`;
+      summarySql += ` AND a.status = $${summaryParamIndex++}`;
       summaryCountParams.push(status);
     }
 
     if (search && search.trim()) {
       const searchValue = `%${search}%`;
       summarySql += ` AND (
-        cs.callsign_pair LIKE ?
-        OR a.action_type LIKE ?
-        OR a.manager_name LIKE ?
+        cs.callsign_pair LIKE $${summaryParamIndex++}
+        OR a.action_type LIKE $${summaryParamIndex++}
+        OR a.manager_name LIKE $${summaryParamIndex++}
       )`;
       summaryCountParams.push(searchValue, searchValue, searchValue);
     }
 
     if (dateFrom) {
-      summarySql += ` AND DATE(a.registered_at) >= DATE(?)`;
+      summarySql += ` AND DATE(a.registered_at) >= DATE($${summaryParamIndex++})`;
       summaryCountParams.push(dateFrom);
     }
 
     if (dateTo) {
-      summarySql += ` AND DATE(a.registered_at) <= DATE(?)`;
+      summarySql += ` AND DATE(a.registered_at) <= DATE($${summaryParamIndex++})`;
       summaryCountParams.push(dateTo);
     }
 

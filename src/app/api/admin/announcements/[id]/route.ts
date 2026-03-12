@@ -52,7 +52,7 @@ export async function PATCH(
 
     // 2. 공지사항 존재 확인 및 기존 데이터 조회
     const existResult = await query(
-      `SELECT id, start_date as "startDate", end_date as "endDate" FROM announcements WHERE id = ?`,
+      `SELECT id, start_date as "startDate", end_date as "endDate" FROM announcements WHERE id = $1`,
       [id]
     );
 
@@ -72,29 +72,30 @@ export async function PATCH(
     // 4. 동적 UPDATE 쿼리 구성
     const updates: string[] = [];
     const params_arr: any[] = [];
+    let paramIndex = 1;
 
     if (title !== undefined) {
-      updates.push(`title = ?`);
+      updates.push(`title = $${paramIndex++}`);
       params_arr.push(title);
     }
 
     if (content !== undefined) {
-      updates.push(`content = ?`);
+      updates.push(`content = $${paramIndex++}`);
       params_arr.push(content);
     }
 
     if (level !== undefined && ['warning', 'info', 'success'].includes(level)) {
-      updates.push(`level = ?`);
+      updates.push(`level = $${paramIndex++}`);
       params_arr.push(level);
     }
 
     if (startDate !== undefined) {
-      updates.push(`start_date = ?`);
+      updates.push(`start_date = $${paramIndex++}`);
       params_arr.push(startDate);
     }
 
     if (endDate !== undefined) {
-      updates.push(`end_date = ?`);
+      updates.push(`end_date = $${paramIndex++}`);
       params_arr.push(endDate);
     }
 
@@ -102,18 +103,18 @@ export async function PATCH(
       const targetAirlinesStr = targetAirlines && targetAirlines.length > 0
         ? targetAirlines.join(',')
         : null;
-      updates.push(`target_airlines = ?`);
+      updates.push(`target_airlines = $${paramIndex++}`);
       params_arr.push(targetAirlinesStr);
     }
 
     if (isActive !== undefined) {
-      updates.push(`is_active = ?`);
+      updates.push(`is_active = $${paramIndex++}`);
       params_arr.push(isActive);
     }
 
     // updated_at 항상 업데이트
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
-    updates.push(`updated_by = ?`);
+    updates.push(`updated_by = $${paramIndex++}`);
     params_arr.push(payload.userId);
 
     if (updates.length === 2) {
@@ -144,7 +145,7 @@ export async function PATCH(
     const sql = `
       UPDATE announcements
       SET ${updates.join(', ')}
-      WHERE id = ?`;
+      WHERE id = $${paramIndex++}`;
 
     await query(sql, params_arr);
 
@@ -157,7 +158,7 @@ export async function PATCH(
               updated_by as "updatedBy", updated_at as "updatedAt",
               is_active as "isActive"
        FROM announcements
-       WHERE id = ?`,
+       WHERE id = $1`,
       [id]
     );
 
@@ -207,7 +208,7 @@ export async function DELETE(
 
     // 2. 공지사항 존재 확인
     const existResult = await query(
-      `SELECT id FROM announcements WHERE id = ?`,
+      `SELECT id FROM announcements WHERE id = $1`,
       [id]
     );
 
@@ -220,7 +221,7 @@ export async function DELETE(
 
     // 3. 삭제 (ON DELETE CASCADE로 announcement_views도 함께 삭제)
     await query(
-      `DELETE FROM announcements WHERE id = ?`,
+      `DELETE FROM announcements WHERE id = $1`,
       [id]
     );
 

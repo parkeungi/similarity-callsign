@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
 
       await txQuery(
         `INSERT INTO audit_logs (user_id, action, table_name, new_data)
-         VALUES (?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4)`,
         [userId, 'SYSTEM_RESET', 'all_tables', auditLogData]
       );
 

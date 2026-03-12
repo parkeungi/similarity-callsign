@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
     // 3. WHERE 조건 부분을 먼저 구성
     let whereClause = 'WHERE 1=1';
     const queryParams: any[] = [];
+    let paramIndex = 1;
 
     // 4. 필터 적용 (날짜 형식 검증)
     const dateFormatRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (level && ['warning', 'info', 'success'].includes(level)) {
-      whereClause += ` AND a.level = ?`;
+      whereClause += ` AND a.level = $${paramIndex++}`;
       queryParams.push(level);
     }
 
@@ -98,18 +99,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (dateFrom) {
-      whereClause += ` AND a.start_date >= ?`;
+      whereClause += ` AND a.start_date >= $${paramIndex++}`;
       queryParams.push(dateFrom);
     }
 
     if (dateTo) {
-      whereClause += ` AND DATE(a.start_date) <= DATE(?)`;
+      whereClause += ` AND DATE(a.start_date) <= DATE($${paramIndex++})`;
       queryParams.push(dateTo);
     }
 
     // 제목/내용 검색
     if (search) {
-      whereClause += ` AND (a.title LIKE ? OR a.content LIKE ?)`;
+      whereClause += ` AND (a.title LIKE $${paramIndex++} OR a.content LIKE $${paramIndex++})`;
       queryParams.push(`%${search}%`, `%${search}%`);
     }
 
@@ -139,7 +140,7 @@ export async function GET(request: NextRequest) {
       ${whereClause}
     `;
 
-    sql += ` ORDER BY a.start_date DESC LIMIT ? OFFSET ?`;
+    sql += ` ORDER BY a.start_date DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
     queryParams.push(limit, offset);
 
     const result = await query(sql, queryParams);
@@ -251,7 +252,7 @@ export async function POST(request: NextRequest) {
     const insertResult = await query(
       `INSERT INTO announcements
         (title, content, level, start_date, end_date, target_airlines, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [title, content, level, startDate, endDate, targetAirlinesStr, payload.userId]
     );
 
@@ -263,7 +264,7 @@ export async function POST(request: NextRequest) {
               created_by as "createdBy", created_at as "createdAt",
               is_active as "isActive"
        FROM announcements
-       WHERE created_by = ?
+       WHERE created_by = $1
        ORDER BY created_at DESC
        LIMIT 1`,
       [payload.userId]

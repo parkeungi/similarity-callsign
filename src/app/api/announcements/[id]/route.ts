@@ -43,7 +43,7 @@ export async function GET(
       SELECT u.id, u.airline_id, a.code as airline_code
       FROM users u
       LEFT JOIN airlines a ON u.airline_id = a.id
-      WHERE u.id = ?
+      WHERE u.id = $1
       `,
       [payload.userId]
     );
@@ -74,13 +74,13 @@ export async function GET(
           WHEN start_date <= CURRENT_TIMESTAMP AND end_date >= CURRENT_TIMESTAMP THEN 'active'
           ELSE 'expired'
         END as status,
-        (SELECT COUNT(*) FROM announcement_views WHERE announcement_id = ?) as "viewCount"
+        (SELECT COUNT(*) FROM announcement_views WHERE announcement_id = $1) as "viewCount"
       FROM announcements
-      WHERE id = ?
+      WHERE id = $2
         AND is_active = true
         AND (
           target_airlines IS NULL
-          OR (',' || COALESCE(target_airlines, '') || ',') LIKE ?
+          OR (',' || COALESCE(target_airlines, '') || ',') LIKE $3
         )
       `,
       [id, id, targetPattern]
@@ -100,7 +100,7 @@ export async function GET(
       `
       SELECT id, viewed_at as "viewedAt"
       FROM announcement_views
-      WHERE announcement_id = ? AND user_id = ?
+      WHERE announcement_id = $1 AND user_id = $2
       `,
       [id, user.id]
     );
@@ -148,7 +148,7 @@ export async function POST(
 
     // 2. 공지사항 존재 확인
     const announcementResult = await query(
-      `SELECT id FROM announcements WHERE id = ?`,
+      `SELECT id FROM announcements WHERE id = $1`,
       [id]
     );
 
@@ -163,7 +163,7 @@ export async function POST(
     await query(
       `
       INSERT INTO announcement_views (announcement_id, user_id, viewed_at)
-      VALUES (?, ?, CURRENT_TIMESTAMP)
+      VALUES ($1, $2, CURRENT_TIMESTAMP)
       ON CONFLICT (announcement_id, user_id)
       DO UPDATE SET viewed_at = CURRENT_TIMESTAMP
       `,

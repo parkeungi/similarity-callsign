@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ADMIN_DASHBOARD_CARDS } from '@/lib/admin-navigation';
 import { useAuthStore } from '@/store/authStore';
@@ -10,8 +11,15 @@ import { useAuthStore } from '@/store/authStore';
  *
  * 관리자 권한 체크는 admin 레이아웃에서 처리하므로
  * 이 페이지는 현재 로그인한 관리자의 정보를 표시하는 역할만 담당합니다.
+ * 기본적으로 발생현황 페이지(callsign-management)로 리다이렉트합니다.
  */
 export default function AdminPage() {
+  const router = useRouter();
+
+  // 관리자 페이지 진입 시 발생현황 페이지로 자동 이동
+  useEffect(() => {
+    router.replace('/admin/callsign-management');
+  }, [router]);
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
 

@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
          a.name_en as airline_name_en
        FROM users u
        LEFT JOIN airlines a ON u.airline_id = a.id
-       WHERE u.id = ?`,
+       WHERE u.id = $1`,
       [payload.userId]
     );
 
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     // DB 해시 업데이트 (이전 refreshToken 즉시 무효화)
     await query(
-      `UPDATE users SET refresh_token_hash = ? WHERE id = ?`,
+      `UPDATE users SET refresh_token_hash = $1 WHERE id = $2`,
       [newHash, user.id]
     );
 

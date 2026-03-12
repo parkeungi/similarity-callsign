@@ -66,14 +66,15 @@ export async function GET(request: NextRequest) {
     // SQL WHERE 절 동적 구성
     let whereClause = 'action_type IS NOT NULL AND action_type != \'\'';
     const params: (string | null)[] = [];
+    let paramIndex = 1;
 
     if (dateFrom) {
-      whereClause += ' AND DATE(registered_at) >= DATE(?)';
+      whereClause += ` AND DATE(registered_at) >= DATE($${paramIndex++})`;
       params.push(dateFrom);
     }
 
     if (dateTo) {
-      whereClause += ' AND DATE(registered_at) <= DATE(?)';
+      whereClause += ` AND DATE(registered_at) <= DATE($${paramIndex++})`;
       params.push(dateTo);
     }
 

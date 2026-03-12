@@ -36,8 +36,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 필터 파라미터
-    const airlineId = request.nextUrl.searchParams.get('airlineId');
+    // 필터 파라미터 — 비관리자는 자기 항공사만 조회 가능
+    let airlineId = request.nextUrl.searchParams.get('airlineId');
+    if (payload.role !== 'admin') {
+      airlineId = payload.airlineId ?? null;
+    }
     const riskLevel = request.nextUrl.searchParams.get('riskLevel');
     const page = Math.max(1, parseInt(request.nextUrl.searchParams.get('page') || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '20', 10)));
@@ -46,18 +49,19 @@ export async function GET(request: NextRequest) {
     // 동적 where 절 구성
     let whereClause = '';
     const params: any[] = [];
+    let paramIndex = 1;
 
     if (airlineId) {
-      whereClause += ` AND airline_id = ?`;
+      whereClause += ` AND airline_id = $${paramIndex++}`;
       params.push(airlineId);
     }
 
     if (riskLevel && ['매우높음', '높음', '낮음'].includes(riskLevel)) {
-      whereClause += ` AND risk_level = ?`;
+      whereClause += ` AND risk_level = $${paramIndex++}`;
       params.push(riskLevel);
     }
 
-    // SQLite 쿼리 구성
+    // 쿼리 구성
     const sql = `
       SELECT
         c.id, c.airline_id, c.airline_code, c.callsign_pair, c.my_callsign, c.other_callsign,
@@ -89,7 +93,7 @@ export async function GET(request: NextRequest) {
           ELSE 0
         END DESC,
         c.occurrence_count DESC
-      LIMIT ? OFFSET ?
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
     `;
     params.push(limit, offset);
 

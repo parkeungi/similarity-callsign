@@ -2,11 +2,6 @@ import { Pool } from 'pg';
 import type { DatabaseProvider, QueryResult } from '../../interface';
 import { initializeSchema } from './schema';
 
-function convertPlaceholders(sql: string): string {
-  let index = 1;
-  return sql.replace(/\?/g, () => `$${index++}`);
-}
-
 export class PostgreSQLProvider implements DatabaseProvider {
   private pool: Pool;
   private initialized = false;
@@ -58,7 +53,7 @@ export class PostgreSQLProvider implements DatabaseProvider {
 
   async query(text: string, params: any[] = []): Promise<QueryResult> {
     await this.ensureInitialized();
-    const sql = convertPlaceholders(text);
+    const sql = text;
     const result = await this.pool.query(sql, params);
     return {
       rows: result.rows ?? [],
@@ -77,7 +72,7 @@ export class PostgreSQLProvider implements DatabaseProvider {
       await client.query('BEGIN');
 
       const queryFn = async (text: string, params: any[] = []) => {
-        const sql = convertPlaceholders(text);
+        const sql = text;
         const result = await client.query(sql, params);
         return {
           rows: result.rows ?? [],

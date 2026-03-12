@@ -17,15 +17,14 @@ export async function GET(request: NextRequest) {
     // callsigns 테이블에서 callsign_ai_analysis에 없는 pair만 조회
     const result = await query(`
       SELECT
-        c.callsign_a || ' | ' || c.callsign_b AS pair,
+        c.callsign_pair AS pair,
         COUNT(*) AS count
       FROM callsigns c
       LEFT JOIN callsign_ai_analysis ai
-        ON ai.callsign_pair = c.callsign_a || ' | ' || c.callsign_b
-        OR ai.callsign_pair = c.callsign_b || ' | ' || c.callsign_a
+        ON ai.callsign_pair = c.callsign_pair
       WHERE ai.id IS NULL
-      GROUP BY c.callsign_a, c.callsign_b
-      ORDER BY COUNT(*) DESC, c.callsign_a, c.callsign_b
+      GROUP BY c.callsign_pair
+      ORDER BY COUNT(*) DESC, c.callsign_pair
     `);
 
     const pairs = result.rows.map((row: { pair: string; count: string }) => ({

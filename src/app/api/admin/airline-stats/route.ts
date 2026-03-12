@@ -67,14 +67,15 @@ export async function GET(request: NextRequest) {
     // SQL WHERE 절 동적 구성 (서브쿼리에서 사용하므로 테이블 별칭 없음)
     let whereClause = '1=1';
     const params: (string | null)[] = [];
+    let paramIndex = 1;
 
     if (dateFrom) {
-      whereClause += ' AND DATE(registered_at) >= DATE(?)';
+      whereClause += ` AND DATE(registered_at) >= DATE($${paramIndex++})`;
       params.push(dateFrom);
     }
 
     if (dateTo) {
-      whereClause += ' AND DATE(registered_at) <= DATE(?)';
+      whereClause += ` AND DATE(registered_at) <= DATE($${paramIndex++})`;
       params.push(dateTo);
     }
 

@@ -91,13 +91,13 @@ export async function POST(request: NextRequest) {
     // 파일 업로드 기록 생성
     const uploadRecord = await query(
       `INSERT INTO file_uploads (file_name, file_size, uploaded_by, status)
-       VALUES (?, ?, ?, 'processing')`,
+       VALUES ($1, $2, $3, 'processing')`,
       [file.name, file.size, payload.userId]
     );
 
     // 실제 저장된 ID를 조회 (file_uploads.id는 TEXT UUID이므로)
     const idResult = await query(
-      `SELECT id FROM file_uploads WHERE uploaded_by = ? AND file_name = ? ORDER BY uploaded_at DESC LIMIT 1`,
+      `SELECT id FROM file_uploads WHERE uploaded_by = $1 AND file_name = $2 ORDER BY uploaded_at DESC LIMIT 1`,
       [payload.userId, file.name]
     );
 
@@ -287,7 +287,7 @@ export async function POST(request: NextRequest) {
 
           // 항공사 ID 조회
           const airlineResult = await query(
-            'SELECT id FROM airlines WHERE code = ?',
+            'SELECT id FROM airlines WHERE code = $1',
             [rowData.airline_code]
           );
 
@@ -300,7 +300,7 @@ export async function POST(request: NextRequest) {
 
           // Step 1: 기존 레코드 확인
           const existingResult = await query(
-            `SELECT id FROM callsigns WHERE airline_code = ? AND callsign_pair = ?`,
+            `SELECT id FROM callsigns WHERE airline_code = $1 AND callsign_pair = $2`,
             [rowData.airline_code, rowData.callsign_pair]
           );
 
@@ -314,29 +314,29 @@ export async function POST(request: NextRequest) {
 
             await query(
               `UPDATE callsigns SET
-                sector = ?,
-                departure_airport1 = ?,
-                arrival_airport1 = ?,
-                departure_airport2 = ?,
-                arrival_airport2 = ?,
-                same_airline_code = ?,
-                same_callsign_length = ?,
-                same_number_position = ?,
-                same_number_count = ?,
-                same_number_ratio = ?,
-                similarity = ?,
-                max_concurrent_traffic = ?,
-                coexistence_minutes = ?,
-                error_probability = ?,
-                atc_recommendation = ?,
-                error_type = ?,
-                sub_error = ?,
-                risk_level = ?,
-                occurrence_count = ?,
-                file_upload_id = ?,
+                sector = $1,
+                departure_airport1 = $2,
+                arrival_airport1 = $3,
+                departure_airport2 = $4,
+                arrival_airport2 = $5,
+                same_airline_code = $6,
+                same_callsign_length = $7,
+                same_number_position = $8,
+                same_number_count = $9,
+                same_number_ratio = $10,
+                similarity = $11,
+                max_concurrent_traffic = $12,
+                coexistence_minutes = $13,
+                error_probability = $14,
+                atc_recommendation = $15,
+                error_type = $16,
+                sub_error = $17,
+                risk_level = $18,
+                occurrence_count = $19,
+                file_upload_id = $20,
                 updated_at = CURRENT_TIMESTAMP,
                 status = 'in_progress'
-               WHERE id = ?`,
+               WHERE id = $21`,
               [
                 rowData.sector,
                 rowData.departure_airport1,
@@ -376,7 +376,7 @@ export async function POST(request: NextRequest) {
                    max_concurrent_traffic, coexistence_minutes, error_probability, atc_recommendation,
                    error_type, sub_error, risk_level, occurrence_count, file_upload_id, uploaded_at, status,
                    my_action_status, other_action_status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'in_progress', 'no_action', 'no_action')`,
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, CURRENT_TIMESTAMP, 'in_progress', 'no_action', 'no_action')`,
                 [
                   airlineId,
                   rowData.airline_code,
@@ -409,7 +409,7 @@ export async function POST(request: NextRequest) {
 
               // 2. 새로 삽입된 ID 가져오기
               const idResult = await query(
-                `SELECT id FROM callsigns WHERE airline_code = ? AND callsign_pair = ? ORDER BY uploaded_at DESC LIMIT 1`,
+                `SELECT id FROM callsigns WHERE airline_code = $1 AND callsign_pair = $2 ORDER BY uploaded_at DESC LIMIT 1`,
                 [rowData.airline_code, rowData.callsign_pair]
               );
 
@@ -500,8 +500,8 @@ export async function POST(request: NextRequest) {
             await query(
               `INSERT INTO callsign_occurrences
                 (callsign_id, occurred_date, occurred_time, error_type, sub_error, file_upload_id)
-               VALUES (?, ?, ?, ?, ?, ?)
-               ON CONFLICT (callsign_id, occurred_date, occurred_time) DO NOTHING`,
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (callsign_id, occurred_date) DO NOTHING`,
               [
                 callsignId,
                 normalizedDate,
@@ -532,18 +532,18 @@ export async function POST(request: NextRequest) {
       // Step 4: 각 callsign의 occurrence_count와 last_occurred_at 업데이트
       // SQLite 호환 UPDATE 문법 사용
       const callsignIds = await query(
-        `SELECT id FROM callsigns WHERE file_upload_id = ?`,
+        `SELECT id FROM callsigns WHERE file_upload_id = $1`,
         [uploadId]
       );
 
       for (const callsign of callsignIds.rows) {
         const countResult = await query(
-          `SELECT COUNT(*) as count FROM callsign_occurrences WHERE callsign_id = ?`,
+          `SELECT COUNT(*) as count FROM callsign_occurrences WHERE callsign_id = $1`,
           [callsign.id]
         );
 
         const dateResult = await query(
-          `SELECT MIN(occurred_date) as min_date, MAX(occurred_date) as max_date FROM callsign_occurrences WHERE callsign_id = ?`,
+          `SELECT MIN(occurred_date) as min_date, MAX(occurred_date) as max_date FROM callsign_occurrences WHERE callsign_id = $1`,
           [callsign.id]
         );
 
@@ -552,7 +552,7 @@ export async function POST(request: NextRequest) {
         const maxDate = dateResult.rows[0].max_date;
 
         await query(
-          `UPDATE callsigns SET occurrence_count = ?, first_occurred_at = ?, last_occurred_at = ? WHERE id = ?`,
+          `UPDATE callsigns SET occurrence_count = $1, first_occurred_at = $2, last_occurred_at = $3 WHERE id = $4`,
           [count, minDate || null, maxDate || null, callsign.id]
         );
       }
@@ -561,12 +561,12 @@ export async function POST(request: NextRequest) {
       await query(
         `UPDATE file_uploads
          SET status = 'completed',
-             total_rows = ?,
-             success_count = ?,
-             failed_count = ?,
-             error_message = ?,
+             total_rows = $1,
+             success_count = $2,
+             failed_count = $3,
+             error_message = $4,
              processed_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
+         WHERE id = $5`,
         [rows.length, insertedCount + updatedCount, errors.length, errors.join('\n'), uploadId]
       );
 
@@ -582,9 +582,9 @@ export async function POST(request: NextRequest) {
       // 파싱 실패 시 업로드 기록 업데이트
       await query(
         `UPDATE file_uploads 
-         SET status = 'failed', 
-             error_message = ?
-         WHERE id = ?`,
+         SET status = 'failed',
+             error_message = $1
+         WHERE id = $2`,
         [parseError instanceof Error ? parseError.message : '파일 파싱 오류', uploadId]
       );
 

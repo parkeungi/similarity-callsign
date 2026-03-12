@@ -179,23 +179,80 @@ export function AirlineCallsignListTab({
   const handleExportExcel = useCallback(async () => {
     try {
       setIsExporting(true);
+
+      const formatDate = (d: string | null | undefined) =>
+        d ? new Date(d).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) : '-';
+
+      const formatErrorTypeCounts = (cs: typeof sortedCallsigns[0]) => {
+        if (cs.error_type_counts && Object.keys(cs.error_type_counts).length > 0) {
+          return Object.entries(cs.error_type_counts)
+            .map(([type, count]) => `${type} ${count}건`)
+            .join(', ');
+        }
+        if (cs.occurrences && cs.occurrences.length > 0) {
+          const counts: Record<string, number> = {};
+          cs.occurrences.forEach((o: any) => {
+            const t = o.errorType || o.error_type || '미분류';
+            counts[t] = (counts[t] || 0) + 1;
+          });
+          return Object.entries(counts)
+            .map(([type, count]) => `${type} ${count}건`)
+            .join(', ');
+        }
+        return '-';
+      };
+
+      const formatOccurrenceDates = (cs: typeof sortedCallsigns[0]) => {
+        if (cs.occurrence_dates) {
+          return cs.occurrence_dates
+            .split(',')
+            .map((d: string) => d.trim())
+            .filter(Boolean)
+            .join(', ');
+        }
+        if (cs.occurrences && cs.occurrences.length > 0) {
+          return cs.occurrences
+            .map((o: any) => o.occurred_at || o.date || '')
+            .filter(Boolean)
+            .join(', ');
+        }
+        return '-';
+      };
+
       const data = sortedCallsigns.map(cs => ({
         '등록일': cs.uploaded_at
           ? new Date(cs.uploaded_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
           : '-',
         '호출부호': cs.callsign_pair,
         '오류유형': cs.error_type || '-',
-        '위험도': cs.risk_level,
+        '세부오류': cs.sub_error || '-',
+        '위험도': cs.risk_level || '-',
         '유사도': cs.similarity || '-',
-        '발생': cs.occurrence_count ?? 0,
-        '최근발생일': cs.last_occurred_at
-          ? new Date(cs.last_occurred_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
-          : '-',
+        '관할섹터': cs.sector || '-',
+        '발생건수': cs.occurrence_count ?? 0,
+        '최초발생일': formatDate(cs.first_occurred_at),
+        '최근발생일': formatDate(cs.last_occurred_at),
+        '발생이력': formatOccurrenceDates(cs),
+        '오류유형별건수': formatErrorTypeCounts(cs),
         '조치유형': cs.action_type || '-',
         '상태': getActionStatusMeta(cs.action_status).label,
+        '조치완료일': formatDate(cs.action_completed_at),
+        '조치내용': cs.action_description || '-',
+        '관제권고': cs.atc_recommendation || '-',
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(data);
+
+      // 컬럼 너비 자동 조정
+      const colWidths = Object.keys(data[0] || {}).map(key => {
+        const maxLen = Math.max(
+          key.length,
+          ...data.map(row => String((row as any)[key] || '').length)
+        );
+        return { wch: Math.min(Math.max(maxLen + 2, 8), 50) };
+      });
+      worksheet['!cols'] = colWidths;
+
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, '호출부호 목록');
       XLSX.writeFile(workbook, `호출부호_목록_${new Date().toISOString().split('T')[0]}.xlsx`);

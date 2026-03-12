@@ -60,7 +60,7 @@ export async function DELETE(
 
     // 관리자 사용자 정보 조회
     const adminResult = await query(
-      `SELECT password_hash FROM users WHERE id = ?`,
+      `SELECT password_hash FROM users WHERE id = $1`,
       [payload.userId]
     );
 
@@ -83,7 +83,7 @@ export async function DELETE(
 
     // 3. 파일 존재 확인
     const fileResult = await query(
-      `SELECT id, file_name, total_rows FROM file_uploads WHERE id = ?`,
+      `SELECT id, file_name, total_rows FROM file_uploads WHERE id = $1`,
       [fileUploadId]
     );
 
@@ -98,7 +98,7 @@ export async function DELETE(
 
     // 4. 해당 파일의 모든 callsigns 찾기
     const callsignsResult = await query(
-      `SELECT id FROM callsigns WHERE file_upload_id = ?`,
+      `SELECT id FROM callsigns WHERE file_upload_id = $1`,
       [fileUploadId]
     );
 
@@ -117,7 +117,7 @@ export async function DELETE(
       await transaction(async (txQuery) => {
         // Step 1: action_history 삭제 (action_id FK)
         if (callsignIds.length > 0) {
-          const placeholders = callsignIds.map(() => '?').join(',');
+          const placeholders = callsignIds.map((_: string, i: number) => `$${i + 1}`).join(',');
           const historyDeleteResult = await txQuery(
             `DELETE FROM action_history WHERE action_id IN (
               SELECT id FROM actions WHERE callsign_id IN (${placeholders})
@@ -129,7 +129,7 @@ export async function DELETE(
 
         // Step 2: actions 삭제 (callsign_id FK)
         if (callsignIds.length > 0) {
-          const placeholders = callsignIds.map(() => '?').join(',');
+          const placeholders = callsignIds.map((_: string, i: number) => `$${i + 1}`).join(',');
           const actionsDeleteResult = await txQuery(
             `DELETE FROM actions WHERE callsign_id IN (${placeholders})`,
             callsignIds
@@ -139,7 +139,7 @@ export async function DELETE(
 
         // Step 3: callsign_occurrences 삭제 (callsign_id FK)
         if (callsignIds.length > 0) {
-          const placeholders = callsignIds.map(() => '?').join(',');
+          const placeholders = callsignIds.map((_: string, i: number) => `$${i + 1}`).join(',');
           const occurrencesDeleteResult = await txQuery(
             `DELETE FROM callsign_occurrences WHERE callsign_id IN (${placeholders})`,
             callsignIds
@@ -149,14 +149,14 @@ export async function DELETE(
 
         // Step 4: callsigns 삭제
         const callsignsDeleteResult = await txQuery(
-          `DELETE FROM callsigns WHERE file_upload_id = ?`,
+          `DELETE FROM callsigns WHERE file_upload_id = $1`,
           [fileUploadId]
         );
         deletedStats.callsigns = callsignsDeleteResult.changes || 0;
 
         // Step 5: file_uploads 삭제
         const fileDeleteResult = await txQuery(
-          `DELETE FROM file_uploads WHERE id = ?`,
+          `DELETE FROM file_uploads WHERE id = $1`,
           [fileUploadId]
         );
         deletedStats.file = fileDeleteResult.changes || 0;
@@ -169,7 +169,7 @@ export async function DELETE(
       // 6. 감사 로그 기록 (트랜잭션 외부 - 삭제 성공 보장 후)
       await query(
         `INSERT INTO audit_logs (user_id, action, table_name, old_data, new_data)
-         VALUES (?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5)`,
         [
           payload.userId,
           'force_delete_file_upload',

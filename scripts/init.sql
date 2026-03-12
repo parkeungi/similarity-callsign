@@ -442,3 +442,21 @@ INSERT INTO action_types (name, description, display_order) VALUES
 ('시스템 개선',  '항공 시스템 또는 소프트웨어 관련 개선 조치 수행',          5),
 ('기타',         '위 분류에 해당하지 않는 기타 조치',                        6)
 ON CONFLICT (name) DO NOTHING;
+
+-- ================================================================
+-- Phase 7: AI 유사호출부호 우선순위 분석
+-- ================================================================
+
+CREATE TABLE IF NOT EXISTS callsign_ai_analysis (
+  id SERIAL PRIMARY KEY,
+  callsign_pair TEXT NOT NULL UNIQUE,
+  ai_score INT NOT NULL CHECK (ai_score BETWEEN 1 AND 100),
+  ai_reason TEXT NOT NULL,
+  reason_type TEXT NOT NULL DEFAULT 'LOW_RISK',
+  analyzed_at TIMESTAMPTZ DEFAULT NOW(),
+  analyzed_by TEXT DEFAULT 'claude'
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_analysis_pair ON callsign_ai_analysis(callsign_pair);
+CREATE INDEX IF NOT EXISTS idx_ai_analysis_score ON callsign_ai_analysis(ai_score DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_analysis_reason_type ON callsign_ai_analysis(reason_type);

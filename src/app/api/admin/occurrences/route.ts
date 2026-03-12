@@ -49,8 +49,7 @@ export async function GET(request: NextRequest) {
        FROM callsigns c
        JOIN airlines a ON c.airline_id = a.id
        LEFT JOIN callsign_ai_analysis ai
-         ON ai.callsign_pair = c.callsign_a || ' | ' || c.callsign_b
-         OR ai.callsign_pair = c.callsign_b || ' | ' || c.callsign_a
+         ON ai.callsign_pair = c.callsign_pair
        ORDER BY
          CASE WHEN c.risk_level = '매우높음' THEN 4
               WHEN c.risk_level = '높음' THEN 3

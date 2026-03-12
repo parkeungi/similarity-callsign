@@ -125,10 +125,10 @@ export function IncidentFilters({
           onChange={(e) => onLimitChange(parseInt(e.target.value, 10))}
           className="h-9 border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 outline-none shrink-0"
         >
-          <option value="9">9건</option>
-          <option value="18">18건</option>
-          <option value="27">27건</option>
-          <option value="54">54건</option>
+          <option value="10">10건</option>
+          <option value="20">20건</option>
+          <option value="30">30건</option>
+          <option value="50">50건</option>
         </select>
 
         <div className="flex-1" />

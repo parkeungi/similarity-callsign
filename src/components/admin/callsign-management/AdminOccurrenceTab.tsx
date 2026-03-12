@@ -42,6 +42,7 @@ export function AdminOccurrenceTab() {
   const [actionStatusFilter, setActionStatusFilter] = useState<ActionStatusFilter>('all');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [showAiRecommend, setShowAiRecommend] = useState<boolean>(false);
+  const [errorTypeFilter, setErrorTypeFilter] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const limit = 10;
 
@@ -174,6 +175,16 @@ export function AdminOccurrenceTab() {
       filtered = filtered.filter(i => !i.actionStatus || i.actionStatus === 'no_action');
     }
 
+    // 오류유형 필터
+    if (errorTypeFilter) {
+      filtered = filtered.filter(i =>
+        (i.occurrences || []).some((occ: any) => {
+          const t = (occ.errorType?.trim()) || '미분류';
+          return t === errorTypeFilter;
+        })
+      );
+    }
+
     if (searchKeyword.trim()) {
       const q = searchKeyword.trim().toUpperCase();
       filtered = filtered.filter(i => i.pair.toUpperCase().includes(q));
@@ -219,7 +230,7 @@ export function AdminOccurrenceTab() {
         return dB - dA;
       }
     });
-  }, [filteredByDate, actionStatusFilter, searchKeyword, sortOrder]);
+  }, [filteredByDate, actionStatusFilter, searchKeyword, sortOrder, errorTypeFilter]);
 
   const totalPages = Math.max(1, Math.ceil(allFilteredIncidents.length / limit));
   const pagedIncidents = useMemo(() => {
@@ -412,9 +423,19 @@ export function AdminOccurrenceTab() {
               .map(([type, count], idx) => {
                 const palette = ERROR_TYPE_PALETTE[idx % ERROR_TYPE_PALETTE.length];
                 const pct = stats.totalOcc > 0 ? Math.round((count / stats.totalOcc) * 100) : 0;
+                const isSelected = errorTypeFilter === type;
                 return (
-                  <div key={type} className={`border-2 ${palette.border} ${palette.bg} rounded-lg p-4`}>
-                    <div className={`text-xs font-bold ${palette.label} mb-2`}>{type}</div>
+                  <div
+                    key={type}
+                    onClick={() => { setErrorTypeFilter(isSelected ? null : type); setPage(1); }}
+                    className={`border-2 ${palette.border} ${palette.bg} rounded-lg p-4 cursor-pointer transition-all ${
+                      isSelected ? 'ring-2 ring-offset-1 ring-gray-900 scale-[1.02] shadow-md' : 'hover:shadow-sm hover:scale-[1.01]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-xs font-bold ${palette.label}`}>{type}</span>
+                      {isSelected && <span className="text-[10px] font-bold text-gray-500 bg-white px-1.5 py-0.5 rounded">필터 ON</span>}
+                    </div>
                     <div className="flex items-baseline gap-2">
                       <span className={`text-2xl font-black ${palette.value}`}>{count}</span>
                       <span className={`text-xs font-bold ${palette.pct}`}>{pct}%</span>
@@ -429,7 +450,17 @@ export function AdminOccurrenceTab() {
       {/* 발생현황 목록 */}
       <div className="space-y-4">
         <div className="text-sm font-bold text-gray-600 flex items-center justify-between">
-          <span>⚠️ 유사호출부호 발생현황 ({allFilteredIncidents.length}건)</span>
+          <span className="flex items-center gap-2">
+            ⚠️ 유사호출부호 발생현황 ({allFilteredIncidents.length}건)
+            {errorTypeFilter && (
+              <button
+                onClick={() => { setErrorTypeFilter(null); setPage(1); }}
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold bg-gray-800 text-white rounded-full hover:bg-gray-700 transition"
+              >
+                {errorTypeFilter} ✕
+              </button>
+            )}
+          </span>
           <span className="text-xs text-gray-500">{page} / {totalPages} 페이지</span>
         </div>
 

@@ -53,7 +53,7 @@ export async function GET(
       FROM actions a
       LEFT JOIN airlines al ON a.airline_id = al.id
       LEFT JOIN callsigns cs ON a.callsign_id = cs.id
-      WHERE a.id = ?`,
+      WHERE a.id = $1`,
       [id]
     );
 
@@ -65,6 +65,14 @@ export async function GET(
     }
 
     const action = result.rows[0];
+
+    // 인가 확인: 관리자가 아닌 경우 자기 항공사의 조치만 조회 가능
+    if (payload.role !== 'admin' && payload.airlineId !== action.airline_id) {
+      return NextResponse.json(
+        { error: '해당 조치를 조회할 권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
 
     return NextResponse.json({
       id: action.id,
@@ -161,7 +169,7 @@ export async function PATCH(
         a.manager_name, a.planned_due_date, a.completed_at,
         a.registered_by, a.registered_at,
         c.airline_code, c.other_airline_code
-       FROM actions a LEFT JOIN callsigns c ON a.callsign_id = c.id WHERE a.id = ?`,
+       FROM actions a LEFT JOIN callsigns c ON a.callsign_id = c.id WHERE a.id = $1`,
       [id]
     );
 
@@ -190,7 +198,7 @@ export async function PATCH(
       const airlineCode = existingData.airline_code;
 
       // 자사/타사 판단 (현재 항공사 코드와 비교)
-      const airlineCheck = await query('SELECT code FROM airlines WHERE id = ?', [airlineId]);
+      const airlineCheck = await query('SELECT code FROM airlines WHERE id = $1', [airlineId]);
       const isMy = airlineCheck.rows[0]?.code === airlineCode;
 
       // 트랜잭션: action UPDATE + callsigns 상태 동기화
@@ -199,12 +207,12 @@ export async function PATCH(
         const nowIso = new Date().toISOString();
         await trx(
           `UPDATE actions SET
-            status = ?,
+            status = $1,
             is_cancelled = 1,
-            reviewed_by = ?,
-            reviewed_at = ?,
-            updated_at = ?
-           WHERE id = ?`,
+            reviewed_by = $2,
+            reviewed_at = $3,
+            updated_at = $4
+           WHERE id = $5`,
           ['in_progress', payload.userId, nowIso, nowIso, id]
         );
 
@@ -217,7 +225,7 @@ export async function PATCH(
         });
 
         // 3. 업데이트된 조치 조회
-        const updatedAction = await trx('SELECT * FROM actions WHERE id = ?', [id]);
+        const updatedAction = await trx('SELECT * FROM actions WHERE id = $1', [id]);
         return updatedAction;
       });
 
@@ -236,53 +244,54 @@ export async function PATCH(
     let sql = 'UPDATE actions SET ';
     const fields: string[] = [];
     const values: any[] = [];
+    let paramIndex = 1;
 
     // status 필드 업데이트 (필수)
     if (status !== undefined) {
-      fields.push(`status = ?`);
+      fields.push(`status = $${paramIndex++}`);
       values.push(status);
     }
 
     if (action_type !== undefined) {
-      fields.push(`action_type = ?`);
+      fields.push(`action_type = $${paramIndex++}`);
       values.push(action_type);
     }
     if (description !== undefined) {
-      fields.push(`description = ?`);
+      fields.push(`description = $${paramIndex++}`);
       values.push(description);
     }
     if (manager_name !== undefined) {
-      fields.push(`manager_name = ?`);
+      fields.push(`manager_name = $${paramIndex++}`);
       values.push(manager_name);
     }
     if (planned_due_date !== undefined) {
-      fields.push(`planned_due_date = ?`);
+      fields.push(`planned_due_date = $${paramIndex++}`);
       values.push(planned_due_date);
     }
     if (result_detail !== undefined) {
-      fields.push(`result_detail = ?`);
+      fields.push(`result_detail = $${paramIndex++}`);
       values.push(result_detail);
     }
     if (completed_at !== undefined) {
-      fields.push(`completed_at = ?`);
+      fields.push(`completed_at = $${paramIndex++}`);
       values.push(completed_at);
     }
     if (review_comment !== undefined) {
-      fields.push(`review_comment = ?`);
+      fields.push(`review_comment = $${paramIndex++}`);
       values.push(review_comment);
     }
 
     // 검토 정보 추가
-    fields.push(`reviewed_by = ?`);
+    fields.push(`reviewed_by = $${paramIndex++}`);
     values.push(payload.userId); // 현재 관리자 ID
 
-    fields.push(`reviewed_at = ?`);
+    fields.push(`reviewed_at = $${paramIndex++}`);
     values.push(new Date().toISOString());
 
-    fields.push(`updated_at = ?`);
+    fields.push(`updated_at = $${paramIndex++}`);
     values.push(new Date().toISOString());
 
-    sql += fields.join(', ') + ` WHERE id = ?`;
+    sql += fields.join(', ') + ` WHERE id = $${paramIndex++}`;
     values.push(id);
 
     // 트랜잭션: action 업데이트 + callsigns 상태 동기화
@@ -291,7 +300,7 @@ export async function PATCH(
     const airlineCode = existingAction.rows[0].airline_code;
 
     // 자사/타사 판단
-    const airlineCheck = await query('SELECT code FROM airlines WHERE id = ?', [airlineId]);
+    const airlineCheck = await query('SELECT code FROM airlines WHERE id = $1', [airlineId]);
     const isMy = airlineCheck.rows[0]?.code === airlineCode;
 
     // 국내 항공사 목록 조회 (국내/외항사 판별용)
@@ -306,7 +315,7 @@ export async function PATCH(
 
       if (actionResult.changes > 0) {
         // 2. 업데이트된 action 조회 (응답용)
-        const updated = await trx('SELECT * FROM actions WHERE id = ?', [id]);
+        const updated = await trx('SELECT * FROM actions WHERE id = $1', [id]);
         if (updated.rows.length > 0) {
           const newStatus = updated.rows[0].status;
 
@@ -400,7 +409,7 @@ export async function DELETE(
 
     // 조치 존재 확인 및 callsign 정보 조회
     const existingAction = await query(
-      'SELECT a.id, a.callsign_id, a.airline_id, c.airline_code, c.other_airline_code FROM actions a LEFT JOIN callsigns c ON a.callsign_id = c.id WHERE a.id = ?',
+      'SELECT a.id, a.callsign_id, a.airline_id, c.airline_code, c.other_airline_code FROM actions a LEFT JOIN callsigns c ON a.callsign_id = c.id WHERE a.id = $1',
       [id]
     );
 
@@ -417,14 +426,14 @@ export async function DELETE(
     const callsignId = actionData.callsign_id;
 
     // 자사/타사 판단
-    const airlineCheck = await query('SELECT code FROM airlines WHERE id = ?', [airlineId]);
+    const airlineCheck = await query('SELECT code FROM airlines WHERE id = $1', [airlineId]);
     const isMy = airlineCheck.rows[0]?.code === airlineCode;
 
     // 삭제 (on_delete cascade는 자동으로 action_history도 삭제)
     // 동시에 callsigns 상태 업데이트
     await transaction(async (trx) => {
       // 1. action 삭제
-      await trx('DELETE FROM actions WHERE id = ?', [id]);
+      await trx('DELETE FROM actions WHERE id = $1', [id]);
 
       // 2. callsigns 동기화 (중앙화된 함수 사용)
       // Phase 1: syncCallsignStatus 함수로 my_action_status, other_action_status, status 자동 계산

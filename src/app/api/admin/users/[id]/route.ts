@@ -66,8 +66,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     let resolvedAirlineId: string | undefined;
     if (airlineId || airlineCode) {
       const airlineCheck = airlineCode
-        ? await query('SELECT id FROM airlines WHERE code = ?', [airlineCode])
-        : await query('SELECT id FROM airlines WHERE id = ?', [airlineId]);
+        ? await query('SELECT id FROM airlines WHERE code = $1', [airlineCode])
+        : await query('SELECT id FROM airlines WHERE id = $1', [airlineId]);
       if (airlineCheck.rows.length === 0) {
         return NextResponse.json(
           { error: '존재하지 않는 항공사입니다.' },
@@ -80,19 +80,20 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     // 업데이트할 필드 동적 구성
     const updates: string[] = [];
     const params_array: any[] = [];
+    let paramIndex = 1;
 
     if (status) {
-      updates.push(`status = ?`);
+      updates.push(`status = $${paramIndex++}`);
       params_array.push(status);
     }
 
     if (role) {
-      updates.push(`role = ?`);
+      updates.push(`role = $${paramIndex++}`);
       params_array.push(role);
     }
 
     if (resolvedAirlineId) {
-      updates.push(`airline_id = ?`);
+      updates.push(`airline_id = $${paramIndex++}`);
       params_array.push(resolvedAirlineId);
     }
 
@@ -113,7 +114,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     // 사용자 업데이트
     const sql = `UPDATE users
                  SET ${updates.join(', ')}
-                 WHERE id = ?`;
+                 WHERE id = $${paramIndex++}`;
 
     await query(sql, params_array);
 
@@ -121,7 +122,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const userResult = await query(
       `SELECT id, email, status, role, airline_id, last_login_at, created_at, updated_at
        FROM users
-       WHERE id = ?`,
+       WHERE id = $1`,
       [userId]
     );
 
@@ -136,7 +137,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     // 항공사 정보 조회
     const airlineResult = await query(
-      'SELECT code, name_ko, name_en FROM airlines WHERE id = ?',
+      'SELECT code, name_ko, name_en FROM airlines WHERE id = $1',
       [user.airline_id]
     );
 
@@ -200,7 +201,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     const userId = id;
 
     // 관리자는 삭제 불가
-    const adminCheck = await query('SELECT role FROM users WHERE id = ?', [userId]);
+    const adminCheck = await query('SELECT role FROM users WHERE id = $1', [userId]);
     if (adminCheck.rows.length === 0) {
       return NextResponse.json(
         { error: '사용자를 찾을 수 없습니다.' },
@@ -217,7 +218,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
     // 삭제 전 사용자 정보 저장
     const userBeforeDelete = await query(
-      'SELECT id, email FROM users WHERE id = ?',
+      'SELECT id, email FROM users WHERE id = $1',
       [userId]
     );
 
@@ -231,7 +232,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     const userInfo = userBeforeDelete.rows[0];
 
     // 사용자 삭제
-    await query('DELETE FROM users WHERE id = ?', [userId]);
+    await query('DELETE FROM users WHERE id = $1', [userId]);
 
     return NextResponse.json({
       message: '사용자가 삭제되었습니다.',

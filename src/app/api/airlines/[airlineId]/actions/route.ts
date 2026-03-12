@@ -78,31 +78,32 @@ export async function GET(
     // "전체" 또는 "진행중" 필터에서 포함 (완료 필터에서는 제외)
     const allowVirtualEntries = !status || status === 'in_progress';
 
-    const actionConditions: string[] = ['a.airline_id = ?', 'COALESCE(a.is_cancelled, false) = false'];
+    let actionParamIndex = 1;
+    const actionConditions: string[] = [`a.airline_id = $${actionParamIndex++}`, 'COALESCE(a.is_cancelled, false) = false'];
     const actionParams: any[] = [airlineId];
 
     if (status && ['pending', 'in_progress', 'completed'].includes(status)) {
-      actionConditions.push('a.status = ?');
+      actionConditions.push(`a.status = $${actionParamIndex++}`);
       actionParams.push(status);
     }
 
     if (search && search.trim()) {
       const searchValue = `%${search}%`;
       actionConditions.push(`(
-        cs.callsign_pair LIKE ?
-        OR a.action_type LIKE ?
-        OR a.manager_name LIKE ?
+        cs.callsign_pair LIKE $${actionParamIndex++}
+        OR a.action_type LIKE $${actionParamIndex++}
+        OR a.manager_name LIKE $${actionParamIndex++}
       )`);
       actionParams.push(searchValue, searchValue, searchValue);
     }
 
     if (dateFrom) {
-      actionConditions.push('a.registered_at >= ?');
+      actionConditions.push(`a.registered_at >= $${actionParamIndex++}`);
       actionParams.push(dateFrom);
     }
 
     if (dateTo) {
-      actionConditions.push('a.registered_at <= ?');
+      actionConditions.push(`a.registered_at <= $${actionParamIndex++}`);
       actionParams.push(dateTo);
     }
 
@@ -149,26 +150,27 @@ export async function GET(
     let unionParams = [...actionParams];
 
     if (allowVirtualEntries) {
-      const virtualConditions: string[] = ['cs.airline_id = ?', "cs.status = 'in_progress'"];
+      let virtualParamIndex = actionParamIndex;
+      const virtualConditions: string[] = [`cs.airline_id = $${virtualParamIndex++}`, "cs.status = 'in_progress'"];
       const virtualParams: any[] = [airlineId];
 
       if (search && search.trim()) {
         const searchValue = `%${search}%`;
         virtualConditions.push(`(
-          cs.callsign_pair LIKE ?
-          OR '조치 등록 필요' LIKE ?
-          OR '' LIKE ?
+          cs.callsign_pair LIKE $${virtualParamIndex++}
+          OR '조치 등록 필요' LIKE $${virtualParamIndex++}
+          OR '' LIKE $${virtualParamIndex++}
         )`);
         virtualParams.push(searchValue, searchValue, searchValue);
       }
 
       if (dateFrom) {
-        virtualConditions.push('cs.last_occurred_at >= ?');
+        virtualConditions.push(`cs.last_occurred_at >= $${virtualParamIndex++}`);
         virtualParams.push(dateFrom);
       }
 
       if (dateTo) {
-        virtualConditions.push('cs.last_occurred_at <= ?');
+        virtualConditions.push(`cs.last_occurred_at <= $${virtualParamIndex++}`);
         virtualParams.push(dateTo);
       }
 
@@ -235,7 +237,9 @@ export async function GET(
       unionParams = [...unionParams, ...virtualParams];
     }
 
-    const finalSql = `${unionSql} ORDER BY registered_at DESC LIMIT ? OFFSET ?`;
+    const limitIdx = unionParams.length + 1;
+    const offsetIdx = unionParams.length + 2;
+    const finalSql = `${unionSql} ORDER BY registered_at DESC LIMIT $${limitIdx} OFFSET $${offsetIdx}`;
     const finalParams = [...unionParams, limit, offset];
     const result = await query(finalSql, finalParams);
 
@@ -254,6 +258,7 @@ export async function GET(
           name_ko: row.airline_name_ko,
         } : null,
         callsign_id: row.callsign_id || row.cs_id,
+        callsign_pair: row.callsign_pair || null,
         callsign: row.callsign_pair ? {
             id: row.cs_id,
             callsign_pair: row.callsign_pair,
@@ -390,7 +395,7 @@ export async function POST(
 
     // 항공사 존재 여부 및 코드 조회
     const airlineCheck = await query(
-      'SELECT id, code FROM airlines WHERE id = ?',
+      'SELECT id, code FROM airlines WHERE id = $1',
       [airlineId]
     );
 
@@ -406,7 +411,7 @@ export async function POST(
     // 호출부호 존재 및 항공사 코드 일치 확인 + 상세 정보 조회
     // (내 항공사이거나 상대 항공사인 경우 모두 허용)
     const callsignCheck = await query(
-      'SELECT id, airline_code, other_airline_code, my_action_status, other_action_status FROM callsigns WHERE id = ? AND (airline_code = ? OR other_airline_code = ?)',
+      'SELECT id, airline_code, other_airline_code, my_action_status, other_action_status FROM callsigns WHERE id = $1 AND (airline_code = $2 OR other_airline_code = $3)',
       [callsignId, airlineCode, airlineCode]
     );
 
@@ -425,7 +430,7 @@ export async function POST(
 
     // 상대 항공사 ID 조회
     const otherAirlineResult = await query(
-      'SELECT id FROM airlines WHERE code = ?',
+      'SELECT id FROM airlines WHERE code = $1',
       [otherAirlineCode]
     );
 
@@ -437,7 +442,7 @@ export async function POST(
 
       // 상대 항공사의 현재 조치 상태 조회 (W-5 FIX)
       const otherActionCheck = await query(
-        'SELECT status FROM actions WHERE callsign_id = ? AND airline_id = ? AND COALESCE(is_cancelled, false) = false ORDER BY registered_at DESC LIMIT 1',
+        'SELECT status FROM actions WHERE callsign_id = $1 AND airline_id = $2 AND COALESCE(is_cancelled, false) = false ORDER BY registered_at DESC LIMIT 1',
         [callsignId, otherAirlineId]
       );
       if (otherActionCheck.rows.length > 0) {
@@ -454,7 +459,7 @@ export async function POST(
     // Step 1: 기존 action 조회 (취소된 행도 포함하여 재조치 지원)
     // COALESCE(is_cancelled, 0)=0인 행 우선, 그 다음 is_cancelled=1 (취소된 행)을 조회
     const existingActionResult = await query(
-      `SELECT id FROM actions WHERE airline_id = ? AND callsign_id = ?
+      `SELECT id FROM actions WHERE airline_id = $1 AND callsign_id = $2
        ORDER BY COALESCE(is_cancelled, false) ASC, registered_at DESC LIMIT 1`,
       [airlineId, callsignId]
     );
@@ -468,12 +473,12 @@ export async function POST(
       await query(
         `INSERT INTO actions
           (airline_id, callsign_id, action_type, status, registered_by, registered_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [airlineId, callsignId, actionType || '조치등록', actionStatus, payload.userId, nowIso, nowIso]
       );
       // 실제 UUID id를 조회 (lastInsertRowid는 SQLite 내부 rowid이므로 불가)
       const newActionResult = await query(
-        `SELECT id FROM actions WHERE airline_id = ? AND callsign_id = ? ORDER BY registered_at DESC LIMIT 1`,
+        `SELECT id FROM actions WHERE airline_id = $1 AND callsign_id = $2 ORDER BY registered_at DESC LIMIT 1`,
         [airlineId, callsignId]
       );
       if (newActionResult.rows.length === 0) {
@@ -490,15 +495,15 @@ export async function POST(
       const nowIso = new Date().toISOString();
       await trx(
         `UPDATE actions SET
-          action_type = ?,
-          description = ?,
-          manager_name = ?,
-          planned_due_date = ?,
-          completed_at = ?,
-          status = ?,
+          action_type = $1,
+          description = $2,
+          manager_name = $3,
+          planned_due_date = $4,
+          completed_at = $5,
+          status = $6,
           is_cancelled = false,
-          updated_at = ?
-         WHERE id = ?`,
+          updated_at = $7
+         WHERE id = $8`,
         [actionType, description || null, managerName || null, plannedDueDate || null, completedTimestamp, actionStatus, nowIso, existingActionId]
       );
 
@@ -528,7 +533,7 @@ export async function POST(
 
       // 3. callsigns 상태 업데이트
       await trx(
-        `UPDATE callsigns SET my_action_status = ?, other_action_status = ?, status = ? WHERE id = ?`,
+        `UPDATE callsigns SET my_action_status = $1, other_action_status = $2, status = $3 WHERE id = $4`,
         [myStatus, otherStatus, finalStatus, callsignId]
       );
 
@@ -542,7 +547,7 @@ export async function POST(
         manager_name, planned_due_date, completed_at,
         status, registered_by, registered_at, updated_at
        FROM actions
-       WHERE id = ?`,
+       WHERE id = $1`,
       [existingActionId]
     );
 

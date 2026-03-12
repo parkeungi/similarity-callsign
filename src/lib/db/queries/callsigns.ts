@@ -10,20 +10,20 @@ export const getCallsignById = `SELECT
   a.code as airline_code_ref, a.name_ko as airline_name_ko, a.name_en as airline_name_en
 FROM callsigns c
 LEFT JOIN airlines a ON c.airline_id = a.id
-WHERE c.id = ?`;
+WHERE c.id = $1`;
 
 /**
  * 조치 이력 조회 (특정 유사호출부호)
  */
 export const getActionsByCallsignId = `SELECT *
 FROM actions
-WHERE callsign_id = ?
+WHERE callsign_id = $1
 ORDER BY updated_at DESC, registered_at DESC`;
 
 /**
  * 항공사별 유사호출부호 조회
  */
-export const getCallsignsByAirlineId = `SELECT * FROM callsigns WHERE airline_id = ? ORDER BY occurrence_count DESC LIMIT ?`;
+export const getCallsignsByAirlineId = `SELECT * FROM callsigns WHERE airline_id = $1 ORDER BY occurrence_count DESC LIMIT $2`;
 
 /**
  * 유사호출부호 통계

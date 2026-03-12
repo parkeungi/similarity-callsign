@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       SELECT u.id, u.airline_id, a.code as airline_code
       FROM users u
       LEFT JOIN airlines a ON u.airline_id = a.id
-      WHERE u.id = ?
+      WHERE u.id = $1
       `,
       [payload.userId]
     );
@@ -94,9 +94,13 @@ export async function GET(request: NextRequest) {
     }
 
     // 5. WHERE 조건 부분을 먼저 구성
+    // Note: The first param ($1) in both count and data queries is payload.userId for the JOIN.
+    // WHERE clause params start from $2.
+    let whereParamIndex = 2;
+
     let whereClause = `(
       a.target_airlines IS NULL
-      OR (',' || COALESCE(a.target_airlines, '') || ',') LIKE ?
+      OR (',' || COALESCE(a.target_airlines, '') || ',') LIKE $${whereParamIndex++}
     )`;
 
     const targetPattern = user.airline_code ? `%,${user.airline_code},%` : null;
@@ -104,7 +108,7 @@ export async function GET(request: NextRequest) {
 
     // 6. 필터 적용
     if (level && ['warning', 'info', 'success'].includes(level)) {
-      whereClause += ` AND a.level = ?`;
+      whereClause += ` AND a.level = $${whereParamIndex++}`;
       queryParams.push(level);
     }
 
@@ -119,18 +123,18 @@ export async function GET(request: NextRequest) {
 
     // 날짜 범위 필터
     if (dateFrom) {
-      whereClause += ` AND a.start_date >= ?`;
+      whereClause += ` AND a.start_date >= $${whereParamIndex++}`;
       queryParams.push(dateFrom);
     }
 
     if (dateTo) {
-      whereClause += ` AND DATE(a.start_date) <= DATE(?)`;
+      whereClause += ` AND DATE(a.start_date) <= DATE($${whereParamIndex++})`;
       queryParams.push(dateTo);
     }
 
     // 제목/내용 검색
     if (search) {
-      whereClause += ` AND (a.title LIKE ? OR a.content LIKE ?)`;
+      whereClause += ` AND (a.title LIKE $${whereParamIndex++} OR a.content LIKE $${whereParamIndex++})`;
       queryParams.push(`%${search}%`, `%${search}%`);
     }
 
@@ -141,7 +145,7 @@ export async function GET(request: NextRequest) {
       SELECT COUNT(*) as count
       FROM announcements a
       LEFT JOIN announcement_views av
-        ON a.id = av.announcement_id AND av.user_id = ?
+        ON a.id = av.announcement_id AND av.user_id = $1
       WHERE ${whereClause}
       `,
       [payload.userId, ...countParams]
@@ -162,11 +166,11 @@ export async function GET(request: NextRequest) {
         CASE WHEN av.id IS NOT NULL THEN 1 ELSE 0 END as "isViewed"
       FROM announcements a
       LEFT JOIN announcement_views av
-        ON a.id = av.announcement_id AND av.user_id = ?
+        ON a.id = av.announcement_id AND av.user_id = $1
       WHERE ${whereClause}
     `;
 
-    sql += ` ORDER BY a.start_date DESC LIMIT ? OFFSET ?`;
+    sql += ` ORDER BY a.start_date DESC LIMIT $${whereParamIndex++} OFFSET $${whereParamIndex++}`;
     queryParams.push(limit, offset);
 
     const result = await query(sql, [payload.userId, ...queryParams]);

@@ -105,6 +105,7 @@ export async function GET(request: NextRequest) {
     // 쿼리 파라미터
     const riskLevel = request.nextUrl.searchParams.get('riskLevel');
     const airlineId = request.nextUrl.searchParams.get('airlineId');
+    const airlineFilter = request.nextUrl.searchParams.get('airlineFilter'); // 'foreign' = 외항사끼리
     const myActionStatus = request.nextUrl.searchParams.get('myActionStatus');
     const actionType = request.nextUrl.searchParams.get('actionType');
     const dateFrom = request.nextUrl.searchParams.get('dateFrom');
@@ -146,6 +147,18 @@ export async function GET(request: NextRequest) {
     if (airlineId) {
       sqlParams.push(airlineId);
       whereClauses.push(`c.airline_id = $${sqlParams.length}`);
+    }
+
+    // 외항사끼리 필터: airline_code와 other_airline_code 모두 airlines 테이블에 없는 건
+    if (airlineFilter === 'foreign') {
+      whereClauses.push(`c.airline_code NOT IN (SELECT code FROM airlines) AND c.other_airline_code NOT IN (SELECT code FROM airlines)`);
+    }
+    // 국내↔외항사 필터: 한쪽만 국내항공사인 건
+    if (airlineFilter === 'foreign_domestic') {
+      whereClauses.push(`(
+        (c.airline_code IN (SELECT code FROM airlines) AND c.other_airline_code NOT IN (SELECT code FROM airlines))
+        OR (c.airline_code NOT IN (SELECT code FROM airlines) AND c.other_airline_code IN (SELECT code FROM airlines))
+      )`);
     }
 
     if (dateFrom) {

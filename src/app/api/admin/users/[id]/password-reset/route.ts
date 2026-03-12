@@ -51,7 +51,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
       `SELECT u.id, u.email, u.status, u.role, u.airline_id, a.code as airline_code
        FROM users u
        LEFT JOIN airlines a ON u.airline_id = a.id
-       WHERE u.id = ?`,
+       WHERE u.id = $1`,
       [userId]
     );
 
@@ -99,11 +99,11 @@ export async function PUT(request: NextRequest, { params }: Params) {
     // DB 업데이트
     await query(
       `UPDATE users
-       SET password_hash = ?,
+       SET password_hash = $1,
            is_default_password = true,
            password_change_required = true,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
+       WHERE id = $2`,
       [passwordHash, userId]
     );
 
