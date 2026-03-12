@@ -1,3 +1,4 @@
+// GET /api/admin/database/tables - PostgreSQL 전체 테이블 목록+행수 조회, information_schema 사용, 관리자 전용
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';

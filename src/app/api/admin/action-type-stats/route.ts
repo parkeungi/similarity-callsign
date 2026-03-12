@@ -1,3 +1,4 @@
+// GET /api/admin/action-type-stats - 조치유형별 통계(유형별 건수·완료율), actions 테이블 GROUP BY action_type
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';

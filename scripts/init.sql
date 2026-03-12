@@ -291,8 +291,9 @@ CREATE TABLE IF NOT EXISTS callsign_occurrences (
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
-  -- 제약조건: 같은 callsign에서 같은 날짜의 중복 방지
-  UNIQUE(callsign_id, occurred_date)
+  -- 제약조건: 같은 callsign에서 같은 날짜+시간의 중복 방지
+  -- (같은 날짜라도 다른 섹터/시간대의 발생은 별도 기록)
+  UNIQUE(callsign_id, occurred_date, occurred_time)
 );
 
 CREATE INDEX IF NOT EXISTS idx_callsign_occurrences_callsign_id ON callsign_occurrences(callsign_id);

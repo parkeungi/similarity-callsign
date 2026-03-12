@@ -1,3 +1,4 @@
+// 조치 등록/수정 모달 - callsign_id·action_type·description·manager_name·responsible_staff·planned_due_date 입력, POST/PATCH API 호출, useActionTypes로 유형 목록 로드
 'use client';
 
 import { useState, useEffect } from 'react';

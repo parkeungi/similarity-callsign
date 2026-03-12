@@ -1,3 +1,4 @@
+// 조치 효과성 차트 - recharts 기반, GET /api/admin/action-effectiveness 데이터(평균처리일수·완료율) 시각화
 'use client';
 
 import React from 'react';

@@ -1,3 +1,4 @@
+// GET /api/admin/overview - 관리자 대시보드 개요(총 호출부호·항공사·조치완료율·최근업로드), callsigns·airlines·actions·file_uploads 집계
 /**
  * GET /api/admin/overview
  * 전체 현황 관리 - 유사호출부호별 조치 현황 조회

@@ -1,3 +1,4 @@
+// GET /api/admin/comprehensive-stats - 종합 통계(위험도분포·조치진행률·항공사별현황·월별추세), callsigns·actions 다중 집계
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';

@@ -1,3 +1,4 @@
+// TanStack Query Provider 래퍼 - QueryClient 생성(staleTime 5분), QueryClientProvider·ReactQueryDevtools 포함
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

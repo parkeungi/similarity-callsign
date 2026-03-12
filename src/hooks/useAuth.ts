@@ -1,3 +1,4 @@
+// 인증 편의 훅 - logout(토큰삭제+리다이렉트)·refreshUser(GET /api/auth/me) 함수 export, authStore 연동
 /**
  * useAuth 훅
  * - 인증 관련 편의 함수 모음

@@ -1,3 +1,4 @@
+// PostgreSQL Provider 구현 - pg.Pool 기반, query(sql,params)→{rows}·transaction(fn)·initSchema() 메서드, DATABASE_URL 환경변수 사용
 import { Pool } from 'pg';
 import type { DatabaseProvider, QueryResult } from '../../interface';
 import { initializeSchema } from './schema';

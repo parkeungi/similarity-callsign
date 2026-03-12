@@ -1,3 +1,4 @@
+// 조치 이력 관리 페이지 - AdminActionsTable+AdminActionsFilters 렌더링, 전체 조치 목록 조회
 'use client';
 
 import { useState, useMemo } from 'react';

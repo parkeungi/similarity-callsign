@@ -1,3 +1,4 @@
+// 항공사 관리 섹션 - airlines CRUD UI, 생성·수정·삭제·display_order 변경, useAirlines 훅 사용
 "use client";
 
 import { useState } from "react";

@@ -1,3 +1,4 @@
+// POST /api/auth/logout - 로그아웃 처리, refresh_tokens 테이블에서 해당 토큰 삭제, refreshToken 쿠키 제거
 /**
  * POST /api/auth/logout
  * 로그아웃 (쿠키 삭제 + DB RefreshToken 무효화)
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
     const payload = verifyRefreshToken(refreshToken);
     if (payload?.userId) {
       await query(
-        `UPDATE users SET refresh_token_hash = NULL WHERE id = ?`,
+        `UPDATE users SET refresh_token_hash = NULL WHERE id = $1`,
         [payload.userId]
       ).catch(() => {
         // 로그아웃은 DB 오류와 무관하게 쿠키는 항상 삭제
@@ -31,15 +32,6 @@ export async function POST(request: NextRequest) {
     path: '/',
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-  });
-
-  response.cookies.set({
-    name: 'user',
-    value: '',
-    maxAge: 0,
-    path: '/',
-    httpOnly: false,
     sameSite: 'lax',
   });
 

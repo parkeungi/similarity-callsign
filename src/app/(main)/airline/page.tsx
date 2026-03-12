@@ -1,3 +1,4 @@
+// 항공사 대시보드 - 4개 탭(조치대상·발생현황·공지사항·통계), useAuth로 사용자/항공사 정보 로드, GET /api/airlines/[id]/callsigns 호출, Callsign→Incident 변환
 'use client';
 
 import { useRouter } from 'next/navigation';

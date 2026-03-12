@@ -1,3 +1,4 @@
+// 발생현황 필터 UI - 정렬(priority/risk/count/latest/ai_score)·상태·위험도·날짜범위 드롭다운, 부모에 onChange 콜백
 'use client';
 
 import React from 'react';

@@ -1,3 +1,4 @@
+// 관리자 조치 필터 - 상태(pending/in_progress/completed)·항공사·날짜범위 드롭다운, onChange 콜백
 "use client";
 
 import { Airline } from '@/hooks/useAirlines';

@@ -1,3 +1,4 @@
+// 업로드 결과 요약 - 총 행수·성공·실패 건수 표시, 에러 상세 목록 펼침
 interface UploadResultProps {
   result: {
     success: boolean;

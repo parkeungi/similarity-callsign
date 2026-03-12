@@ -1,3 +1,4 @@
+// 관리자 발생현황 탭 - GET /api/admin/occurrences 호출, 양쪽 항공사 조치상태 표시, riskLevel·airline 필터, 페이지네이션
 'use client';
 
 import React, { useMemo, useState } from 'react';

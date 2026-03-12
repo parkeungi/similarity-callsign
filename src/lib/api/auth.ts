@@ -1,3 +1,4 @@
+// 인증 API 클라이언트 - login·logout·refresh·getMe·changePassword·forgotPassword 함수, apiFetch 래퍼 사용
 /**
  * 인증 관련 API 함수
  * - apiFetch 사용: 401 시 자동 토큰 갱신 인터셉터 적용

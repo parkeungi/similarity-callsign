@@ -1,3 +1,4 @@
+// 항공사 모달 상태 훅 - isOpen·selectedAirline·openModal·closeModal 상태 관리
 'use client';
 
 import { useState } from 'react';

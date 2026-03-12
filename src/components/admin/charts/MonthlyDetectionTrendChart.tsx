@@ -1,3 +1,4 @@
+// 월별 탐지 추세 차트 - recharts LineChart, GET /api/admin/monthly-detection-trend 데이터 시각화
 'use client';
 
 import React from 'react';

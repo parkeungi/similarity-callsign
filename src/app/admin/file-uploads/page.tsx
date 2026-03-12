@@ -1,3 +1,4 @@
+// 파일 업로드 이력 관리 페이지 - UploadHistoryManagement 렌더링, 업로드 삭제/강제삭제
 'use client';
 
 import { useRouter } from 'next/navigation';

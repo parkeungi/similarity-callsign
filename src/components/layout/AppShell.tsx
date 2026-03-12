@@ -1,3 +1,4 @@
+// 기본 레이아웃 래퍼 - Header+main+AppFooter 구성, children 슬롯, 스크롤 영역 관리
 import { ReactNode } from 'react';
 import { Header } from '@/components/layout/Header';
 

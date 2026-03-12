@@ -1,3 +1,4 @@
+// 조치 이력 탭 - GET /api/airlines/[id]/actions로 조치 목록 조회, 페이지네이션·상태필터, ActionDetailModal 연동
 'use client';
 
 import React, { useMemo, useCallback } from 'react';

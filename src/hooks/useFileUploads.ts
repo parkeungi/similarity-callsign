@@ -1,3 +1,4 @@
+// 파일 업로드 React Query 훅 - useFileUploads(이력 목록)·useForceDeleteUpload(강제 삭제)
 /**
  * 파일 업로드 이력 조회 훅
  */

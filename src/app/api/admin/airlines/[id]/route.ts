@@ -1,3 +1,4 @@
+// PATCH /api/admin/airlines/[id] - 항공사 정보 수정(이름·코드·display_order·색상), airlines 테이블, 관리자 전용
 /**
  * PATCH /api/admin/airlines/[id] - 항공사 수정 (관리자만)
  * DELETE /api/admin/airlines/[id] - 항공사 삭제 (관리자만)

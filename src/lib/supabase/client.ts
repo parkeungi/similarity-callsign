@@ -1,3 +1,4 @@
+// Supabase 클라이언트 초기화 - createClient(SUPABASE_URL, SUPABASE_ANON_KEY), 스토리지/실시간 기능용
 import { createClient } from '@supabase/supabase-js';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -1,3 +1,4 @@
+// 관리자 진입점 - /admin/callsign-management로 자동 리다이렉트(useRouter)
 'use client';
 
 import { useState, useEffect } from 'react';

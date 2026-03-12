@@ -1,3 +1,4 @@
+// 유사호출부호 목록 탭 - Incident[] 테이블 렌더링, 위험도·유사성 배지, Excel(xlsx) 내보내기 기능, 정렬·필터 지원
 'use client';
 
 import React, { useMemo, useState, useCallback } from 'react';

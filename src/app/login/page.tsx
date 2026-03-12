@@ -1,3 +1,4 @@
+// 로그인 페이지 - LoginForm 컴포넌트 렌더링, 인증 완료 시 /airline로 리다이렉트
 'use client';
 
 import { LoginForm } from '@/components/forms/LoginForm';

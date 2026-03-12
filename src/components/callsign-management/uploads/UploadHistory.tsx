@@ -1,3 +1,4 @@
+// 업로드 이력 목록 - FileUpload[] 렌더링, 파일명·날짜·처리결과(성공/실패 건수) 표시
 interface UploadHistoryItem {
   fileName: string;
   uploadedAt: string;

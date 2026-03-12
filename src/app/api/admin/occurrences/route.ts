@@ -1,3 +1,4 @@
+// GET /api/admin/occurrences - 관리자 발생현황 조회, callsigns JOIN callsign_occurrences·actions, 양쪽 항공사 조치상태, riskLevel·airline·dateRange 필터, 페이지네이션
 /**
  * GET /api/admin/occurrences
  * 전체 항공사 발생현황 통합 조회 (관리자 전용)

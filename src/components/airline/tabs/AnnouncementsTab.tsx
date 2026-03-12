@@ -1,3 +1,4 @@
+// 공지사항 탭 - AirlineAnnouncementList 래핑, 항공사 대시보드 내 공지 영역
 'use client';
 
 import React from 'react';

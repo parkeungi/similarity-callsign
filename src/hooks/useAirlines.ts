@@ -1,3 +1,4 @@
+// 항공사 React Query 훅 - useAirlines(GET /api/airlines 목록)·useCreateAirline·useUpdateAirline·useDeleteAirline, staleTime 5분
 /**
  * 항공사 관련 React Query 훅
  * - useAirlines: 공개 API에서 항공사 목록 조회 (인증 불필요)

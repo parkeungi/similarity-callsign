@@ -1,3 +1,4 @@
+// GET /api/callsigns/stats - 유사호출부호 통계(전체·위험도별·항공사별 건수), callsigns 테이블 GROUP BY 집계
 /**
  * GET /api/callsigns/stats
  * 유사호출부호 통계 조회 (전체 기준, 필터 적용)

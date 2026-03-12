@@ -1,3 +1,4 @@
+// POST /api/auth/refresh - refreshToken 쿠키로 새 AccessToken 발급, refresh_tokens 테이블 검증, 만료 시 401 반환
 /**
  * POST /api/auth/refresh
  * 토큰 갱신 (refreshToken 쿠키 기반)

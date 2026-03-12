@@ -1,3 +1,4 @@
+// 비밀번호 초기화 섹션 - 사용자 선택 드롭다운+초기화 버튼, POST /api/admin/users/[id]/password-reset 호출
 "use client";
 
 import { useState } from "react";

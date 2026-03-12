@@ -1,3 +1,4 @@
+// 파일 업로드 드래그앤드롭 - xlsx 파일 선택/드롭, POST /api/admin/upload-callsigns 호출, 진행률 표시
 'use client';
 
 import { useState, useRef, useEffect } from 'react';

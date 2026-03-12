@@ -1,3 +1,4 @@
+// 공지사항 타입 - Announcement(id·title·content·target_airline_ids·importance·is_active), announcements 테이블 매핑
 /**
  * 공지사항 관리 시스템 타입 정의
  */

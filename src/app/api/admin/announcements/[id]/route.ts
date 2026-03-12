@@ -1,3 +1,4 @@
+// PATCH/DELETE /api/admin/announcements/[id] - 공지사항 수정(PATCH)/삭제(DELETE), announcements 테이블, 관리자 전용
 /**
  * PATCH /api/admin/announcements/{id}
  * 공지사항 수정

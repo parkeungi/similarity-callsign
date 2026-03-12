@@ -1,3 +1,4 @@
+// 통계 카드 - title·value·icon·color props, 대시보드 상단 요약 수치 표시
 interface StatCardProps {
   label: string;
   value: number;

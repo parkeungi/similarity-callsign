@@ -1,3 +1,4 @@
+// 항공사/UI 타입 - Airline·Incident(화면표시용 Callsign 변환)·RiskLevel·ErrorType·SortOrder·REASON_TYPE_CONFIG(AI 7종)·getAiScoreColor(점수→색상) 등
 /**
  * 항공사 페이지 전용 타입 정의
  */

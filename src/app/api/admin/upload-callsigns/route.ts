@@ -1,3 +1,4 @@
+// POST /api/admin/upload-callsigns - Excel(xlsx) 업로드 → callsigns·callsign_occurrences UPSERT, file_uploads 이력 기록, 글로벌 쌍 키(callsign_a/b) 정규화, 관리자 전용
 /**
  * POST /api/admin/upload-callsigns
  * Excel 파일로 유사호출부호 데이터 일괄 업로드
@@ -143,31 +144,33 @@ export async function POST(request: NextRequest) {
         const row = rows[i];
         
         // 빈 행 스킵 (편명1이 있어야 유효한 행)
-        if (!row || row.length === 0 || !row[4]) continue;
+        if (!row || row.length === 0 || !row[3]) continue;
 
         try {
-          // 엑셀 컬럼 매핑 (callsign.xlsx 기준)
-          // 0: 순서, 1: 시작일시, 2: 종료일시, 3: 관할섹터명, 4: 편명1
-          // 5: 출발공항1, 6: 목적공항1, 7: 편명2, 8: 출발공항2, 9: 목적공항2
-          // 10: CALLSIGNPAIR, 11: 항공사구분, 12: 항공사국문
-          // 13: 항공사코드동일여부, 14: 편명번호길이동일여부, 15: 편명번호동일숫자위치
-          // 16: 편명번호동일숫자갯수, 17: 편명번호동일숫자구성비율(%)
-          // 18: 편명유사도, 19: 최대동시관제량, 20: 공존시간(분)
-          // 21: 오류발생가능성, 22: 관제사권고사항, 23: 오류유형, 24: 세부오류유형
+          // 엑셀 컬럼 매핑 (2026년3월 포맷 — 순서 컬럼 없음)
+          // 0: 시작일시, 1: 종료일시, 2: 관할섹터명, 3: 편명1
+          // 4: 출발공항1, 5: 도착공항1, 6: 편명2, 7: 출발공항2, 8: 도착공항2
+          // 9: 편명1|편명2, 10: 항공사구분, 11: 항공사국문
+          // 12: 항공사코드동일여부, 13: 편명번호길이동일여부, 14: 편명번호동일숫자위치
+          // 15: 편명번호동일숫자갯수, 16: 편명번호동일숫자구성비율(%)
+          // 17: 편명유사도, 18: 최대동시관제량, 19: 공존시간(분)
+          // 20: 오류발생가능성_점수, 21: 오류발생가능성_등급
+          // 22: 보고여부, 23: 관제사권고사항, 24: 보고일시, 25: 보고자, 26: 혼돈편명
+          // 27: 오류유형, 28: 세부오류유형, 29: 비고
 
-          const callsign1 = String(row[4] || '').trim();
-          const callsign2 = String(row[7] || '').trim();
-          const airlineCodeRaw = String(row[11] || '').trim(); // "KAL | TWB" 또는 "KAL"
+          const callsign1 = String(row[3] || '').trim();
+          const callsign2 = String(row[6] || '').trim();
+          const airlineCodeRaw = String(row[10] || '').trim(); // "KAL | TWB" 또는 "KAL"
 
           // 추가 필드 추출
-          const sector = row[3] ? String(row[3]).trim() : undefined;
-          const departureAirport1 = row[5] ? String(row[5]).trim() : undefined;
-          const arrivalAirport1 = row[6] ? String(row[6]).trim() : undefined;
-          const departureAirport2 = row[8] ? String(row[8]).trim() : undefined;
-          const arrivalAirport2 = row[9] ? String(row[9]).trim() : undefined;
-          const sameAirlineCode = row[13] ? String(row[13]).trim() : undefined;
-          const sameCallsignLength = row[14] ? String(row[14]).trim() : undefined;
-          const sameNumberPosition = row[15] ? String(row[15]).trim() : undefined;
+          const sector = row[2] ? String(row[2]).trim() : undefined;
+          const departureAirport1 = row[4] ? String(row[4]).trim() : undefined;
+          const arrivalAirport1 = row[5] ? String(row[5]).trim() : undefined;
+          const departureAirport2 = row[7] ? String(row[7]).trim() : undefined;
+          const arrivalAirport2 = row[8] ? String(row[8]).trim() : undefined;
+          const sameAirlineCode = row[12] ? String(row[12]).trim() : undefined;
+          const sameCallsignLength = row[13] ? String(row[13]).trim() : undefined;
+          const sameNumberPosition = row[14] ? String(row[14]).trim() : undefined;
           // NaN 방지 헬퍼: 빈 셀/비숫자 → null
           const toInt = (v: any): number | null => {
             if (v === undefined || v === null || v === '') return null;
@@ -180,18 +183,18 @@ export async function POST(request: NextRequest) {
             return isNaN(n) ? null : n;
           };
 
-          const sameNumberCount = toInt(row[16]);
-          const sameNumberRatio = toFloat(row[17]);
-          const similarity = row[18] ? String(row[18]).trim() : undefined;
-          const maxConcurrentTraffic = toInt(row[19]);
-          const coexistenceMinutes = toInt(row[20]);
-          const errorProbability = toFloat(row[21]);
-          const atcRecommendation = row[22] ? String(row[22]).trim() : undefined;
-          const errorType = row[23] ? String(row[23]).trim() : undefined;
-          const subError = row[24] ? String(row[24]).trim() : undefined;
-          // 발생건수 추출 (컬럼 25로 가정, 없으면 최소 1건으로 처리)
-          const occurrenceCountRaw = toInt(row[25]);
-          const occurrenceCount = occurrenceCountRaw && occurrenceCountRaw > 0 ? occurrenceCountRaw : 1;
+          const sameNumberCount = toInt(row[15]);
+          const sameNumberRatio = toFloat(row[16]);
+          const similarity = row[17] ? String(row[17]).trim() : undefined;
+          const maxConcurrentTraffic = toInt(row[18]);
+          const coexistenceMinutes = toInt(row[19]);
+          const errorProbability = toFloat(row[20]);           // 오류발생가능성_점수 (숫자)
+          const riskLevelGrade = row[21] ? String(row[21]).trim() : undefined; // 오류발생가능성_등급
+          const atcRecommendation = row[23] ? String(row[23]).trim() : undefined;
+          const errorType = row[27] ? String(row[27]).trim() : undefined;
+          const subError = row[28] ? String(row[28]).trim() : undefined;
+          // 발생건수: 신규 포맷에 별도 컬럼 없음 → 기본 1건
+          const occurrenceCount = 1;
 
           // 항공사 코드가 우리 시스템의 항공사 코드에 매핑되는지 확인
           // 우리 시스템에서 관리하는 국내 항공사만 필터링
@@ -223,9 +226,9 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // 오류가능성(편명유사도)이 '낮음' 또는 '매우낮음'이면 스킵
-          const similarityNormalized = similarity?.replace(/\s+/g, '');
-          if (similarityNormalized && ['낮음', '매우낮음'].includes(similarityNormalized)) {
+          // 오류발생가능성_등급이 '낮음' 또는 '매우낮음'이면 스킵 (높음/매우높음만 처리)
+          const riskGradeNormalized = riskLevelGrade?.replace(/\s+/g, '');
+          if (riskGradeNormalized && ['낮음', '매우낮음'].includes(riskGradeNormalized)) {
             continue;
           }
 
@@ -281,7 +284,7 @@ export async function POST(request: NextRequest) {
             // 오류 정보
             error_type: errorType,
             sub_error: subError,
-            risk_level: similarity, // 유사도를 risk_level로도 사용
+            risk_level: riskLevelGrade, // 오류발생가능성_등급 [21]
             occurrence_count: occurrenceCount,
           };
 
@@ -450,35 +453,12 @@ export async function POST(request: NextRequest) {
             return null;
           };
 
-          const parseTimeValue = (value: any): string | null => {
-            if (value === undefined || value === null || value === '') return null;
-            if (typeof value === 'number') {
-              const totalMinutes = Math.round(value * 24 * 60);
-              const hours = Math.floor(totalMinutes / 60) % 24;
-              const minutes = totalMinutes % 60;
-              return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-            }
-            const str = String(value).trim();
-            if (!str) return null;
-            if (str.match(/^\d{1,2}:\d{2}(:\d{2})?$/)) {
-              const parts = str.split(':');
-              const hour = parts[0].padStart(2, '0');
-              const minute = parts[1].padStart(2, '0');
-              return `${hour}:${minute}`;
-            }
-            const parsed = Date.parse(str);
-            if (!Number.isNaN(parsed)) {
-              const parsedDate = new Date(parsed);
-              return `${String(parsedDate.getHours()).padStart(2, '0')}:${String(parsedDate.getMinutes()).padStart(2, '0')}`;
-            }
-            return null;
-          };
 
           const formatMinutes = (date: Date): string => {
             return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
           };
 
-          const startDateTime = parseExcelDateTime(row[1]);
+          const startDateTime = parseExcelDateTime(row[0]); // 시작일시 (row[0])
           let occurredDate = startDateTime
             ? startDateTime.toISOString().split('T')[0]
             : new Date().toISOString().split('T')[0];
@@ -486,32 +466,40 @@ export async function POST(request: NextRequest) {
             ? formatMinutes(startDateTime)
             : '00:00';
 
-          // 보조 시간 컬럼(row[2]) 사용 (예: 종료일시에만 시간이 있는 파일)
-          if ((!startDateTime || occurredTime === '00:00') && row[2]) {
-            const fallbackTime = parseTimeValue(row[2]);
-            if (fallbackTime) {
-              occurredTime = fallbackTime;
+          // 시작일시가 없거나 시간이 00:00이면 종료일시(row[1])에서 보조 추출
+          if ((!startDateTime || occurredTime === '00:00') && row[1]) {
+            const fallbackDateTime = parseExcelDateTime(row[1]);
+            if (fallbackDateTime) {
+              if (!startDateTime) {
+                occurredDate = fallbackDateTime.toISOString().split('T')[0];
+              }
+              const fallbackTime = formatMinutes(fallbackDateTime);
+              if (fallbackTime !== '00:00') {
+                occurredTime = fallbackTime;
+              }
             }
           }
 
-          const { date: normalizedDate, timestamp } = buildStorageTimestamp(
+          const { date: normalizedDate } = buildStorageTimestamp(
             occurredDate,
             occurredTime
           );
 
+          // occurred_time은 TIME 컬럼이므로 HH:MM 형식으로 전달
+          const occurredTimeForDb = occurredTime; // "HH:MM" 형식
+
           // Step 3: callsign_occurrences 테이블에 발생 이력 저장
-          // 같은 callsign이 같은 날짜+시간에 나타나면 스킵 (UNIQUE constraint)
+          // 같은 callsign+날짜+시간 조합이면 스킵 (UNIQUE constraint)
           try {
-            // PostgreSQL TIMESTAMP 컬럼에는 전체 datetime 문자열 필요
             await query(
               `INSERT INTO callsign_occurrences
                 (callsign_id, occurred_date, occurred_time, error_type, sub_error, file_upload_id)
                VALUES ($1, $2, $3, $4, $5, $6)
-               ON CONFLICT (callsign_id, occurred_date) DO NOTHING`,
+               ON CONFLICT (callsign_id, occurred_date, occurred_time) DO NOTHING`,
               [
                 callsignId,
                 normalizedDate,
-                timestamp,
+                occurredTimeForDb,
                 rowData.error_type,
                 rowData.sub_error,
                 uploadId,

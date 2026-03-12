@@ -1,3 +1,4 @@
+// 홈 페이지 - 비인증 사용자용, 로그인 폼(LoginForm) 렌더링, 인증 시 /airline로 리다이렉트
 'use client';
 
 import Link from 'next/link';

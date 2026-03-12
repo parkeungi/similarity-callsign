@@ -1,3 +1,4 @@
+// 중복 호출부호 차트 - recharts BarChart, GET /api/admin/duplicate-callsigns-stats 데이터 시각화
 'use client';
 
 import { useDuplicateCallsignsStats } from '@/hooks/useAdminStats';

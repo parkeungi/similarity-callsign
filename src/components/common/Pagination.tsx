@@ -1,3 +1,4 @@
+// 범용 페이지네이션 - page·totalPages·onPageChange props, 이전/다음/페이지번호 버튼 렌더링
 'use client';
 
 interface PaginationProps {

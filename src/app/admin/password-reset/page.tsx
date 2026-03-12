@@ -1,3 +1,4 @@
+// 비밀번호 초기화 관리 페이지 - PasswordResetSection 렌더링, 사용자 선택 후 임시 비밀번호 발급
 import AdminUsersPageClient from '../users/client';
 
 /**

@@ -1,3 +1,4 @@
+// GET /api/action-types - 활성 조치유형 목록 조회, action_types 테이블(is_active=true), display_order 순 정렬
 /**
  * GET /api/action-types
  * 활성 조치유형 목록 조회 - 인증된 모든 유저 접근 가능 (항공사 포함)

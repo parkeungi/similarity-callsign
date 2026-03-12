@@ -1,3 +1,4 @@
+// 범용 Input 컴포넌트 - label·error 메시지·helperText 지원, forwardRef 패턴
 /**
  * Input 컴포넌트
  * - label, error, hint 지원

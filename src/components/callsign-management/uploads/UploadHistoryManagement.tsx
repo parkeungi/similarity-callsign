@@ -1,3 +1,4 @@
+// 업로드 이력 관리 - UploadHistory 확장, 삭제/강제삭제 버튼, DELETE API 호출
 'use client';
 
 import { useState } from 'react';

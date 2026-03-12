@@ -1,3 +1,4 @@
+// PATCH /api/admin/file-uploads/[id] - 파일 업로드 상태 업데이트(processing→completed/failed), file_uploads 테이블
 /**
  * DELETE /api/admin/file-uploads/[id]
  * 업로드 이력 삭제 (조치가 없을 때만 가능)

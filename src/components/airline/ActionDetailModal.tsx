@@ -1,3 +1,4 @@
+// 조치 상세 모달 - Action 객체 받아 조치유형·담당자·상태·설명·이력 표시, 닫기 버튼
 'use client';
 
 import React from 'react';

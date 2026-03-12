@@ -1,3 +1,4 @@
+// 발생 데이터 포맷팅 - formatOccurrenceDate·groupByDate·getLatestOccurrence 유틸리티, 날짜/시간 표시 정규화
 const DATE_REGEX = /(19|20)\d{2}-\d{2}-\d{2}/;
 const TIME_REGEX = /(\d{1,2}):([0-5]\d)/;
 

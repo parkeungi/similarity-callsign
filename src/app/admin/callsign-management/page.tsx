@@ -1,3 +1,4 @@
+// 발생현황 분석 페이지 - 4개 탭(발생현황AdminOccurrenceTab·조치현황OverviewTab·통계StatisticsTab·엑셀입력FileUploadZone), 관리자 전용
 'use client';
 
 import { useState, useEffect } from 'react';

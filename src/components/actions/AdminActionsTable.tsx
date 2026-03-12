@@ -1,3 +1,4 @@
+// 관리자 조치 테이블 - Action[] 렌더링, 항공사·호출부호·상태·담당자 컬럼, 행 클릭 시 상세 모달, 페이지네이션
 "use client";
 
 import type { ActionListResponse } from '@/types/action';

@@ -1,3 +1,4 @@
+// 조치 React Query 훅 - useAirlineActions(목록)·useCreateAction(POST)·useUpdateAction(PATCH)·useDeleteAction(DELETE), invalidateQueries로 캐시 갱신
 /**
  * 조치(조사/개선) 관련 React Query 훅
  * - useAirlineActions: 조치 목록 조회 (필터/페이지 지원)

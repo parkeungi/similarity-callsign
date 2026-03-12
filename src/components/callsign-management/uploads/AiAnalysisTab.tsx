@@ -1,3 +1,4 @@
+// AI 분석 탭 - 미분석 호출부호 목록 표시, GET /api/admin/ai-analysis/pending 호출, 분석 실행/내보내기 버튼
 'use client';
 
 import { useState, useRef } from 'react';

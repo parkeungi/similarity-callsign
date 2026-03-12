@@ -1,3 +1,4 @@
+// GET /api/airlines/[airlineId]/callsigns - 항공사별 유사호출부호 조회, callsigns LEFT JOIN callsign_ai_analysis(원본쌍 키), 항공사 관점 my/other 재구성, actions·callsign_occurrences 조인, riskLevel 필터, 위험도·발생횟수순 정렬
 /**
  * GET /api/airlines/[airlineId]/callsigns
  * 항공사별 유사호출부호 목록 조회

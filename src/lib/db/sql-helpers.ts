@@ -1,3 +1,4 @@
+// SQL 쿼리 빌더 유틸리티 - buildWhereClause·buildPagination·buildOrderBy 헬퍼 함수, $1/$2 플레이스홀더 자동 생성
 /**
  * PostgreSQL 전용 SQL 헬퍼 함수
  * (SQLite 지원 제거 - DB_PROVIDER=postgresql 고정)

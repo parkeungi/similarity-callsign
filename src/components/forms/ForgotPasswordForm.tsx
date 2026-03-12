@@ -1,3 +1,4 @@
+// 비밀번호 찾기 폼 - 이메일 입력+유효성 검사, POST /api/auth/forgot-password 호출, 발송 완료 메시지 표시
 /**
  * ForgotPasswordForm 컴포넌트
  * - 이메일 입력 후 리셋 링크 발송

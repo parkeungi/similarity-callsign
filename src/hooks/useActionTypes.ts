@@ -1,3 +1,4 @@
+// 조치유형 React Query 훅 - useActionTypes(목록)·useCreateActionType·useUpdateActionType·useDeleteActionType
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

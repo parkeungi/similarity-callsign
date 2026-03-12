@@ -1,3 +1,4 @@
+// 인증 SQL 쿼리 모음 - saveRefreshToken·findRefreshToken·deleteRefreshToken·updateLoginAttempts, refresh_tokens 테이블
 /**
  * 인증 관련 SQL 쿼리 (SQLite)
  */

@@ -1,3 +1,4 @@
+// POST /api/admin/database/import - JSON 데이터로 DB 복원, 트랜잭션 내 TRUNCATE+INSERT, 관리자 전용
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';

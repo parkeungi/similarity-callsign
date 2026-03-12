@@ -1,3 +1,4 @@
+// PATCH/DELETE /api/admin/settings/action-types/[id] - 조치유형 수정(PATCH)/삭제(DELETE), action_types 테이블, 관리자 전용
 /**
  * PATCH  /api/admin/settings/action-types/[id]  - 조치유형 수정
  * DELETE /api/admin/settings/action-types/[id]  - 조치유형 소프트 삭제 (is_active = false)

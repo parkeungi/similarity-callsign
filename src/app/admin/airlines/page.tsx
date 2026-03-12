@@ -1,3 +1,4 @@
+// 항공사 관리 페이지 - AirlinesAdminSection 렌더링, 항공사 생성·수정·삭제·순서변경
 import AdminUsersPageClient from '../users/client';
 
 /**

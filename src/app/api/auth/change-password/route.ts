@@ -1,3 +1,4 @@
+// POST /api/auth/change-password - 현재 비밀번호 확인 후 새 비밀번호로 변경, bcrypt 해싱, password_history 테이블 기록
 /**
  * POST /api/auth/change-password
  * 비밀번호 변경 API (초기 비밀번호 강제 변경 + 사용자가 언제든 비밀번호 변경)

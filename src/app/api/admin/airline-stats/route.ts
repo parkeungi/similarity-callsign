@@ -1,3 +1,4 @@
+// GET /api/admin/airline-stats - 항공사별 통계(호출부호수·조치완료율·위험도분포), callsigns·actions·airlines JOIN 집계
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';

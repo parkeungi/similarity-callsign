@@ -1,3 +1,4 @@
+// 사용자 타입 - User(id·email·name·role·airline_id·status)·UserRole('admin'|'user'), users 테이블 매핑
 /**
  * 항공사 인터페이스
  */

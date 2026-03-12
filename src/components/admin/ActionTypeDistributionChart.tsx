@@ -1,3 +1,4 @@
+// 조치유형 분포 차트 - recharts PieChart, GET /api/admin/action-type-stats 데이터 시각화
 'use client';
 
 import { useActionTypeStats } from '@/hooks/useAdminStats';

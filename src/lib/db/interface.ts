@@ -1,3 +1,4 @@
+// DatabaseProvider 인터페이스 정의 - query(sql,params)→{rows}·transaction(fn)·close() 메서드 시그니처
 /**
  * 공통 데이터베이스 인터페이스 정의
  */

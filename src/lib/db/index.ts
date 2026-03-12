@@ -1,3 +1,4 @@
+// PostgreSQL Provider 초기화 - getProvider()로 싱글턴 생성, query(sql,params)·transaction(callback) 함수 export
 import type { DatabaseProvider, QueryResult } from './interface';
 import { PostgreSQLProvider } from './providers/postgresql';
 

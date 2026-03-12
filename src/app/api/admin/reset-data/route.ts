@@ -1,3 +1,4 @@
+// POST /api/admin/reset-data - callsigns·actions·file_uploads·callsign_occurrences 데이터 전체 초기화, 관리자 전용
 /**
  * POST /api/admin/reset-data - 시스템 데이터 초기화 (관리자만)
  *

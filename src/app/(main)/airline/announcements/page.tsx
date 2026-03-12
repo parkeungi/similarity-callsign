@@ -1,3 +1,4 @@
+// 항공사용 공지사항 목록 페이지 - AnnouncementTable 렌더링, GET /api/announcements 호출
 'use client';
 
 import { useRouter } from 'next/navigation';

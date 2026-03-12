@@ -1,3 +1,4 @@
+// GET /api/announcements/history - 공지사항 이력 조회, announcements 테이블 전체(비활성 포함), 페이지네이션
 /**
  * GET /api/announcements/history
  * 공지사항 이력 조회 (사용자의 항공사별)

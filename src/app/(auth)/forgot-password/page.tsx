@@ -1,3 +1,4 @@
+// 비밀번호 찾기 페이지 - 이메일 입력 → POST /api/auth/forgot-password로 임시 비밀번호 발송
 import { ForgotPasswordForm } from '@/components/forms/ForgotPasswordForm';
 
 export const metadata = {

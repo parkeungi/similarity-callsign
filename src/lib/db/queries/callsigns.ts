@@ -1,3 +1,4 @@
+// 유사호출부호 SQL 쿼리 모음 - findByAirline·upsert·updateStatus·getStats, callsigns 테이블 CRUD
 /**
  * 유사호출부호 관련 SQL 쿼리 (SQLite)
  */

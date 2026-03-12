@@ -1,3 +1,4 @@
+// GET /api/announcements - 활성 공지사항 조회, announcements 테이블(is_active=true), airline_id별 필터 가능, 최신순 정렬
 /**
  * GET /api/announcements
  * 현재 활성 공지사항 조회 (로그인한 사용자의 항공사별)

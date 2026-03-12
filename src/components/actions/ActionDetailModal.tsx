@@ -1,3 +1,4 @@
+// 조치 상세 모달 - Action 객체 표시(유형·담당자·상태·설명·처리일), 수정/취소 버튼 연동
 'use client';
 
 import { useState } from 'react';

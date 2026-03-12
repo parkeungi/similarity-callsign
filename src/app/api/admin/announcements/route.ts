@@ -1,3 +1,4 @@
+// GET/POST /api/admin/announcements - 공지사항 목록(GET, 페이지네이션)/생성(POST), announcements 테이블, 관리자 전용
 /**
  * GET /api/admin/announcements
  * 전체 공지사항 목록 (관리자용)

@@ -1,3 +1,4 @@
+// 사용자 승인 테이블 - User[] 렌더링, 승인(approved)/거부(rejected)/정지(suspended) 액션 버튼, PATCH /api/admin/users/[id] 호출
 /**
  * UserApprovalTable 컴포넌트 (관리자용)
  * - 사용자 목록 표시

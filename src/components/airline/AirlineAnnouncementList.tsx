@@ -1,3 +1,4 @@
+// 항공사 공지사항 목록 - GET /api/announcements로 목록 조회, 날짜·제목·중요도 표시, 클릭 시 상세 이동
 'use client';
 
 import React, { useState, useMemo } from 'react';

@@ -1,3 +1,4 @@
+// GET/PATCH/DELETE /api/announcements/[id] - 공지사항 상세조회(GET)/수정(PATCH)/삭제(DELETE), announcements 테이블, 관리자 권한 필요
 /**
  * GET /api/announcements/{id}
  * 공지사항 상세 조회

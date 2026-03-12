@@ -1,3 +1,4 @@
+// 전역 루트 레이아웃 - HTML lang·메타데이터·Pretendard 폰트 설정, RootLayoutClient·Providers 래핑
 import type { Metadata } from 'next';
 import './globals.css';
 import { RootLayoutClient } from '@/components/layout/RootLayoutClient';

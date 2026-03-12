@@ -1,3 +1,4 @@
+// 조치유형 설정 관리 페이지 - ActionTypesManager 렌더링, 조치유형 CRUD(생성·수정·삭제·순서변경)
 import { ActionTypesManager } from '@/components/admin/settings/ActionTypesManager';
 
 export default function ActionTypesPage() {

@@ -1,3 +1,4 @@
+// GET /api/admin/action-effectiveness - 조치 효과성 분석(평균처리일수·유형별완료율·월별추세), actions 테이블 집계
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';

@@ -1,3 +1,4 @@
+// 공지사항 상세 정보 모달 - Announcement 전체 필드 표시, 수정/삭제 버튼 연동
 'use client';
 
 import { AdminAnnouncementResponse, Announcement } from '@/types/announcement';

@@ -1,3 +1,4 @@
+// 공지사항 관리 페이지 - AnnouncementTable+AnnouncementFormModal 렌더링, useAnnouncements 훅
 'use client';
 
 import { useState } from 'react';

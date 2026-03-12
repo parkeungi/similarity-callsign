@@ -1,3 +1,4 @@
+// 조치 SQL 쿼리 모음 - findById·findByAirline·create·update·cancel·getStats, actions 테이블 CRUD
 /**
  * 조치 이력 관련 SQL 쿼리 (SQLite)
  */

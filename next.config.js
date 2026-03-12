@@ -1,3 +1,4 @@
+/** Next.js 설정 - CSP·HSTS·X-Frame-Options 보안 헤더, ESLint/TypeScript 빌드 에러 무시, /dashboard→/admin/dashboard 리다이렉트/리라이트 */
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,

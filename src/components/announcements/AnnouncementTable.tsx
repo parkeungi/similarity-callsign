@@ -1,3 +1,4 @@
+// 공지사항 목록 테이블 - Announcement[] 렌더링, 제목·날짜·중요도·상태 컬럼, 행 클릭 시 상세 모달
 'use client';
 
 import { useState } from 'react';

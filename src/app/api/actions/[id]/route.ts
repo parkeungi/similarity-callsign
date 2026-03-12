@@ -1,3 +1,4 @@
+// GET/PATCH/DELETE /api/actions/[id] - 조치 상세조회(GET)/수정(PATCH)/삭제(DELETE), 상태변경 시 callsigns 동기화, is_cancelled 플래그 처리, action_history 변경이력 기록
 /**
  * GET /api/actions/[id]
  * 조치 상세 조회

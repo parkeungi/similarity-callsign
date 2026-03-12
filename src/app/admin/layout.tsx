@@ -1,3 +1,4 @@
+// 관리자 레이아웃 - JWT role=admin 검증, AdminSidebar+Header 렌더링, 비관리자 /airline로 리다이렉트
 'use client';
 
 import { useEffect } from 'react';

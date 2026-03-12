@@ -1,3 +1,4 @@
+// 전역 푸터 - 항공교통본부 저작권·버전 정보 표시
 export function AppFooter() {
   return (
     <footer className="py-5 bg-gray-100 text-gray-500 border-t border-gray-200">

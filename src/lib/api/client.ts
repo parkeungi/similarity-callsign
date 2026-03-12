@@ -1,3 +1,4 @@
+// 글로벌 fetch 래퍼(apiFetch) - Authorization 헤더 자동 주입, 401 시 refreshToken으로 재시도, authStore 토큰 관리 연동
 /**
  * 인증 인터셉터가 내장된 글로벌 fetch 래퍼
  *
@@ -12,6 +13,19 @@ import { authStore } from '@/store/authStore';
 
 /** 동시 refresh 요청 방지를 위한 싱글 Promise 플래그 (모듈 레벨에서 공유) */
 export let refreshingPromise: Promise<string | null> | null = null;
+
+/** AccessToken 만료 임박 여부 확인 (만료 5분 전이면 true) */
+function isTokenExpiringSoon(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const exp = payload.exp;
+    if (!exp) return true;
+    const now = Math.floor(Date.now() / 1000);
+    return exp - now < 300; // 5분(300초) 이내면 갱신 필요
+  } catch {
+    return true;
+  }
+}
 
 /**
  * /api/auth/refresh 호출 후 새 accessToken 반환
@@ -65,7 +79,15 @@ export async function apiFetch(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const accessToken = authStore.getState().accessToken;
+  let accessToken = authStore.getState().accessToken;
+
+  // 선제적 토큰 갱신: 만료 5분 전이면 미리 갱신하여 401 방지
+  if (accessToken && isTokenExpiringSoon(accessToken)) {
+    const newToken = await getRefreshedToken();
+    if (newToken) {
+      accessToken = newToken;
+    }
+  }
 
   // Authorization 헤더 병합
   const headers = new Headers(options.headers);

@@ -1,3 +1,4 @@
+// GET /api/admin/database/[table] - 특정 테이블 데이터 조회, 동적 테이블명(화이트리스트 검증), 페이지네이션, 관리자 전용
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';

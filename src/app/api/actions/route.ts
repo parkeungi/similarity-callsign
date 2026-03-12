@@ -1,3 +1,4 @@
+// GET /api/actions - 전체 조치 목록(관리자용), actions JOIN callsigns·airlines·users, 상태·항공사·날짜 필터, 페이지네이션
 /**
  * GET /api/actions
  * 전체 조치 목록 조회 (관리자 대시보드용)

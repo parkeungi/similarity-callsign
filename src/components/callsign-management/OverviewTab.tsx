@@ -1,3 +1,4 @@
+// 발생현황 개요 탭 - StatCard 4종(전체·위험도별)+호출부호 테이블, GET /api/callsigns 호출, 필터·페이지네이션
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';

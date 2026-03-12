@@ -1,3 +1,4 @@
+// GET/POST /api/admin/users - 사용자 목록 조회(GET, 상태·항공사 필터)/사전등록(POST, bcrypt 해싱), users·airlines 테이블, 관리자 전용
 /**
  * GET /api/admin/users
  * 사용자 목록 조회 (관리자만)

@@ -1,3 +1,4 @@
+// 상태 배지 컴포넌트 - status 값(pending/in_progress/completed/no_action)별 색상·텍스트 자동 매핑
 /**
  * StatusBadge 컴포넌트
  * 사용자 상태(active/suspended) 표시

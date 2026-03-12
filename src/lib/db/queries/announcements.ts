@@ -1,3 +1,4 @@
+// 공지사항 SQL 쿼리 모음 - findActive·findAll·findById·create·update·delete, announcements 테이블 CRUD
 /**
  * 공지사항 관련 SQL 쿼리 (SQLite)
  */

@@ -1,3 +1,4 @@
+// 파일 업로드 SQL 쿼리 모음 - create·findAll·findById·updateStatus·forceDelete, file_uploads 테이블 CRUD
 /**
  * 파일 업로드 관련 SQL 쿼리 (SQLite)
  */

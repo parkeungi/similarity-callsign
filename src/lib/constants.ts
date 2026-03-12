@@ -1,3 +1,4 @@
+// 전역 상수 - PASSWORD_REGEX·AUTH_ERRORS·ROUTES·AIRLINES(국내항공사 11개 Set)·MAX_LIMIT·STATUS_LABELS 등 프로젝트 공용 상수
 /**
  * 환경 변수
  */

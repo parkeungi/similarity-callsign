@@ -1,3 +1,4 @@
+// 조치 효과성 React Query 훅 - GET /api/admin/action-effectiveness 호출, 평균처리일수·유형별완료율 반환
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import { apiFetch } from '@/lib/api/client';

@@ -1,3 +1,4 @@
+// IP Rate Limiting - 인메모리 Map 기반, checkRateLimit(ip, maxRequests, windowMs)→boolean, 로그인 API에서 사용
 /**
  * IP 기반 Rate Limiting (인메모리)
  * - 로그인: 10회/분 초과 시 429 반환

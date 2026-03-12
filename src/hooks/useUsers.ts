@@ -1,3 +1,4 @@
+// 사용자 관리 React Query 훅 - useUsers(목록)·useUpdateUserStatus(PATCH 승인/거부)·useCreateUser(POST 사전등록)
 /**
  * useUsers 훅 (관리자용)
  * - TanStack Query로 사용자 목록 패칭 + 뮤테이션

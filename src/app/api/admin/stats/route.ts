@@ -1,3 +1,4 @@
+// GET /api/admin/stats - 전반적인 통계(항공사별·위험도별·상태별 건수), callsigns·actions 집계
 /**
  * GET /api/admin/stats
  * 관리자 대시보드용 통계 데이터

@@ -1,3 +1,4 @@
+// 인증 타입 - LoginRequest·LoginResponse·TokenPayload(userId·airlineId·role)·RefreshResponse, JWT 페이로드 구조
 import { User } from './user';
 
 /**

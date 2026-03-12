@@ -1,3 +1,4 @@
+// GET /api/admin/database/export - 전체 DB를 JSON으로 내보내기, 모든 테이블 순회 덤프, 관리자 전용
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';

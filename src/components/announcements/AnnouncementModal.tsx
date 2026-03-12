@@ -1,3 +1,4 @@
+// 공지사항 상세 모달 - Announcement 객체 표시(제목·내용·첨부), 닫기 버튼
 'use client';
 
 import { useEffect, useState } from 'react';

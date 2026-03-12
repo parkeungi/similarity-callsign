@@ -1,3 +1,4 @@
+// 관리자 사이드바 - admin-navigation.ts 메뉴 정의 기반, 현재 경로 하이라이트, 접기/펼치기 토글
 'use client';
 
 import Link from 'next/link';

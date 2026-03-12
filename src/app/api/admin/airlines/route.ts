@@ -1,3 +1,4 @@
+// GET/POST/DELETE /api/admin/airlines - 항공사 CRUD, airlines 테이블, display_order 관리, POST 시 중복 code 검증, 관리자 전용
 /**
  * GET /api/admin/airlines - 항공사 목록 조회 (관리자만)
  * POST /api/admin/airlines - 항공사 생성 (관리자만)

@@ -1,3 +1,4 @@
+// POST /api/admin/users/[id]/password-reset - 관리자가 사용자 비밀번호를 임시값으로 초기화, bcrypt 해싱, users 테이블
 /**
  * PUT /api/admin/users/[id]/password-reset
  * 관리자 - 특정 사용자 비밀번호 초기화

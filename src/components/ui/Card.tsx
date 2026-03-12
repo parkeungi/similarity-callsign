@@ -1,3 +1,4 @@
+// 범용 Card 컴포넌트 - children 래핑, padding·shadow·rounded 스타일, className 커스텀 가능
 /**
  * Card 컴포넌트
  * - 기본 컨테이너 역할

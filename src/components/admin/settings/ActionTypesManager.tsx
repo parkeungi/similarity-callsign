@@ -1,3 +1,4 @@
+// 조치유형 관리 - CRUD UI(생성·수정·삭제·순서변경), useActionTypes 훅, action_types 테이블 연동
 'use client';
 
 import { useState } from 'react';

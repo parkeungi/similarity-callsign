@@ -1,3 +1,4 @@
+// 항공사 SQL 쿼리 모음 - findAll·findById·findByCode·create·update·delete, airlines 테이블 CRUD
 /**
  * 항공사 관련 SQL 쿼리 (SQLite)
  */

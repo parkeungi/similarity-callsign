@@ -1,3 +1,4 @@
+// GET /api/airlines/[airlineId]/actions/stats - 항공사별 조치 통계(완료율·유형분포·월별추세), actions 테이블 GROUP BY 집계
 /**
  * GET /api/airlines/[airlineId]/actions/stats
  * 항공사별 조치 통계 집계

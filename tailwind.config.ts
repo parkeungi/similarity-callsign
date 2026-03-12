@@ -1,3 +1,4 @@
+// Tailwind CSS 설정 - src/ 하위 콘텐츠 경로, 커스텀 테마 확장, tailwindcss-animate 플러그인
 import type { Config } from 'tailwindcss';
 
 const config: Config = {

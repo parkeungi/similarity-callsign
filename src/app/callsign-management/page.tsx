@@ -1,3 +1,4 @@
+// 공개 발생현황 분석 페이지 - 비인증 사용자용, OverviewTab+StatisticsTab 렌더링, GET /api/callsigns 호출
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';

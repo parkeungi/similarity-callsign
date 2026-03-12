@@ -1,3 +1,4 @@
+// GET /api/admin/duplicate-callsigns-stats - 중복 호출부호 통계(동일편명 빈도·항공사 쌍별), callsigns 테이블 집계
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';

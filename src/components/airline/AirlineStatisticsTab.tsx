@@ -1,3 +1,4 @@
+// 항공사 통계 탭 - recharts 기반 차트 4종(위험도 PieChart·월별 BarChart·오류유형 분포·조치현황 AreaChart), incidents 데이터 가공
 'use client';
 
 import React, { useMemo } from 'react';

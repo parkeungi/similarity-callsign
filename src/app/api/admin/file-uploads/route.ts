@@ -1,3 +1,4 @@
+// GET/POST /api/admin/file-uploads - 파일 업로드 이력 조회(GET)/생성(POST), file_uploads 테이블, 관리자 전용
 /**
  * GET /api/admin/file-uploads
  * 파일 업로드 이력 조회

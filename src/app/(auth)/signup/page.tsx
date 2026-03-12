@@ -1,3 +1,4 @@
+// 회원가입 페이지 - 이메일·비밀번호·이름·항공사 선택 폼, POST /api/auth/signup 호출, 가입 후 승인 대기 안내
 import Link from 'next/link';
 import { ROUTES } from '@/lib/constants';
 

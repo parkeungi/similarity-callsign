@@ -1,3 +1,4 @@
+// 설정 타입 - ActionType(id·name·description·is_active·display_order), action_types 테이블 매핑
 /**
  * 설정 관련 타입 정의
  */

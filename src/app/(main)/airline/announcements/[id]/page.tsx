@@ -1,3 +1,4 @@
+// 공지사항 상세 조회 페이지 - GET /api/announcements/[id] 호출, 제목·내용·첨부파일 표시
 'use client';
 
 import { useAuthStore } from '@/store/authStore';

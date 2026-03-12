@@ -1,3 +1,4 @@
+// 핵심 타입 정의 - Action(조치)·Callsign(호출부호, AI분석 필드 포함)·FileUpload·CreateActionRequest·UpdateActionRequest·ActionListResponse·CallsignListResponse 등
 import { Airline } from './airline';
 import { User } from './user';
 

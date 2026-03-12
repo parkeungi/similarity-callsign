@@ -1,3 +1,4 @@
+// 공지사항 팝업 - 로그인 직후 미확인 공지 자동 표시, localStorage로 확인 여부 관리
 'use client';
 
 import { useState, useCallback } from 'react';

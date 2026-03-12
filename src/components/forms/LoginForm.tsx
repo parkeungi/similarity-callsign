@@ -1,3 +1,4 @@
+// 로그인 폼 - react-hook-form+zod 검증, POST /api/auth/login 호출, 성공 시 authStore에 토큰 저장 후 /airline 이동
 /**
  * LoginForm 컴포넌트
  * - react-hook-form + zod 유효성 검사

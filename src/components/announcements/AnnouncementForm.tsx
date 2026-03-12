@@ -1,3 +1,4 @@
+// 공지사항 입력 폼 - 제목·내용·대상항공사·중요도·활성여부 필드, onSubmit 콜백
 'use client';
 
 import { useState } from 'react';

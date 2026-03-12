@@ -1,3 +1,4 @@
+// 발생현황 탭 - Incident[] 카드 렌더링, AI분석(점수·유형·사유) 표시, reasonType·riskLevel 필터, ai_score/risk/count/latest 정렬, IncidentFilters 연동
 'use client';
 
 import React, { useMemo, useState, useCallback } from 'react';

@@ -1,3 +1,4 @@
+// GET /api/airlines - 항공사 목록 조회(공개 API), airlines 테이블, display_order 순 정렬, 인증 불필요
 /**
  * GET /api/airlines
  * 공개 항공사 목록 API (인증 불필요)

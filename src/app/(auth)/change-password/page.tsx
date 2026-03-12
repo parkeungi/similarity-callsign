@@ -1,3 +1,4 @@
+// 비밀번호 변경 페이지 - 현재·새 비밀번호 입력 폼, POST /api/auth/change-password 호출
 'use client';
 
 import { useSearchParams } from 'next/navigation';

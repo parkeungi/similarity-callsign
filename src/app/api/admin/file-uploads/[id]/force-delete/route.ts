@@ -1,3 +1,4 @@
+// DELETE /api/admin/file-uploads/[id]/force-delete - 업로드 파일+연관 callsigns·callsign_occurrences 강제 삭제, 트랜잭션 처리, 관리자 전용
 /**
  * DELETE /api/admin/file-uploads/[id]/force-delete
  * 파일 강제삭제 (조치 여부 상관없이 삭제 + 관리자 비밀번호 재검증)

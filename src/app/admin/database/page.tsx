@@ -1,3 +1,4 @@
+// DB 관리 페이지 - 테이블 목록 조회·데이터 브라우징·JSON 내보내기/가져오기, 관리자 전용
 'use client';
 
 import { useState, useCallback } from 'react';

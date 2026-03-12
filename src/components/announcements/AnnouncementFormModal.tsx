@@ -1,3 +1,4 @@
+// 공지사항 입력 모달 - AnnouncementForm 래핑, 생성/수정 모드 분기, POST/PATCH API 호출
 'use client';
 
 import { Announcement } from '@/types/announcement';

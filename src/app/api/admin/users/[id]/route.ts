@@ -1,3 +1,4 @@
+// PATCH /api/admin/users/[id] - 사용자 상태 변경(승인approved/거부rejected/정지suspended), users 테이블, 관리자 전용
 /**
  * PATCH /api/admin/users/[id]
  * 사용자 상태 변경 (관리자만)

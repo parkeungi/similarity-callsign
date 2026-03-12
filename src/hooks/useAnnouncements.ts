@@ -1,3 +1,4 @@
+// 공지사항 React Query 훅 - useAnnouncements(목록)·useCreateAnnouncement·useUpdateAnnouncement·useDeleteAnnouncement
 /**
  * 공지사항 관리 시스템 - React Query Hooks
  * TanStack Query v5 기반

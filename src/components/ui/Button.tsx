@@ -1,3 +1,4 @@
+// 범용 Button 컴포넌트 - variant(primary/secondary/danger/ghost)·size(sm/md/lg)·loading 상태, className 병합 지원
 /**
  * Button 컴포넌트
  * variant: primary | secondary | danger | ghost

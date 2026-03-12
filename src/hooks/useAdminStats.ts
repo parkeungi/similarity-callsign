@@ -1,3 +1,4 @@
+// 관리자 통계 React Query 훅 - useAdminOverview·useComprehensiveStats·useAirlineStats, 대시보드 데이터 조회
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import { apiFetch } from '@/lib/api/client';

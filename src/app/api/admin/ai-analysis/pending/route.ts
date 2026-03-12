@@ -1,3 +1,4 @@
+// GET /api/admin/ai-analysis/pending - AI 분석 대기 호출부호 목록, callsigns LEFT JOIN callsign_ai_analysis에서 미분석 건 조회
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';

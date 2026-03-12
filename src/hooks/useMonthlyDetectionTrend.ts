@@ -1,3 +1,4 @@
+// 월별 탐지 추세 React Query 훅 - GET /api/admin/monthly-detection-trend 호출, {month, count}[] 반환
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import { apiFetch } from '@/lib/api/client';

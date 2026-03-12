@@ -1,3 +1,4 @@
+// 발생현황 사이드바 - 탭 메뉴(발생현황·조치현황·통계·엑셀입력), activeTab 상태 관리, onTabChange 콜백
 'use client';
 
 import { useMemo, useState } from 'react';

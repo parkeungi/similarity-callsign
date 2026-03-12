@@ -1,3 +1,4 @@
+// Zustand 인증 스토어 - user·accessToken·isAuthenticated 상태, login·logout·setAccessToken·setUser 액션, 전역 인증 상태 관리
 /**
  * 인증 상태 관리 (Zustand) - 개발 단계 단순 버전
  *

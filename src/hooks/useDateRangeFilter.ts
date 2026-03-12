@@ -1,3 +1,4 @@
+// 날짜 범위 필터 훅 - dateFrom·dateTo·preset(7d/30d/90d/all) 상태, onChange 콜백 반환
 /**
  * 날짜 범위 필터 커스텀 훅
  * incidents와 statistics 탭에서 공통으로 사용

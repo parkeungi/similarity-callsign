@@ -1,3 +1,4 @@
+// 아이콘 래퍼 - lucide-react 아이콘을 name 문자열로 동적 렌더링
 'use client';
 
 import React from 'react';

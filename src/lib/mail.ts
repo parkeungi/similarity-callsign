@@ -1,3 +1,4 @@
+// 이메일 발송 서비스 - Nodemailer transporter(SMTP), sendPasswordResetEmail(to,tempPassword) 함수, EMAIL_HOST/PORT/USER/PASS 환경변수
 /**
  * Nodemailer를 사용한 이메일 발송 서비스
  *

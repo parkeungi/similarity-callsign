@@ -1,3 +1,4 @@
+// 비밀번호 변경 폼 - 현재·새·확인 비밀번호 입력, PasswordStrength 포함, POST /api/auth/change-password 호출
 /**
  * ChangePasswordForm 컴포넌트
  * - 현재 비밀번호 확인 후 새 비밀번호 변경

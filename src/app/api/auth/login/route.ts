@@ -1,3 +1,4 @@
+// POST /api/auth/login - 이메일+비밀번호 인증 → JWT(Access+Refresh) 발급, bcrypt 비교, IP Rate Limiting(10회/분), 5회 실패 시 15분 계정 잠금, users·refresh_tokens 테이블 사용
 /**
  * POST /api/auth/login
  * 로그인 API

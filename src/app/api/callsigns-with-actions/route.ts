@@ -1,3 +1,4 @@
+// GET /api/callsigns-with-actions - 호출부호+최신조치 정보 통합 목록, callsigns LEFT JOIN actions, 양쪽 항공사 조치상태(action_status_a/b) 포함
 /**
  * GET /api/callsigns-with-actions
  * 관리자용: 호출부호와 양쪽 항공사의 조치 상태를 함께 조회

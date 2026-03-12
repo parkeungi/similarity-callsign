@@ -1,3 +1,4 @@
+// POST /api/auth/forgot-password - 이메일로 임시 비밀번호 발송, Nodemailer 사용, users 테이블 비밀번호 업데이트
 /**
  * POST /api/auth/forgot-password
  * 비밀번호 찾기 안내

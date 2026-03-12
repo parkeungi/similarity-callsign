@@ -1,3 +1,4 @@
+// JWT 토큰 관리 - generateAccessToken(1h)·generateRefreshToken(7d)·verifyToken(검증+디코드), jsonwebtoken 기반, JWT_SECRET 환경변수
 /**
  * JWT 토큰 생성 및 검증
  *

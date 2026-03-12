@@ -1,3 +1,4 @@
+// 관리자 사이드바 메뉴 정의 - menuItems[](label·href·icon) 배열, AdminSidebar 컴포넌트에서 사용
 import type { LucideIcon } from 'lucide-react';
 import { Users, Plane, Megaphone, LockKeyhole, Settings, Database } from 'lucide-react';
 import { ROUTES } from '@/lib/constants';

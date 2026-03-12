@@ -1,3 +1,4 @@
+// GET /api/admin/ai-analysis/export - AI 분석 결과 CSV/JSON 내보내기, callsign_ai_analysis 테이블 전체 덤프
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';

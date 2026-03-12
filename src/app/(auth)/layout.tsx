@@ -1,3 +1,4 @@
+// 인증 페이지 공통 레이아웃 - 중앙 정렬 카드 스타일, signup·forgot-password·change-password 공유
 /**
  * 인증 페이지 레이아웃
  * - 중앙 카드 형태

@@ -1,3 +1,4 @@
+// 발생현황 통계 탭 - recharts 차트(위험도분포·항공사별·월별추세), GET /api/callsigns/stats 데이터 시각화
 'use client';
 
 import { useState, useMemo } from 'react';

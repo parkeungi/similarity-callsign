@@ -1,3 +1,4 @@
+// GET/POST /api/airlines/[airlineId]/actions - 항공사별 조치 조회(GET)/등록(POST), actions·callsigns 테이블, 국내↔외항사 판별 후 callsigns 상태 자동 동기화, JWT airline_id 권한 검증
 /**
  * GET /api/airlines/[airlineId]/actions
  * 항공사별 조치 목록 조회 (인증 사용자만)

@@ -1,3 +1,4 @@
+// GET/POST /api/admin/settings/action-types - 조치유형 목록 조회(GET)/생성(POST), action_types 테이블, 관리자 전용
 /**
  * GET  /api/admin/settings/action-types  - 조치유형 목록 조회
  * POST /api/admin/settings/action-types  - 조치유형 생성

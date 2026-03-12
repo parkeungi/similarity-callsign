@@ -1,3 +1,4 @@
+// 쿠키 파싱 유틸리티 - parseCookies(cookieString)→Record<string,string>, 서버사이드 쿠키 읽기용
 /**
  * 공통 쿠키 파싱 유틸리티
  * - document.cookie에서 "name=value" 형태의 문자열을 전달하면 JSON 객체로 파싱한다.

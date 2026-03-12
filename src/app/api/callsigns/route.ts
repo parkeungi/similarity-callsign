@@ -1,3 +1,4 @@
+// GET /api/callsigns - 유사호출부호 목록 조회, callsigns 테이블, riskLevel·status 필터, 페이지네이션(page/limit), 위험도순 정렬
 /**
  * GET /api/callsigns
  * 유사호출부호 목록 조회

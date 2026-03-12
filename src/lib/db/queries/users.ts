@@ -1,3 +1,4 @@
+// 사용자 SQL 쿼리 모음 - findByEmail·findById·create·updateStatus·updatePassword, users 테이블 CRUD
 /**
  * 사용자 관련 SQL 쿼리 (SQLite)
  */

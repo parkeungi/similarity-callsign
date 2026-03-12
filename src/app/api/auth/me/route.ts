@@ -1,3 +1,4 @@
+// GET /api/auth/me - Authorization Bearer 토큰으로 현재 로그인 사용자 정보 조회, users·airlines 테이블 JOIN
 /**
  * GET /api/auth/me
  * 현재 로그인 사용자 정보 조회 (refreshToken 쿠키 기반 복원 지원)

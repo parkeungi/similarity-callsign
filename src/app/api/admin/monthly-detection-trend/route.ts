@@ -1,3 +1,4 @@
+// GET /api/admin/monthly-detection-trend - 월별 유사호출부호 탐지 추세, callsign_occurrences 테이블 월별 GROUP BY
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';

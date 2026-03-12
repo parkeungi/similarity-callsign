@@ -1,3 +1,4 @@
+// callsigns↔actions 상태 동기화 - syncCallsignStatus(callsignId) 함수, 국내/외항사 판별 후 action_status_a/b 업데이트, 양쪽 완료 시 status=completed
 /**
  * callsigns 테이블 상태 동기화 함수 (중앙화)
  *
