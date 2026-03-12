@@ -5,6 +5,7 @@ import { FileUploadZone } from './uploads/FileUploadZone';
 import { UploadResult } from './uploads/UploadResult';
 import { UploadHistory } from './uploads/UploadHistory';
 import { UploadHistoryManagement } from './uploads/UploadHistoryManagement';
+import { AiAnalysisTab } from './uploads/AiAnalysisTab';
 import { useFileUploads } from '@/hooks/useFileUploads';
 
 interface UploadResultData {
@@ -18,7 +19,7 @@ interface UploadResultData {
 
 export function Sidebar() {
   const [uploadResult, setUploadResult] = useState<UploadResultData | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<'upload' | 'history'>('upload');
+  const [activeSubTab, setActiveSubTab] = useState<'upload' | 'history' | 'ai'>('upload');
 
   // 서버에 저장된 파일 업로드 이력 조회 (완료 상태 기준, 최근 5개)
   const {
@@ -68,6 +69,16 @@ export function Sidebar() {
         >
           📋 이력 관리
         </button>
+        <button
+          onClick={() => setActiveSubTab('ai')}
+          className={`px-4 py-2 font-semibold transition-colors ${
+            activeSubTab === 'ai'
+              ? 'text-primary border-b-2 border-primary -mb-[2px]'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          🤖 AI 분석
+        </button>
       </div>
 
       {/* 업로드 탭 */}
@@ -82,6 +93,11 @@ export function Sidebar() {
       {/* 이력 관리 탭 */}
       {activeSubTab === 'history' && (
         <UploadHistoryManagement />
+      )}
+
+      {/* AI 분석 탭 */}
+      {activeSubTab === 'ai' && (
+        <AiAnalysisTab />
       )}
     </div>
   );

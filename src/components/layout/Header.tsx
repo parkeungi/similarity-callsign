@@ -55,7 +55,7 @@ export function Header() {
 
   return (
     <header
-      className="sticky top-0 z-50 flex items-center justify-between px-12 h-36 overflow-hidden"
+      className="sticky top-0 z-50 h-[92px] overflow-hidden"
       style={{
         background: 'linear-gradient(135deg, #111827 0%, #1f2937 60%, #111827 100%)',
         borderBottom: '1px solid rgba(75, 85, 99, 0.5)',
@@ -101,11 +101,10 @@ export function Header() {
         </svg>
       </div>
 
-      {/* 로고 + 시스템명 + 항공사 정보 */}
-      <div className="flex items-center gap-6 z-10">
-
-        {/* 국토교통부 항공교통본부 */}
-        <div className="flex items-center gap-3 pr-6 border-r border-white/15">
+      {/* max-w-[1440px] 컨테이너로 사이드바와 정렬 */}
+      <div className="flex items-center h-full max-w-[1440px] mx-auto">
+        {/* 국토교통부 항공교통본부 - 사이드바(230px)와 동일 너비 */}
+        <div className="w-[230px] shrink-0 flex items-center justify-center gap-3 z-10">
           {/* 태극 SVG 심볼 */}
           <svg width="40" height="40" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
             <circle cx="32" cy="32" r="30" fill="white"/>
@@ -119,40 +118,42 @@ export function Header() {
           </div>
         </div>
 
-        {/* 시스템명 */}
-        <Link
-          href={ROUTES.HOME}
-          className="flex flex-col text-white hover:opacity-90 transition-opacity"
-        >
-          <span className="text-white font-black text-3xl leading-tight tracking-tighter">
-            유사호출부호 경고시스템
-          </span>
-          <div className="flex items-center gap-3 mt-1.5">
-            <p className="text-violet-400 text-[10px] font-black uppercase tracking-[0.4em]">Similar Callsign Warning System</p>
-          </div>
-        </Link>
-
-        {/* 항공사/기관 정보 */}
-        {isAuthenticated && user && (
-          <div className="flex flex-col justify-center ml-10 pl-10 border-l border-white/15">
-            <span
-              className="text-emerald-400 font-black text-2xl tracking-tighter"
-              style={{ color: isAdmin ? '#FFFFFF' : getAirlineTextColor(user.airline?.code) }}
-            >
-              {isAdmin ? '항공교통본부' : (user.airline?.name_en || user.airline?.name_ko)}
+        {/* 시스템명 + 항공사 정보 (사이드바 오른쪽 콘텐츠 영역과 정렬) */}
+        <div className="flex items-center gap-6 z-10 pl-6 border-l border-white/15">
+          {/* 시스템명 */}
+          <Link
+            href={ROUTES.HOME}
+            className="flex flex-col text-white hover:opacity-90 transition-opacity"
+          >
+            <span className="text-white font-black text-3xl leading-tight tracking-tighter">
+              유사호출부호 경고시스템
             </span>
-            {!isAdmin && user.airline?.name_ko && (
-              <span className="text-white/40 text-xs font-bold -mt-1 uppercase tracking-widest">{user.airline.name_ko}</span>
-            )}
-            {isAdmin && (
-              <span className="text-white/40 text-xs font-bold -mt-1 uppercase tracking-widest"></span>
-            )}
-          </div>
-        )}
-      </div>
+            <div className="flex items-center gap-3 mt-1.5">
+              <p className="text-violet-400 text-[10px] font-black uppercase tracking-[0.4em]">Similar Callsign Warning System</p>
+            </div>
+          </Link>
 
-      {/* 우측 하단 영역: 간소화된 네비게이션 */}
-      <nav className="absolute right-12 bottom-6 flex items-center gap-6 z-10" aria-label="사용자 네비게이션">
+          {/* 항공사/기관 정보 */}
+          {isAuthenticated && user && (
+            <div className="flex flex-col justify-center ml-10 pl-10 border-l border-white/15">
+              <span
+                className="text-emerald-400 font-black text-2xl tracking-tighter"
+                style={{ color: isAdmin ? '#FFFFFF' : getAirlineTextColor(user.airline?.code) }}
+              >
+                {isAdmin ? '항공교통본부' : (user.airline?.name_en || user.airline?.name_ko)}
+              </span>
+              {!isAdmin && user.airline?.name_ko && (
+                <span className="text-white/40 text-xs font-bold -mt-1 uppercase tracking-widest">{user.airline.name_ko}</span>
+              )}
+              {isAdmin && (
+                <span className="text-white/40 text-xs font-bold -mt-1 uppercase tracking-widest"></span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 우측 영역: 네비게이션 - flex-1로 오른쪽 끝 정렬 */}
+        <nav className="ml-auto flex items-center gap-6 z-10 pr-4" aria-label="사용자 네비게이션">
         {isAuthenticated && user ? (
           <>
             {/* 이메일 표시 (간소화) */}
@@ -218,6 +219,7 @@ export function Header() {
           </Link>
         )}
       </nav>
+      </div>
     </header>
   );
 }

@@ -195,27 +195,6 @@ export function AirlineCallsignListTab({
 
   return (
     <div className="space-y-6">
-      {/* 통계 - 가로 한줄 바 */}
-      <div className="bg-white border border-gray-200 shadow-sm">
-        <div className="flex divide-x divide-gray-100">
-          {[
-            { label: '전체', value: stats.total, color: '#6366f1', filter: 'all' as const },
-            { label: '조치완료', value: stats.completed, color: '#10b981', filter: 'completed' as const },
-            { label: '조치필요', value: stats.pending + stats.notStarted, color: '#ef4444', filter: 'pending' as const },
-          ].map(({ label, value, color, filter }) => (
-            <button
-              key={label}
-              onClick={() => { setStatusFilter(filter); setPage(1); }}
-              className={`flex-1 px-5 py-3 text-left transition-all hover:bg-gray-50 ${statusFilter === filter ? 'bg-gray-50' : ''}`}
-              style={{ borderLeft: `3px solid ${color}` }}
-            >
-              <div className="text-xs text-gray-500 mb-1">{label}</div>
-              <div className="text-2xl font-black text-gray-900">{value}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* 필터 바 - 한 줄 */}
       <div className="w-full border border-gray-200 bg-white px-4 py-2.5 shadow-sm">
         <div className="flex w-full items-center gap-2">
@@ -278,6 +257,27 @@ export function AirlineCallsignListTab({
         </div>
       </div>
 
+      {/* 통계 - 가로 한줄 바 */}
+      <div className="bg-white border border-gray-200 shadow-sm">
+        <div className="flex divide-x divide-gray-100">
+          {[
+            { label: '전체', value: stats.total, color: '#6366f1', filter: 'all' as const },
+            { label: '조치완료', value: stats.completed, color: '#10b981', filter: 'completed' as const },
+            { label: '조치필요', value: stats.pending + stats.notStarted, color: '#ef4444', filter: 'pending' as const },
+          ].map(({ label, value, color, filter }) => (
+            <button
+              key={label}
+              onClick={() => { setStatusFilter(filter); setPage(1); }}
+              className={`flex-1 px-5 py-3 text-left transition-all hover:bg-gray-50 ${statusFilter === filter ? 'bg-gray-50' : ''}`}
+              style={{ borderLeft: `3px solid ${color}` }}
+            >
+              <div className="text-xs text-gray-500 mb-1">{label}</div>
+              <div className="text-2xl font-black text-gray-900">{value}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* 호출부호 목록 테이블 */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         {isLoading ? (
@@ -287,34 +287,45 @@ export function AirlineCallsignListTab({
         ) : sortedCallsigns.length > 0 ? (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="text-sm table-fixed min-w-full">
+                <colgroup>
+                  <col className="w-[90px]" />
+                  <col className="w-[180px]" />
+                  <col className="w-[110px]" />
+                  <col className="w-[90px]" />
+                  <col className="w-[90px]" />
+                  <col className="w-[60px]" />
+                  <col className="w-[100px]" />
+                  <col className="w-[130px]" />
+                  <col className="w-[80px]" />
+                </colgroup>
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-6 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                       등록일
                     </th>
-                    <th className="px-6 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                       호출부호
                     </th>
-                    <th className="px-6 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                       오류유형
                     </th>
-                    <th className="px-6 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                       위험도
                     </th>
-                    <th className="px-6 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                       유사도
                     </th>
-                    <th className="px-6 py-5 text-center text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 py-5 text-center text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                       발생
                     </th>
-                    <th className="px-6 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                       최근발생일
                     </th>
-                    <th className="px-6 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                       조치유형
                     </th>
-                    <th className="px-6 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                    <th className="px-4 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                       상태
                     </th>
                   </tr>
@@ -335,7 +346,7 @@ export function AirlineCallsignListTab({
                         }}
                       >
                         {/* 등록일 */}
-                        <td className="px-6 py-5 text-gray-500 font-medium text-[13px]">
+                        <td className="px-4 py-4 text-gray-500 font-medium text-[13px]">
                           {callsign.uploaded_at
                             ? new Date(callsign.uploaded_at).toLocaleDateString('ko-KR', {
                                 month: 'long',
@@ -345,13 +356,13 @@ export function AirlineCallsignListTab({
                         </td>
 
                         {/* 호출부호 */}
-                        <td className="px-6 py-5 font-bold text-gray-800">{callsign.callsign_pair}</td>
+                        <td className="px-4 py-4 font-bold text-gray-800">{callsign.callsign_pair}</td>
 
                         {/* 오류유형 */}
-                        <td className="px-6 py-5 text-gray-600 font-medium">{callsign.error_type || '-'}</td>
+                        <td className="px-4 py-4 text-gray-600 font-medium">{callsign.error_type || '-'}</td>
 
                         {/* 위험도 */}
-                        <td className="px-6 py-5">
+                        <td className="px-4 py-4">
                           <span
                             className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap ${
                               callsign.risk_level === '매우높음'
@@ -366,7 +377,7 @@ export function AirlineCallsignListTab({
                         </td>
 
                         {/* 유사도 */}
-                        <td className="px-6 py-5">
+                        <td className="px-4 py-4">
                           <span
                             className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap ${
                               callsign.similarity === '매우높음'
@@ -381,12 +392,12 @@ export function AirlineCallsignListTab({
                         </td>
 
                         {/* 발생횟수 */}
-                        <td className="px-6 py-5 font-bold text-gray-800 text-center">
+                        <td className="px-4 py-4 font-bold text-gray-800 text-center">
                           {callsign.occurrence_count ?? 0}
                         </td>
 
                         {/* 최근 발생일 */}
-                        <td className="px-6 py-5 text-gray-600 font-medium text-[13px]">
+                        <td className="px-4 py-4 text-gray-600 font-medium text-[13px]">
                           {callsign.last_occurred_at
                             ? new Date(callsign.last_occurred_at).toLocaleDateString('ko-KR', {
                                 month: 'long',
@@ -396,10 +407,10 @@ export function AirlineCallsignListTab({
                         </td>
 
                         {/* 조치유형 */}
-                        <td className="px-6 py-5 text-gray-600 font-semibold">{callsign.action_type || '-'}</td>
+                        <td className="px-4 py-4 text-gray-600 font-semibold">{callsign.action_type || '-'}</td>
 
                         {/* 상태 */}
-                        <td className="px-6 py-5">
+                        <td className="px-4 py-4">
                           <span
                             className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold border whitespace-nowrap ${statusMeta.bubble}`}
                           >

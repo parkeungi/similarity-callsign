@@ -12,6 +12,7 @@ const ALLOWED_TABLES = [
   'file_uploads',
   'action_types',
   'occurrences',
+  'callsign_ai_analysis',
 ];
 
 export async function GET(request: NextRequest) {

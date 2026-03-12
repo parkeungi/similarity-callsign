@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import { apiFetch } from '@/lib/api/client';
 import { useAdminAirlines } from '@/hooks/useAirlines';
-import { Incident, RISK_LEVEL_ORDER } from '@/types/airline';
+import { Incident, RISK_LEVEL_ORDER, REASON_TYPE_CONFIG, getAiScoreColor } from '@/types/airline';
 import { formatOccurrenceBadge } from '@/lib/occurrence-format';
 import { Pagination } from '@/components/common/Pagination';
 
@@ -17,9 +17,12 @@ interface OccurrenceIncident extends Incident {
   airlineName?: string;
   airlineCode?: string;
   otherAirlineCode?: string;
+  aiScore?: number | null;
+  aiReason?: string | null;
+  reasonType?: string | null;
 }
 
-type SortOrder = 'priority' | 'risk' | 'count' | 'latest';
+type SortOrder = 'priority' | 'risk' | 'count' | 'latest' | 'ai_score';
 type ActionStatusFilter = 'all' | 'no_action' | 'in_progress' | 'completed';
 
 export function AdminOccurrenceTab() {
@@ -38,6 +41,7 @@ export function AdminOccurrenceTab() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('priority');
   const [actionStatusFilter, setActionStatusFilter] = useState<ActionStatusFilter>('all');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
+  const [showAiRecommend, setShowAiRecommend] = useState<boolean>(false);
   const [page, setPage] = useState(1);
   const limit = 10;
 
@@ -66,6 +70,10 @@ export function AdminOccurrenceTab() {
         airlineCode: cs.airline_code,
         otherAirlineCode: cs.other_airline_code,
         airlineId: cs.airline_id,
+        // AI 분석 데이터
+        aiScore: cs.ai_score ?? cs.aiScore ?? null,
+        aiReason: cs.ai_reason ?? cs.aiReason ?? null,
+        reasonType: cs.reason_type ?? cs.reasonType ?? null,
       } as OccurrenceIncident));
     },
     enabled: !!accessToken,
@@ -172,6 +180,19 @@ export function AdminOccurrenceTab() {
     }
 
     return filtered.sort((a, b) => {
+      // AI 점수 정렬 모드에서는 AI 점수가 최우선
+      if (sortOrder === 'ai_score') {
+        const scoreA = a.aiScore ?? 0;
+        const scoreB = b.aiScore ?? 0;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        // AI 점수 동일 시 위험도 → 발생횟수 순
+        const riskA = RISK_LEVEL_ORDER[a.risk as keyof typeof RISK_LEVEL_ORDER] || 0;
+        const riskB = RISK_LEVEL_ORDER[b.risk as keyof typeof RISK_LEVEL_ORDER] || 0;
+        if (riskB !== riskA) return riskB - riskA;
+        return (b.count || 0) - (a.count || 0);
+      }
+
+      // 다른 정렬 모드에서는 완료 상태 우선
       const aCompleted = a.actionStatus === 'completed' ? 0 : 1;
       const bCompleted = b.actionStatus === 'completed' ? 0 : 1;
       if (aCompleted !== bCompleted) return aCompleted - bCompleted;
@@ -320,11 +341,31 @@ export function AdminOccurrenceTab() {
               className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="priority">우선순위</option>
+              <option value="ai_score">AI분석순</option>
               <option value="risk">위험도</option>
               <option value="count">발생건수</option>
               <option value="latest">최근발생</option>
             </select>
           </div>
+
+          {/* AI 추천 토글 */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowAiRecommend(!showAiRecommend);
+              if (!showAiRecommend) {
+                setSortOrder('ai_score');
+              }
+              setPage(1);
+            }}
+            className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors border ${
+              showAiRecommend
+                ? 'bg-purple-600 text-white border-purple-600'
+                : 'bg-white text-purple-600 border-purple-300 hover:bg-purple-50'
+            }`}
+          >
+            🤖 AI 추천
+          </button>
 
           {/* 호출부호 검색 */}
           <div className="flex-1 flex items-center gap-2 min-w-[200px]">
@@ -476,6 +517,36 @@ export function AdminOccurrenceTab() {
                       </span>
                     </div>
                   </div>
+
+                  {/* AI 분석 영역 - 토글 ON + 데이터 있을 때만 표시 */}
+                  {showAiRecommend && incident.aiScore != null && (
+                    <div className="mb-2 pb-2 border-b border-purple-200 bg-purple-50 rounded px-2 py-1.5">
+                      <div className="flex items-center gap-2 mb-1">
+                        {/* AI 점수 배지 */}
+                        {(() => {
+                          const scoreColor = getAiScoreColor(incident.aiScore!);
+                          return (
+                            <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded font-bold ${scoreColor.bg} ${scoreColor.text}`}>
+                              🤖 AI {incident.aiScore}점
+                              <span className="text-[10px] opacity-75">({scoreColor.label})</span>
+                            </span>
+                          );
+                        })()}
+                        {/* reason_type 배지 */}
+                        {incident.reasonType && REASON_TYPE_CONFIG[incident.reasonType] && (
+                          <span className={`inline-block text-[11px] px-2 py-0.5 rounded font-semibold ${REASON_TYPE_CONFIG[incident.reasonType].bgColor} ${REASON_TYPE_CONFIG[incident.reasonType].textColor}`}>
+                            {REASON_TYPE_CONFIG[incident.reasonType].label}
+                          </span>
+                        )}
+                      </div>
+                      {/* AI 사유 텍스트 */}
+                      {incident.aiReason && (
+                        <p className="text-[11px] text-purple-800 leading-relaxed line-clamp-2" title={incident.aiReason}>
+                          {incident.aiReason}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* 오류 유형별 집계 */}
                   {incident.errorTypeSummary && incident.errorTypeSummary.length > 0 && (

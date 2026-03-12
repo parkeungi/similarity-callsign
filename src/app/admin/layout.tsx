@@ -33,13 +33,15 @@ export default function AdminLayout({
     return (
         <div className="min-h-screen flex flex-col bg-gray-50">
             <Header />
-            <div className="flex flex-1 min-h-0 overflow-hidden">
-                {/* 사이드바는 스크롤 없이 고정 */}
-                <AdminSidebar />
+            <div className="flex flex-1 min-h-0 overflow-hidden bg-gray-50">
+                <div className="flex w-full max-w-[1440px] mx-auto min-h-0">
+                    {/* 사이드바는 스크롤 없이 고정 */}
+                    <AdminSidebar />
 
-                {/* 메인 콘텐츠 영역은 자체 스크롤 */}
-                <div className="flex-1 overflow-y-auto">
-                    {children}
+                    {/* 메인 콘텐츠 영역은 자체 스크롤 */}
+                    <div className="flex-1 overflow-y-auto">
+                        {children}
+                    </div>
                 </div>
             </div>
         </div>

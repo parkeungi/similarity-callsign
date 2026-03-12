@@ -25,6 +25,9 @@ interface IncidentFiltersProps {
   sortOrder?: SortOrder;
   onSortOrderChange?: (order: SortOrder) => void;
   onActionStatusFilterChange?: (filter: ActionStatusFilter) => void;
+  // AI 추천 토글
+  showAiRecommend?: boolean;
+  onAiRecommendToggle?: () => void;
 }
 
 export function IncidentFilters({
@@ -37,6 +40,8 @@ export function IncidentFilters({
   sortOrder,
   onSortOrderChange,
   onActionStatusFilterChange,
+  showAiRecommend,
+  onAiRecommendToggle,
 }: IncidentFiltersProps) {
   // Props에서 필요한 값들 추출
   const { startDate, endDate, activeRange, onStartDateChange, onEndDateChange, onApplyQuickRange } = dateFilter;
@@ -112,6 +117,21 @@ export function IncidentFilters({
             <option value="count">발생건수순</option>
             <option value="risk">오류가능성순</option>
           </select>
+        )}
+
+        {/* AI 추천 토글 버튼 */}
+        {onAiRecommendToggle && (
+          <button
+            type="button"
+            onClick={onAiRecommendToggle}
+            className={`h-9 px-3 text-[13px] font-bold shrink-0 transition-colors border ${
+              showAiRecommend
+                ? 'bg-purple-600 text-white border-purple-600'
+                : 'bg-white text-purple-600 border-purple-300 hover:bg-purple-50'
+            }`}
+          >
+            🤖 AI 추천
+          </button>
         )}
 
         {/* LIMIT */}

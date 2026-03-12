@@ -135,13 +135,14 @@ export async function GET(
          COALESCE(c.occurrence_count, 0) AS occurrence_count,
          c.first_occurred_at,
          c.last_occurred_at,
-         -- AI 분석 데이터 (원본 pair 형식으로 JOIN)
+         -- AI 분석 데이터 (양방향 pair 형식으로 JOIN)
          ai.ai_score,
          ai.ai_reason,
          ai.reason_type
        FROM callsigns c
        LEFT JOIN callsign_ai_analysis ai
          ON ai.callsign_pair = c.callsign_a || ' | ' || c.callsign_b
+         OR ai.callsign_pair = c.callsign_b || ' | ' || c.callsign_a
        WHERE (c.airline_a_code = $1 OR c.airline_b_code = $1)
          ${riskLevelCondition}
        ORDER BY

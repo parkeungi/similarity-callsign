@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { AppFooter } from '@/components/layout/AppFooter';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
@@ -302,9 +303,9 @@ export default function AirlinePage() {
 
   return (
     <>
-    <main className="flex flex-1 min-h-0">
+    <main className="flex w-full max-w-[1440px] mx-auto">
         {/* 왼쪽 사이드바 */}
-        <aside className="w-72 bg-white border-r border-gray-100 flex flex-col pt-4 shrink-0 h-full overflow-y-auto">
+        <aside className="w-[230px] bg-white border-r border-gray-100 flex flex-col pt-4 shrink-0 sticky top-[92px] self-start h-[calc(100vh-92px)] overflow-y-auto">
           <nav className="flex-1 px-4 space-y-2">
             {navItems.map((item) => {
               const isActive = activeTab === item.id;
@@ -328,8 +329,8 @@ export default function AirlinePage() {
         </aside>
 
         {/* 오른쪽 콘텐츠 영역 */}
-        <div className="flex-1 flex flex-col overflow-y-auto bg-gray-50">
-          <div className="w-full px-4 py-10 space-y-8 animate-fade-in flex flex-col">
+        <div className="flex-1 bg-gray-50">
+          <div className="w-full max-w-[90rem] mx-auto px-4 py-10 space-y-8 animate-fade-in flex flex-col">
             {activeTab === 'occurrence' && (
               <AirlineOccurrenceTab
                 incidents={incidents}
@@ -405,31 +406,7 @@ export default function AirlinePage() {
               />
             )}
           </div>
-
-          {/* Footer */}
-          <footer className="mt-auto py-5 bg-slate-100 text-slate-500 border-t border-slate-200">
-            <div className="max-w-6xl mx-auto">
-              <div className="flex flex-wrap gap-6 items-center justify-center">
-                <div className="text-sm font-semibold text-slate-700">
-                  Similar Callsign Warning System | Korea Airports Corporation
-                </div>
-                <div className="flex gap-5 text-sm">
-                  <span className="text-slate-400">Aviation Safety Division</span>
-                  <div>
-                    <span className="text-slate-400">T.</span>
-                    <span className="font-medium ml-1">1588-2311</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">E.</span>
-                    <span className="font-medium ml-1">info@airport.kr</span>
-                  </div>
-                </div>
-              </div>
-              <div className="border-t border-slate-200 mt-3 pt-3 text-xs text-slate-400 text-center">
-                © 2026 Korea Airports Corporation. All Rights Reserved.
-              </div>
-            </div>
-          </footer>
+          <AppFooter />
         </div>
 
       {/* 조치 등록/수정 모달 */}

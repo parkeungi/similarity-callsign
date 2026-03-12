@@ -11,7 +11,7 @@ import {
   RISK_LEVEL_ORDER,
   ErrorType,
   REASON_TYPE_CONFIG,
-  getAiScoreColor,
+  getAiScoreColor
 } from '@/types/airline';
 import { IncidentFilters } from './IncidentFilters';
 import { formatOccurrenceBadge } from '@/lib/occurrence-format';
@@ -53,6 +53,7 @@ export function AirlineOccurrenceTab({
   const { isLoading: isExporting, onExport } = exportConfig;
   const [sortOrder, setSortOrder] = useState<SortOrder>('priority');
   const [actionStatusFilter, setActionStatusFilter] = useState<ActionStatusFilter>('in_progress');
+  const [showAiRecommend, setShowAiRecommend] = useState<boolean>(false);
   const [reasonTypeFilter, setReasonTypeFilter] = useState<string>('all');
 
   // 날짜 필터링된 incidents
@@ -73,7 +74,11 @@ export function AirlineOccurrenceTab({
     let filtered =
       errorTypeFilter === 'all'
         ? filteredByDate
-        : filteredByDate.filter((i) => i.errorType === errorTypeFilter);
+        : filteredByDate.filter((i) =>
+            (i.occurrences || []).some(
+              (occ: any) => (occ.errorType?.trim() || '미분류') === errorTypeFilter
+            )
+          );
 
     if (actionStatusFilter === 'completed') {
       filtered = filtered.filter((i) => i.actionStatus === 'completed');
@@ -126,6 +131,13 @@ export function AirlineOccurrenceTab({
       } else if (sortOrder === 'count') {
         if ((b.count || 0) !== (a.count || 0)) return (b.count || 0) - (a.count || 0);
         return (RISK_LEVEL_ORDER[b.risk as keyof typeof RISK_LEVEL_ORDER] || 0) - (RISK_LEVEL_ORDER[a.risk as keyof typeof RISK_LEVEL_ORDER] || 0);
+      } else if (sortOrder === 'ai_score') {
+        // AI 점수 높은 순 정렬
+        const scoreA = a.aiScore ?? 0;
+        const scoreB = b.aiScore ?? 0;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        // 동점 시 발생건수 순
+        return (b.count || 0) - (a.count || 0);
       } else {
         const dateA = a.lastDate ? new Date(a.lastDate).getTime() : 0;
         const dateB = b.lastDate ? new Date(b.lastDate).getTime() : 0;
@@ -244,83 +256,6 @@ export function AirlineOccurrenceTab({
 
   return (
     <div className="space-y-6">
-      {/* 가이드라인 */}
-      <div className="text-xs text-gray-500 space-y-0.5 bg-white border border-gray-200 rounded-lg px-4 py-3">
-        <p>※ 발생일수: 최초 발생이력 기준 하루 1건으로 카운트 (같은 날 다른 섹터 중복 검출은 1건)</p>
-        <p>※ 오류유형: 하루 동일 항공기라도 서로 다른 섹터에서 검출 시 오류유형별로 각각 집계</p>
-        <p>※ 예외: 당일 출도착 변경 시 최대 2건 카운트 가능 (극히 드묾)</p>
-      </div>
-
-      {/* 통계 카드 섹션 */}
-      {Object.keys(stats.errorTypeCounts).length > 0 && (
-        <div className="bg-white border border-gray-200 shadow-sm">
-          <div className="flex divide-x divide-gray-100">
-            {Object.entries(stats.errorTypeCounts)
-              .sort((a, b) => b[1] - a[1])
-              .map(([type, count], idx) => {
-                const palette = ERROR_TYPE_PALETTE[idx % ERROR_TYPE_PALETTE.length];
-                const pct = stats.totalOccurrences > 0 ? Math.round((count / stats.totalOccurrences) * 100) : 0;
-                const isActive = errorTypeFilter === type;
-                const borderColors = ['#ef4444','#f97316','#10b981','#6366f1','#8b5cf6','#f59e0b','#6b7280'];
-                const borderColor = borderColors[idx % borderColors.length];
-                return (
-                  <button
-                    key={type}
-                    onClick={() => onErrorTypeFilterChange(isActive ? 'all' : type)}
-                    className={`flex-1 px-5 py-3 text-left transition-all hover:bg-gray-50 ${isActive ? 'bg-gray-50' : ''}`}
-                    style={{ borderLeft: `3px solid ${borderColor}` }}
-                  >
-                    <div className="text-xs text-gray-500 mb-1">{type}</div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-2xl font-black text-gray-900">{count}</span>
-                      <span className="text-sm font-bold italic" style={{ color: borderColor }}>{pct}%</span>
-                    </div>
-                  </button>
-                );
-              })}
-          </div>
-        </div>
-      )}
-
-      {/* AI 분석 유형 필터 */}
-      {hasAiData && (
-        <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
-          <div className="text-[11px] font-semibold text-gray-500 mb-2">AI 혼동 유형별 필터</div>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              onClick={() => setReasonTypeFilter('all')}
-              className={`text-xs font-semibold px-2.5 py-1 rounded border transition-all ${
-                reasonTypeFilter === 'all'
-                  ? 'bg-gray-800 text-white border-gray-800'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-              }`}
-            >
-              전체 {filteredByDate.filter(i => i.reasonType).length}
-            </button>
-            {Object.entries(reasonTypeStats)
-              .sort((a, b) => b[1] - a[1])
-              .map(([type, count]) => {
-                const config = REASON_TYPE_CONFIG[type];
-                if (!config) return null;
-                const isActive = reasonTypeFilter === type;
-                return (
-                  <button
-                    key={type}
-                    onClick={() => setReasonTypeFilter(isActive ? 'all' : type)}
-                    className={`text-xs font-semibold px-2.5 py-1 rounded border transition-all ${
-                      isActive
-                        ? `${config.bgColor} ${config.textColor} border-current`
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                    }`}
-                  >
-                    {config.label} {count}
-                  </button>
-                );
-              })}
-          </div>
-        </div>
-      )}
-
       {/* 필터 바 */}
       <IncidentFilters
         dateFilter={{
@@ -351,7 +286,64 @@ export function AirlineOccurrenceTab({
         sortOrder={sortOrder}
         onSortOrderChange={setSortOrder}
         onActionStatusFilterChange={setActionStatusFilter}
+        showAiRecommend={showAiRecommend}
+        onAiRecommendToggle={() => {
+          setShowAiRecommend(!showAiRecommend);
+          // AI 추천 활성화 시 자동으로 AI분석순 정렬
+          if (!showAiRecommend) {
+            setSortOrder('ai_score');
+          }
+        }}
       />
+
+      {/* 통계 카드 섹션 */}
+      {Object.keys(stats.errorTypeCounts).length > 0 && (
+        <div className="bg-white border border-gray-200 shadow-sm">
+          <div className="flex divide-x divide-gray-100">
+            {/* 전체 건수 카드 */}
+            <button
+              onClick={() => onErrorTypeFilterChange('all')}
+              className={`flex-1 px-5 py-3 text-left transition-all hover:bg-gray-50 ${errorTypeFilter === 'all' ? 'bg-gray-50' : ''}`}
+              style={{ borderLeft: '3px solid #64748b' }}
+            >
+              <div className="text-xs text-gray-500 mb-1">전체</div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-black text-gray-900">{stats.total}</span>
+                <span className="text-sm font-bold italic text-gray-500">건</span>
+              </div>
+            </button>
+            {Object.entries(stats.errorTypeCounts)
+              .sort((a, b) => b[1] - a[1])
+              .map(([type, count], idx) => {
+                const pct = stats.totalOccurrences > 0 ? Math.round((count / stats.totalOccurrences) * 100) : 0;
+                const isActive = errorTypeFilter === type;
+                const borderColors = ['#ef4444','#f97316','#10b981','#6366f1','#8b5cf6','#f59e0b','#6b7280'];
+                const borderColor = borderColors[idx % borderColors.length];
+                return (
+                  <button
+                    key={type}
+                    onClick={() => onErrorTypeFilterChange(isActive ? 'all' : type)}
+                    className={`flex-1 px-5 py-3 text-left transition-all hover:bg-gray-50 ${isActive ? 'bg-gray-50' : ''}`}
+                    style={{ borderLeft: `3px solid ${borderColor}` }}
+                  >
+                    <div className="text-xs text-gray-500 mb-1">{type}</div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-2xl font-black text-gray-900">{count}</span>
+                      <span className="text-sm font-bold italic" style={{ color: borderColor }}>{pct}%</span>
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* 가이드라인 */}
+      <div className="text-xs text-gray-500 space-y-0.5 bg-white border border-gray-200 rounded-lg px-4 py-3">
+        <p>※ 발생일수: 최초 발생이력 기준 하루 1건으로 카운트 (같은 날 다른 섹터 중복 검출은 1건)</p>
+        <p>※ 오류유형: 하루 동일 항공기라도 서로 다른 섹터에서 검출 시 오류유형별로 각각 집계</p>
+        <p>※ 예외: 당일 출도착 변경 시 최대 2건 카운트 가능 (극히 드묾)</p>
+      </div>
 
       {/* 발생현황 카드 그리드 */}
       <div className="space-y-4">
@@ -451,26 +443,33 @@ export function AirlineOccurrenceTab({
                   </div>
                 </div>
 
-                {/* AI 분석 영역 */}
-                {incident.aiScore != null && (
-                  <div className="mb-2 pb-2 border-b border-gray-200">
-                    <div className="flex items-start gap-2">
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded ${getAiScoreColor(incident.aiScore).bg} ${getAiScoreColor(incident.aiScore).text}`}>
-                          AI {incident.aiScore}점
-                        </span>
-                        {incident.reasonType && REASON_TYPE_CONFIG[incident.reasonType] && (
-                          <span className={`inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded border ${REASON_TYPE_CONFIG[incident.reasonType].bgColor} ${REASON_TYPE_CONFIG[incident.reasonType].textColor}`}>
-                            {REASON_TYPE_CONFIG[incident.reasonType].label}
+                {/* AI 분석 영역 - 토글 ON + 데이터 있을 때만 표시 */}
+                {showAiRecommend && incident.aiScore != null && (
+                  <div className="mb-2 pb-2 border-b border-purple-200 bg-purple-50 rounded px-2 py-1.5">
+                    <div className="flex items-center gap-2 mb-1">
+                      {/* AI 점수 배지 */}
+                      {(() => {
+                        const scoreColor = getAiScoreColor(incident.aiScore);
+                        return (
+                          <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded font-bold ${scoreColor.bg} ${scoreColor.text}`}>
+                            AI {incident.aiScore}점
+                            <span className="text-[10px] opacity-75">({scoreColor.label})</span>
                           </span>
-                        )}
-                      </div>
-                      {incident.aiReason && (
-                        <p className="text-[11px] text-gray-600 leading-relaxed line-clamp-2 hover:line-clamp-none cursor-pointer transition-all">
-                          {incident.aiReason}
-                        </p>
+                        );
+                      })()}
+                      {/* reason_type 배지 */}
+                      {incident.reasonType && REASON_TYPE_CONFIG[incident.reasonType] && (
+                        <span className={`inline-block text-[11px] px-2 py-0.5 rounded font-semibold ${REASON_TYPE_CONFIG[incident.reasonType].bgColor} ${REASON_TYPE_CONFIG[incident.reasonType].textColor}`}>
+                          {REASON_TYPE_CONFIG[incident.reasonType].label}
+                        </span>
                       )}
                     </div>
+                    {/* AI 사유 텍스트 */}
+                    {incident.aiReason && (
+                      <p className="text-[11px] text-purple-800 leading-relaxed line-clamp-2" title={incident.aiReason}>
+                        {incident.aiReason}
+                      </p>
+                    )}
                   </div>
                 )}
 

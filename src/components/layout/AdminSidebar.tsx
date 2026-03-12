@@ -37,7 +37,7 @@ export function AdminSidebar() {
     }, [pathname, searchParams]);
 
     return (
-        <aside className="w-72 bg-white border-r border-gray-200 flex flex-col pt-0 shrink-0 h-full overflow-y-auto">
+        <aside className="w-[230px] bg-white border-r border-gray-200 flex flex-col pt-0 shrink-0 h-full overflow-y-auto">
             <div className="px-6 py-4 mb-0">
                 <h2 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">
                     Admin Terminal

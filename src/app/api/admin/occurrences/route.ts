@@ -35,16 +35,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '관리자 권한이 필요합니다.' }, { status: 403 });
     }
 
-    // 1. 전체 콜사인 + 항공사 정보 한 번에 조회
+    // 1. 전체 콜사인 + 항공사 정보 + AI 분석 데이터 한 번에 조회
     const callsignsResult = await query(
       `SELECT
          c.id, c.airline_id, c.airline_code, c.callsign_pair, c.my_callsign, c.other_callsign,
          c.other_airline_code, c.error_type, c.sub_error, c.risk_level, c.similarity,
          c.status, c.occurrence_count, c.first_occurred_at, c.last_occurred_at,
          c.departure_airport1, c.arrival_airport1,
-         a.name_ko as airline_name_ko, a.name_en as airline_name_en
+         a.name_ko as airline_name_ko, a.name_en as airline_name_en,
+         ai.ai_score,
+         ai.ai_reason,
+         ai.reason_type
        FROM callsigns c
        JOIN airlines a ON c.airline_id = a.id
+       LEFT JOIN callsign_ai_analysis ai
+         ON ai.callsign_pair = c.callsign_a || ' | ' || c.callsign_b
+         OR ai.callsign_pair = c.callsign_b || ' | ' || c.callsign_a
        ORDER BY
          CASE WHEN c.risk_level = '매우높음' THEN 4
               WHEN c.risk_level = '높음' THEN 3
@@ -137,6 +143,13 @@ export async function GET(request: NextRequest) {
         action_status: latestAction?.status || 'no_action',
         action_type: latestAction?.action_type || null,
         action_completed_at: latestAction?.completed_at || null,
+        // AI 분석 데이터
+        ai_score: cs.ai_score ?? null,
+        ai_reason: cs.ai_reason ?? null,
+        reason_type: cs.reason_type ?? null,
+        aiScore: cs.ai_score ?? null,
+        aiReason: cs.ai_reason ?? null,
+        reasonType: cs.reason_type ?? null,
       };
     });
 

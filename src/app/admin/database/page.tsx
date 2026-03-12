@@ -29,6 +29,7 @@ const TABLE_LABELS: Record<string, string> = {
   file_uploads: '파일업로드',
   action_types: '조치유형',
   occurrences: '발생이력',
+  callsign_ai_analysis: 'AI 분석결과',
 };
 
 export default function AdminDatabasePage() {

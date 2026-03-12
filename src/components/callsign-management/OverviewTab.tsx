@@ -252,140 +252,6 @@ export function OverviewTab() {
 
   return (
     <div className="space-y-8">
-      {/* 상태별 카드 (클릭 가능) - 라벨 없음 */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        {/* 발생건수 */}
-        <button
-          onClick={() => {
-            setSelectedStatusFilter('all');
-            setPage(1);
-          }}
-          className={`rounded-lg p-6 transition-all cursor-pointer text-center ${selectedStatusFilter === 'all'
-              ? 'border-2 border-blue-600 bg-blue-50'
-              : 'border-2 border-blue-300 bg-blue-50 hover:border-blue-500'
-            }`}
-        >
-          <div className="text-4xl font-bold text-blue-600">{statusCounts.all}</div>
-          <div className="text-sm font-semibold text-blue-600 mt-2">전체 {statusCounts.all}건</div>
-        </button>
-
-        {/* 조치완료 */}
-        <button
-          onClick={() => {
-            setSelectedStatusFilter('complete');
-            setPage(1);
-          }}
-          className={`rounded-lg p-6 transition-all cursor-pointer text-center ${selectedStatusFilter === 'complete'
-              ? 'border-2 border-green-600 bg-green-50'
-              : 'border-2 border-green-300 bg-green-50 hover:border-green-500'
-            }`}
-        >
-          <div className="text-4xl font-bold text-green-600">{statusCounts.complete}</div>
-          <div className="text-sm font-semibold text-green-600 mt-2">완료 {statusCounts.complete}건</div>
-        </button>
-
-        {/* 부분완료 */}
-        <button
-          onClick={() => {
-            setSelectedStatusFilter('partial');
-            setPage(1);
-          }}
-          className={`rounded-lg p-6 transition-all cursor-pointer text-center ${selectedStatusFilter === 'partial'
-              ? 'border-2 border-amber-600 bg-amber-50'
-              : 'border-2 border-amber-300 bg-amber-50 hover:border-amber-500'
-            }`}
-        >
-          <div className="text-4xl font-bold text-amber-600">{statusCounts.partial}</div>
-          <div className="text-sm font-semibold text-amber-600 mt-2">부분완료 {statusCounts.partial}건</div>
-        </button>
-
-        {/* 진행중 */}
-        <button
-          onClick={() => {
-            setSelectedStatusFilter('in_progress');
-            setPage(1);
-          }}
-          className={`rounded-lg p-6 transition-all cursor-pointer text-center ${selectedStatusFilter === 'in_progress'
-              ? 'border-2 border-gray-600 bg-gray-100'
-              : 'border-2 border-gray-300 bg-gray-50 hover:border-gray-500'
-            }`}
-        >
-          <div className="text-4xl font-bold text-gray-600">{statusCounts.in_progress}</div>
-          <div className="text-sm font-semibold text-gray-600 mt-2">진행중 {statusCounts.in_progress}건</div>
-        </button>
-      </div>
-
-      {/* 필터 결과 요약 카드 */}
-      {hasFilters && summary && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <StatCard label="전체" value={summary.total} color="text-gray-900" />
-          <StatCard label="완료" value={summary.completed} color="text-emerald-600" />
-          <StatCard label="진행중" value={summary.in_progress} color="text-blue-600" />
-        </div>
-      )}
-
-      {/* 헤더 및 외부 액션 */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-2">
-        <div>
-          <h3 className="text-xl font-black text-slate-800 tracking-tight">호출부호 목록</h3>
-          <p className="text-sm font-semibold text-slate-500 mt-1">
-            양쪽 항공사 조치상태 비교 현황
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleReset}
-            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 rounded-xl transition-all shadow-sm"
-          >
-            초기화
-          </button>
-          <button
-            onClick={() => {
-              const excelRows = filteredRows.map((callsign) => ({
-                '호출부호 쌍': callsign.callsign_pair,
-                '위험도': callsign.risk_level,
-                '유사도': callsign.similarity || '-',
-                '오류유형': callsign.error_type || '-',
-                '발생횟수': callsign.occurrence_count || 0,
-                '최근발생일': callsign.last_occurred_at
-                  ? new Date(callsign.last_occurred_at).toLocaleDateString('ko-KR')
-                  : '-',
-                '조치유형': callsign.action_type || '-',
-                '처리일자': callsign.action_completed_at
-                  ? new Date(callsign.action_completed_at).toLocaleDateString('ko-KR')
-                  : '-',
-                '자사(코드)': callsign.my_airline_code || '-',
-                '자사 조치상태': getActionStatusMeta(callsign.my_action_status).label,
-                '타사(코드)': callsign.other_airline_code || '-',
-                '타사 조치상태': getActionStatusMeta(callsign.other_action_status).label,
-                '조치 상태': callsign.final_status === 'complete' ? '완전 완료' : callsign.final_status === 'partial' ? '부분 완료' : '진행중',
-                '등록일': callsign.uploaded_at
-                  ? new Date(callsign.uploaded_at).toLocaleDateString('ko-KR')
-                  : '-',
-              }));
-              const ws = XLSX.utils.json_to_sheet(excelRows);
-              const wb = XLSX.utils.book_new();
-              XLSX.utils.book_append_sheet(wb, ws, '호출부호 현황');
-              XLSX.writeFile(wb, `호출부호현황_${new Date().toLocaleDateString('ko-KR')}.xlsx`);
-            }}
-            disabled={filteredRows.length === 0}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md shadow-indigo-600/20"
-          >
-            📊 Excel 저장
-          </button>
-          <button
-            onClick={() => {
-              // 새로고침 로직
-              callsignsQuery.refetch();
-              statsQuery.refetch();
-            }}
-            className="px-4 py-2 bg-slate-800 text-white text-sm font-bold hover:bg-slate-700 rounded-xl transition-all shadow-md"
-          >
-            새로고침
-          </button>
-        </div>
-      </div>
-
       {/* 필터 영역 */}
       <div className="bg-slate-50/50 px-4 py-3 rounded-xl border border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
         {/* 드롭다운 및 날짜 (좌측) */}
@@ -520,6 +386,140 @@ export function OverviewTab() {
               <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* 상태별 카드 (클릭 가능) - 라벨 없음 */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        {/* 발생건수 */}
+        <button
+          onClick={() => {
+            setSelectedStatusFilter('all');
+            setPage(1);
+          }}
+          className={`rounded-lg p-6 transition-all cursor-pointer text-center ${selectedStatusFilter === 'all'
+              ? 'border-2 border-blue-600 bg-blue-50'
+              : 'border-2 border-blue-300 bg-blue-50 hover:border-blue-500'
+            }`}
+        >
+          <div className="text-4xl font-bold text-blue-600">{statusCounts.all}</div>
+          <div className="text-sm font-semibold text-blue-600 mt-2">전체 {statusCounts.all}건</div>
+        </button>
+
+        {/* 조치완료 */}
+        <button
+          onClick={() => {
+            setSelectedStatusFilter('complete');
+            setPage(1);
+          }}
+          className={`rounded-lg p-6 transition-all cursor-pointer text-center ${selectedStatusFilter === 'complete'
+              ? 'border-2 border-green-600 bg-green-50'
+              : 'border-2 border-green-300 bg-green-50 hover:border-green-500'
+            }`}
+        >
+          <div className="text-4xl font-bold text-green-600">{statusCounts.complete}</div>
+          <div className="text-sm font-semibold text-green-600 mt-2">완료 {statusCounts.complete}건</div>
+        </button>
+
+        {/* 부분완료 */}
+        <button
+          onClick={() => {
+            setSelectedStatusFilter('partial');
+            setPage(1);
+          }}
+          className={`rounded-lg p-6 transition-all cursor-pointer text-center ${selectedStatusFilter === 'partial'
+              ? 'border-2 border-amber-600 bg-amber-50'
+              : 'border-2 border-amber-300 bg-amber-50 hover:border-amber-500'
+            }`}
+        >
+          <div className="text-4xl font-bold text-amber-600">{statusCounts.partial}</div>
+          <div className="text-sm font-semibold text-amber-600 mt-2">부분완료 {statusCounts.partial}건</div>
+        </button>
+
+        {/* 진행중 */}
+        <button
+          onClick={() => {
+            setSelectedStatusFilter('in_progress');
+            setPage(1);
+          }}
+          className={`rounded-lg p-6 transition-all cursor-pointer text-center ${selectedStatusFilter === 'in_progress'
+              ? 'border-2 border-gray-600 bg-gray-100'
+              : 'border-2 border-gray-300 bg-gray-50 hover:border-gray-500'
+            }`}
+        >
+          <div className="text-4xl font-bold text-gray-600">{statusCounts.in_progress}</div>
+          <div className="text-sm font-semibold text-gray-600 mt-2">진행중 {statusCounts.in_progress}건</div>
+        </button>
+      </div>
+
+      {/* 필터 결과 요약 카드 */}
+      {hasFilters && summary && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <StatCard label="전체" value={summary.total} color="text-gray-900" />
+          <StatCard label="완료" value={summary.completed} color="text-emerald-600" />
+          <StatCard label="진행중" value={summary.in_progress} color="text-blue-600" />
+        </div>
+      )}
+
+      {/* 헤더 및 외부 액션 */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-2">
+        <div>
+          <h3 className="text-xl font-black text-slate-800 tracking-tight">호출부호 목록</h3>
+          <p className="text-sm font-semibold text-slate-500 mt-1">
+            양쪽 항공사 조치상태 비교 현황
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleReset}
+            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 rounded-xl transition-all shadow-sm"
+          >
+            초기화
+          </button>
+          <button
+            onClick={() => {
+              const excelRows = filteredRows.map((callsign) => ({
+                '호출부호 쌍': callsign.callsign_pair,
+                '위험도': callsign.risk_level,
+                '유사도': callsign.similarity || '-',
+                '오류유형': callsign.error_type || '-',
+                '발생횟수': callsign.occurrence_count || 0,
+                '최근발생일': callsign.last_occurred_at
+                  ? new Date(callsign.last_occurred_at).toLocaleDateString('ko-KR')
+                  : '-',
+                '조치유형': callsign.action_type || '-',
+                '처리일자': callsign.action_completed_at
+                  ? new Date(callsign.action_completed_at).toLocaleDateString('ko-KR')
+                  : '-',
+                '자사(코드)': callsign.my_airline_code || '-',
+                '자사 조치상태': getActionStatusMeta(callsign.my_action_status).label,
+                '타사(코드)': callsign.other_airline_code || '-',
+                '타사 조치상태': getActionStatusMeta(callsign.other_action_status).label,
+                '조치 상태': callsign.final_status === 'complete' ? '완전 완료' : callsign.final_status === 'partial' ? '부분 완료' : '진행중',
+                '등록일': callsign.uploaded_at
+                  ? new Date(callsign.uploaded_at).toLocaleDateString('ko-KR')
+                  : '-',
+              }));
+              const ws = XLSX.utils.json_to_sheet(excelRows);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, '호출부호 현황');
+              XLSX.writeFile(wb, `호출부호현황_${new Date().toLocaleDateString('ko-KR')}.xlsx`);
+            }}
+            disabled={filteredRows.length === 0}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md shadow-indigo-600/20"
+          >
+            📊 Excel 저장
+          </button>
+          <button
+            onClick={() => {
+              // 새로고침 로직
+              callsignsQuery.refetch();
+              statsQuery.refetch();
+            }}
+            className="px-4 py-2 bg-slate-800 text-white text-sm font-bold hover:bg-slate-700 rounded-xl transition-all shadow-md"
+          >
+            새로고침
+          </button>
         </div>
       </div>
 

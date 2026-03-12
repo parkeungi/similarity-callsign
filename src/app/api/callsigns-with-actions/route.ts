@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
                AND COALESCE(a.is_cancelled, false) = false
                ORDER BY a.registered_at DESC LIMIT 1) as other_completed_at,
               -- 오류유형별 발생건수 (동적)
-              (SELECT json_object_agg(error_type, cnt) FROM (
+              (SELECT json_object_agg(COALESCE(error_type, '미분류'), cnt) FROM (
                 SELECT error_type, COUNT(*) as cnt FROM callsign_occurrences WHERE callsign_id = c.id GROUP BY error_type
               ) t) as error_type_counts,
               -- 발생이력 날짜+시간 목록 (날짜별 중복 제거, MM-DD HH:MM 포맷)

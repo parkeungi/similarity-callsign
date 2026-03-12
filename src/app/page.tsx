@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { AppFooter } from '@/components/layout/AppFooter';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Building2, ShieldCheck, Mail, Lock } from 'lucide-react';
@@ -92,29 +93,26 @@ export default function Home() {
 
         {/* 왼쪽 메인 슬로건 영역 */}
         <div className="flex-1 text-left animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-200 fill-mode-both lg:self-end">
-          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-none bg-blue-500/10 border border-blue-400/20 mb-10">
-            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-            <span className="text-[11px] font-black text-blue-400 uppercase tracking-widest leading-none">실시간 영공 감시 중</span>
-          </div>
 
-          <h2 className="text-5xl md:text-6xl lg:text-7xl font-black text-white leading-[1.1] tracking-tighter mb-10 text-balance">
+
+          <h2 className="text-4xl md:text-5xl lg:text-[3.5rem] font-black text-white leading-[1.1] tracking-tighter mb-8 text-balance">
             대한민국 하늘의 안전,<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-cyan-300">데이터가 연결합니다.</span>
           </h2>
 
-          <p className="text-lg md:text-xl text-white/60 leading-relaxed font-medium mb-16 max-w-xl">
+          <p className="text-base md:text-lg text-white/60 leading-relaxed font-medium mb-14 max-w-xl">
             차세대 항공 관제 및 유사호출부호 경보 시스템.<br />
             가장 정밀한 데이터 분석으로 안전한 비행 환경을 조성합니다.
           </p>
 
           <div className="flex gap-16 items-center">
             <div className="flex flex-col">
-              <span className="text-3xl font-black text-white tracking-tighter">99.9%</span>
+              <span className="text-2xl font-black text-white tracking-tighter">99.9%</span>
               <span className="text-[10px] font-bold text-white/30 tracking-[0.2em] mt-2 uppercase">Reliability</span>
             </div>
             <div className="w-px h-12 bg-white/10" />
             <div className="flex flex-col">
-              <span className="text-3xl font-black text-white tracking-tighter">24Hrs</span>
+              <span className="text-2xl font-black text-white tracking-tighter">24Hrs</span>
               <span className="text-[10px] font-bold text-white/30 tracking-[0.2em] mt-2 uppercase">Monitoring</span>
             </div>
           </div>
@@ -220,30 +218,7 @@ export default function Home() {
         </div>
       </main>
 
-      {/* 푸터 */}
-      <footer className="relative z-20 py-5 bg-gray-800 text-gray-300 border-t border-gray-700">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-wrap gap-6 items-center justify-center">
-            <div className="text-sm font-medium text-white">
-              Similar Callsign Warning System | Korea Airports Corporation
-            </div>
-            <div className="flex gap-5 text-sm">
-              <span className="text-gray-400">Aviation Safety Division</span>
-              <div>
-                <span className="text-gray-400">T.</span>
-                <span className="font-medium ml-1">1588-2311</span>
-              </div>
-              <div>
-                <span className="text-gray-400">E.</span>
-                <span className="font-medium ml-1">info@airport.kr</span>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-gray-600 mt-3 pt-3 text-xs text-gray-400 text-center">
-            © 2026 Korea Airports Corporation. All Rights Reserved.
-          </div>
-        </div>
-      </footer>
+      <AppFooter />
     </div>
   );
 }

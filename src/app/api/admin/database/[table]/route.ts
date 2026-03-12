@@ -12,6 +12,7 @@ const ALLOWED_TABLES = new Set([
   'file_uploads',
   'action_types',
   'occurrences',
+  'callsign_ai_analysis',
 ]);
 
 // 마스킹할 컬럼 (비밀번호 등 민감 정보)
