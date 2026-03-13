@@ -20,9 +20,9 @@ export const getActionById = `SELECT * FROM actions WHERE id = $1`;
 export const updateAction = `UPDATE actions SET status = $1, manager_name = $2, description = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4`;
 
 /**
- * 조치 이력 삭제
+ * 조치 이력 취소 (물리 삭제 금지 - is_cancelled 플래그 사용)
  */
-export const deleteAction = `DELETE FROM actions WHERE id = $1`;
+export const cancelAction = `UPDATE actions SET is_cancelled = true, status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE id = $1`;
 
 /**
  * 특정 유사호출부호의 최신 조치 조회

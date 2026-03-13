@@ -103,7 +103,7 @@ export function AirlineStatisticsTab({
             const prev = RISK_LEVEL_ORDER[riskMap[pair] as keyof typeof RISK_LEVEL_ORDER] ?? 0;
             const curr = RISK_LEVEL_ORDER[inc.risk as keyof typeof RISK_LEVEL_ORDER] ?? 0;
             if (curr >= prev) {
-                riskMap[pair] = inc.risk || '낮음';
+                riskMap[pair] = inc.risk || '높음';
             }
         });
 

@@ -304,10 +304,10 @@ export async function PATCH(
     const airlineCheck = await query('SELECT code FROM airlines WHERE id = $1', [airlineId]);
     const isMy = airlineCheck.rows[0]?.code === airlineCode;
 
-    // 국내 항공사 목록 조회 (국내/외항사 판별용)
-    const domesticAirlinesResult = await query('SELECT code FROM airlines');
-    const domesticAirlines = new Set(
-      (domesticAirlinesResult.rows || []).map((a: any) => a.code)
+    // 국내 항공사 목록 조회 (국내/외항사 판별용, FOREIGN 제외)
+    const domesticAirlinesResult = await query("SELECT code FROM airlines WHERE code != 'FOREIGN'");
+    const domesticAirlines = new Set<string>(
+      (domesticAirlinesResult.rows || []).map((a: any) => a.code as string)
     );
 
     const result = await transaction(async (trx) => {

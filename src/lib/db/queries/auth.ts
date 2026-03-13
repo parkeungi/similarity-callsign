@@ -9,6 +9,7 @@
 export const getUserByEmail = `SELECT
   u.id, u.password_hash, u.status, u.role, u.email,
   u.airline_id, u.is_default_password, u.password_change_required, u.last_password_changed_at,
+  u.failed_login_attempts, u.locked_until,
   a.code as airline_code, a.name_ko as airline_name_ko, a.name_en as airline_name_en
 FROM users u
 LEFT JOIN airlines a ON u.airline_id = a.id

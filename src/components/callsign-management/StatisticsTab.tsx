@@ -128,7 +128,6 @@ export function StatisticsTab() {
   const riskPieData = [
     { name: '매우높음', value: riskStats.veryHigh, color: COLORS.rose },
     { name: '높음', value: riskStats.high, color: COLORS.amber },
-    { name: '낮음', value: riskStats.low, color: COLORS.emerald },
   ].filter(i => i.value > 0);
 
   const errorPieData = (sysData?.errorDistribution || []).map((err, i) => ({

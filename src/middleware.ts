@@ -8,20 +8,21 @@ const PUBLIC_PATHS = ['/', '/auth/login', '/auth/register'];
 /**
  * refreshToken JWT를 경량 검증 (서명 + 만료)
  * Edge Runtime 호환을 위해 jose 라이브러리 사용
+ * @returns payload(role 포함) 또는 null
  */
-async function verifyRefreshTokenEdge(token: string): Promise<boolean> {
+async function verifyRefreshTokenEdge(token: string): Promise<{ role?: string } | null> {
   try {
     const secret = process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET;
-    if (!secret) return false;
+    if (!secret) return null;
 
     const secretKey = new TextEncoder().encode(secret);
-    await jwtVerify(token, secretKey, {
+    const { payload } = await jwtVerify(token, secretKey, {
       issuer: 'katc1',
       audience: 'katc1:refresh',
     });
-    return true;
+    return payload as { role?: string };
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -42,9 +43,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // JWT 서명 + 만료 검증
-  const isValid = await verifyRefreshTokenEdge(refreshToken);
+  const payload = await verifyRefreshTokenEdge(refreshToken);
 
-  if (!isValid) {
+  if (!payload) {
     // 만료/변조된 토큰 → 쿠키 삭제 후 로그인 리다이렉트
     const loginUrl = new URL('/', request.url);
     const response = NextResponse.redirect(loginUrl);
@@ -58,6 +59,12 @@ export async function middleware(request: NextRequest) {
       sameSite: 'lax',
     });
     return response;
+  }
+
+  // /admin 경로는 관리자 역할 필요
+  if (pathname.startsWith('/admin') && payload.role !== 'admin') {
+    const airlineUrl = new URL('/airline', request.url);
+    return NextResponse.redirect(airlineUrl);
   }
 
   return NextResponse.next();

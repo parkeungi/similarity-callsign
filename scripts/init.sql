@@ -83,7 +83,9 @@ INSERT INTO airlines (code, name_ko, name_en, display_order) VALUES
 ('EOK', '이스타항공', 'EASTAR JET', 8),
 ('FGW', '플라이강원', 'Aero K', 9),
 ('APZ', '에어프레미아', 'Air Premia', 10),
-('ESR', '이스타항공', 'EASTAR JET', 11)
+('ESR', '이스타항공', 'EASTAR JET', 11),
+('ARK', '에어로케이', 'Aero K Airlines', 12),
+('FOREIGN', '외항사', 'Foreign Airlines', 99)
 ON CONFLICT (code) DO NOTHING;
 
 -- ================================================================
@@ -180,7 +182,7 @@ CREATE TABLE IF NOT EXISTS file_uploads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   file_name VARCHAR(255) NOT NULL,
   file_size INT,
-  uploaded_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
   uploaded_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
   -- 처리 결과

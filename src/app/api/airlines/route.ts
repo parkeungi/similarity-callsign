@@ -22,24 +22,24 @@ export async function GET(request: NextRequest) {
         // code 파라미터가 있으면 필터링 (SQL 인젝션 방지)
         if (code) {
           result = await query(
-            'SELECT id, code, name_ko, name_en, display_order FROM airlines WHERE code = $1 ORDER BY display_order ASC, code ASC',
+            "SELECT id, code, name_ko, name_en, display_order FROM airlines WHERE code = $1 AND code != 'FOREIGN' ORDER BY display_order ASC, code ASC",
             [code]
           );
         } else {
           result = await query(
-            'SELECT id, code, name_ko, name_en, display_order FROM airlines ORDER BY display_order ASC, code ASC'
+            "SELECT id, code, name_ko, name_en, display_order FROM airlines WHERE code != 'FOREIGN' ORDER BY display_order ASC, code ASC"
           );
         }
     } catch (err: any) {
       if (err.code === '42703') { // column does not exist 에러
         if (code) {
           result = await query(
-            'SELECT id, code, name_ko, name_en, 0 as display_order FROM airlines WHERE code = $1 ORDER BY created_at ASC, code ASC',
+            "SELECT id, code, name_ko, name_en, 0 as display_order FROM airlines WHERE code = $1 AND code != 'FOREIGN' ORDER BY created_at ASC, code ASC",
             [code]
           );
         } else {
           result = await query(
-            'SELECT id, code, name_ko, name_en, 0 as display_order FROM airlines ORDER BY created_at ASC, code ASC'
+            "SELECT id, code, name_ko, name_en, 0 as display_order FROM airlines WHERE code != 'FOREIGN' ORDER BY created_at ASC, code ASC"
           );
         }
       } else {

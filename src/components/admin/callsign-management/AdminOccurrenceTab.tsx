@@ -189,7 +189,7 @@ export function AdminOccurrenceTab() {
       if (aCompleted !== bCompleted) return aCompleted - bCompleted;
 
       if (sortOrder === 'priority') {
-        const similarityOrder: Record<string, number> = { '매우높음': 3, '높음': 2, '낮음': 1 };
+        const similarityOrder: Record<string, number> = { '매우높음': 2, '높음': 1 };
         const riskA = RISK_LEVEL_ORDER[a.risk as keyof typeof RISK_LEVEL_ORDER] || 0;
         const riskB = RISK_LEVEL_ORDER[b.risk as keyof typeof RISK_LEVEL_ORDER] || 0;
         if (riskB !== riskA) return riskB - riskA;
@@ -243,7 +243,7 @@ export function AdminOccurrenceTab() {
       case 'very_high': return '매우높음';
       case 'high': return '높음';
       case 'medium': return '중간';
-      default: return '낮음';
+      default: return risk;
     }
   };
 

@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       params.push(airlineId);
     }
 
-    if (riskLevel && ['매우높음', '높음', '낮음'].includes(riskLevel)) {
+    if (riskLevel && ['매우높음', '높음'].includes(riskLevel)) {
       whereClause += ` AND risk_level = $${paramIndex++}`;
       params.push(riskLevel);
     }
@@ -88,9 +88,8 @@ export async function GET(request: NextRequest) {
       WHERE 1=1 ${whereClause}
       ORDER BY
         CASE
-          WHEN c.risk_level = '매우높음' THEN 3
-          WHEN c.risk_level = '높음' THEN 2
-          WHEN c.risk_level = '낮음' THEN 1
+          WHEN c.risk_level = '매우높음' THEN 2
+          WHEN c.risk_level = '높음' THEN 1
           ELSE 0
         END DESC,
         c.occurrence_count DESC

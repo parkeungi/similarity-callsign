@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, verifyRefreshToken } from '@/lib/jwt';
+import { verifyToken, verifyRefreshToken, hashRefreshToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -43,6 +43,20 @@ export async function GET(request: NextRequest) {
           { status: 401 }
         );
       }
+
+      // DB 해시 검증 (로그아웃된 토큰 무효화)
+      const tokenHash = hashRefreshToken(refreshToken);
+      const hashCheck = await query(
+        'SELECT id FROM users WHERE id = $1 AND refresh_token_hash = $2',
+        [payload.userId, tokenHash]
+      );
+      if (hashCheck.rows.length === 0) {
+        return NextResponse.json(
+          { error: '만료된 세션입니다.' },
+          { status: 401 }
+        );
+      }
+
       userId = payload.userId;
     }
 

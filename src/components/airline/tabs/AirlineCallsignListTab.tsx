@@ -123,8 +123,8 @@ export function AirlineCallsignListTab({
   // 정렬 로직
   const sortedCallsigns = useMemo(() => {
     const sorted = [...statusFilteredCallsigns];
-    const riskOrder = { '매우높음': 3, '높음': 2, '낮음': 1, '중간': 1 };
-    const similarityOrder = { '매우높음': 3, '높음': 2, '낮음': 1 };
+    const riskOrder: Record<string, number> = { '매우높음': 2, '높음': 1 };
+    const similarityOrder: Record<string, number> = { '매우높음': 2, '높음': 1 };
 
     switch (sortBy) {
       case 'priority':

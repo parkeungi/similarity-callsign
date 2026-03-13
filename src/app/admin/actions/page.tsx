@@ -67,7 +67,6 @@ export default function AdminActionsPage() {
   const riskColors: Record<string, string> = {
     '매우높음': '#dc2626',
     '높음': '#f59e0b',
-    '낮음': '#16a34a',
   };
 
   const airlines = airlinesQuery.data ?? [];

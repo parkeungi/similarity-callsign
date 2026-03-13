@@ -106,9 +106,9 @@ export async function syncCallsignStatus(
   }
 
   // 2. 국내항공사 목록 조회
-  const airlinesResult = await trx('SELECT code FROM airlines');
-  const domesticAirlines = new Set(
-    (airlinesResult.rows || []).map((a: any) => a.code)
+  const airlinesResult = await trx("SELECT code FROM airlines WHERE code != 'FOREIGN'");
+  const domesticAirlines = new Set<string>(
+    (airlinesResult.rows || []).map((a: any) => a.code as string)
   );
 
   // 3. isMy 판단: 조치를 수행한 항공사가 자사(airline_code) 측인가?

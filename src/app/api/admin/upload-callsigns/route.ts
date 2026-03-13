@@ -89,27 +89,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 파일 업로드 기록 생성
+    // 파일 업로드 기록 생성 (RETURNING id로 race condition 방지)
     const uploadRecord = await query(
       `INSERT INTO file_uploads (file_name, file_size, uploaded_by, status)
-       VALUES ($1, $2, $3, 'processing')`,
+       VALUES ($1, $2, $3, 'processing') RETURNING id`,
       [file.name, file.size, payload.userId]
     );
 
-    // 실제 저장된 ID를 조회 (file_uploads.id는 TEXT UUID이므로)
-    const idResult = await query(
-      `SELECT id FROM file_uploads WHERE uploaded_by = $1 AND file_name = $2 ORDER BY uploaded_at DESC LIMIT 1`,
-      [payload.userId, file.name]
-    );
-
-    if (idResult.rows.length === 0) {
+    if (uploadRecord.rows.length === 0) {
       return NextResponse.json(
-        { error: '파일 업로드 기록 조회 실패' },
+        { error: '파일 업로드 기록 생성 실패' },
         { status: 500 }
       );
     }
 
-    const uploadId = idResult.rows[0].id;
+    const uploadId = uploadRecord.rows[0].id;
 
     try {
       // 파일 데이터 읽기
@@ -221,23 +215,30 @@ export async function POST(request: NextRequest) {
           const isCallsign1Domestic = domesticAirlines.includes(airlineCode1);
           const isCallsign2Domestic = domesticAirlines.includes(airlineCode2);
 
-          // 둘 다 국내 항공사가 아니면 스킵
-          if (!isCallsign1Domestic && !isCallsign2Domestic) {
-            continue;
-          }
-
           // 오류발생가능성_등급이 '낮음' 또는 '매우낮음'이면 스킵 (높음/매우높음만 처리)
           const riskGradeNormalized = riskLevelGrade?.replace(/\s+/g, '');
           if (riskGradeNormalized && ['낮음', '매우낮음'].includes(riskGradeNormalized)) {
             continue;
           }
 
-          // 국내 항공사를 my_callsign으로, 나머지를 other_callsign으로 설정
+          // 국내/외항사 구분하여 my_callsign, other_callsign 설정
           let myAirlineCode: string, myCallsign: string, otherCallsign: string, otherAirlineCode: string;
           let myDepartureAirport: string | undefined, myArrivalAirport: string | undefined;
           let otherDepartureAirport: string | undefined, otherArrivalAirport: string | undefined;
+          let isForeignPair = false; // 외항사↔외항사 여부
 
-          if (isCallsign1Domestic) {
+          if (!isCallsign1Domestic && !isCallsign2Domestic) {
+            // 외항사↔외항사: FOREIGN 항공사에 할당 (편명1을 기준으로)
+            isForeignPair = true;
+            myAirlineCode = 'FOREIGN';
+            myCallsign = callsign1;
+            otherCallsign = callsign2;
+            otherAirlineCode = airlineCode2;
+            myDepartureAirport = departureAirport1;
+            myArrivalAirport = arrivalAirport1;
+            otherDepartureAirport = departureAirport2;
+            otherArrivalAirport = arrivalAirport2;
+          } else if (isCallsign1Domestic) {
             myAirlineCode = airlineCode1;
             myCallsign = callsign1;
             otherCallsign = callsign2;
@@ -344,7 +345,9 @@ export async function POST(request: NextRequest) {
                 occurrence_count = $19,
                 file_upload_id = $20,
                 updated_at = CURRENT_TIMESTAMP,
-                status = 'in_progress'
+                status = 'in_progress',
+                my_action_status = 'no_action',
+                other_action_status = 'no_action'
                WHERE id = $21`,
               [
                 rowData.sector,
@@ -385,7 +388,7 @@ export async function POST(request: NextRequest) {
                    max_concurrent_traffic, coexistence_minutes, error_probability, atc_recommendation,
                    error_type, sub_error, risk_level, occurrence_count, file_upload_id, uploaded_at, status,
                    my_action_status, other_action_status)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, CURRENT_TIMESTAMP, 'in_progress', 'no_action', 'no_action')`,
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, CURRENT_TIMESTAMP, 'in_progress', 'no_action', 'no_action') RETURNING id`,
                 [
                   airlineId,
                   rowData.airline_code,
@@ -416,13 +419,8 @@ export async function POST(request: NextRequest) {
                 ]
               );
 
-              // 2. 새로 삽입된 ID 가져오기
-              const idResult = await query(
-                `SELECT id FROM callsigns WHERE airline_code = $1 AND callsign_pair = $2 ORDER BY uploaded_at DESC LIMIT 1`,
-                [rowData.airline_code, rowData.callsign_pair]
-              );
-
-              callsignId = idResult.rows[0].id;
+              // 2. RETURNING id로 바로 가져오기
+              callsignId = insertResult.rows[0].id;
 
               // 📌 IMPORTANT: Actions은 나중에 항공사가 조치등록할 때 생성됨
               // (관리자의 호출부호 업로드에서는 callsigns만 생성)

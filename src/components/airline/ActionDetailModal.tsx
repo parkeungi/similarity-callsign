@@ -30,7 +30,6 @@ export function ActionDetailModal({
     switch (risk) {
       case '매우높음': return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
       case '높음': return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
-      case '낮음': return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
       default: return 'bg-slate-800 text-slate-400 border-slate-700';
     }
   };

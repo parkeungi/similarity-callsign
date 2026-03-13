@@ -52,9 +52,8 @@ export async function GET(request: NextRequest) {
        LEFT JOIN callsign_ai_analysis ai
          ON ai.callsign_pair = c.callsign_pair
        ORDER BY
-         CASE WHEN c.risk_level = '매우높음' THEN 4
-              WHEN c.risk_level = '높음' THEN 3
-              WHEN c.risk_level = '낮음' THEN 1
+         CASE WHEN c.risk_level = '매우높음' THEN 2
+              WHEN c.risk_level = '높음' THEN 1
               ELSE 0 END DESC,
          COALESCE(c.occurrence_count, 0) DESC`,
       []

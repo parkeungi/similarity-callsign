@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '20', 10)));
 
     // 입력값 검증
-    const validRiskLevels = ['매우높음', '높음', '낮음'];
+    const validRiskLevels = ['매우높음', '높음'];
     const filteredRiskLevel = riskLevel && validRiskLevels.includes(riskLevel) ? riskLevel : null;
 
     // airlineId 형식 검증 (16진수 문자열, 하이픈 있거나 없음)
@@ -150,16 +150,13 @@ export async function GET(request: NextRequest) {
       whereClauses.push(`c.airline_id = $${sqlParams.length}`);
     }
 
-    // 외항사끼리 필터: airline_code와 other_airline_code 모두 airlines 테이블에 없는 건
+    // 외항사끼리 필터: FOREIGN 항공사에 할당된 건
     if (airlineFilter === 'foreign') {
-      whereClauses.push(`c.airline_code NOT IN (SELECT code FROM airlines) AND c.other_airline_code NOT IN (SELECT code FROM airlines)`);
+      whereClauses.push(`c.airline_code = 'FOREIGN'`);
     }
-    // 국내↔외항사 필터: 한쪽만 국내항공사인 건
+    // 국내↔외항사 필터: 국내항공사이면서 상대가 외항사인 건
     if (airlineFilter === 'foreign_domestic') {
-      whereClauses.push(`(
-        (c.airline_code IN (SELECT code FROM airlines) AND c.other_airline_code NOT IN (SELECT code FROM airlines))
-        OR (c.airline_code NOT IN (SELECT code FROM airlines) AND c.other_airline_code IN (SELECT code FROM airlines))
-      )`);
+      whereClauses.push(`c.airline_code != 'FOREIGN' AND c.other_airline_code NOT IN (SELECT code FROM airlines WHERE code != 'FOREIGN')`);
     }
 
     if (dateFrom) {
@@ -243,9 +240,8 @@ export async function GET(request: NextRequest) {
        ${conditions}
        ORDER BY
          CASE
-           WHEN c.risk_level = '매우높음' THEN 3
-           WHEN c.risk_level = '높음' THEN 2
-           WHEN c.risk_level = '낮음' THEN 1
+           WHEN c.risk_level = '매우높음' THEN 2
+           WHEN c.risk_level = '높음' THEN 1
            ELSE 0
          END DESC,
          c.occurrence_count DESC,
@@ -254,9 +250,9 @@ export async function GET(request: NextRequest) {
     );
 
     // 국내 항공사 목록 조회 (최종 상태 계산용)
-    const airlinesResult = await query('SELECT code FROM airlines');
-    const domesticAirlines = new Set(
-      (airlinesResult.rows || []).map((a: any) => a.code)
+    const airlinesResult = await query("SELECT code FROM airlines WHERE code != 'FOREIGN'");
+    const domesticAirlines = new Set<string>(
+      (airlinesResult.rows || []).map((a: any) => a.code as string)
     );
 
     // 🎯 summary 계산 (필터링 전 - 전체 데이터 기반)

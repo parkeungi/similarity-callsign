@@ -7,7 +7,7 @@ type StatusMap = Record<string, string>;
 
 type StatusKey = 'pending' | 'in_progress' | 'completed';
 
-type RiskLevel = '매우높음' | '높음' | '낮음';
+type RiskLevel = '매우높음' | '높음';
 
 interface AdminActionsTableProps {
   data?: ActionListResponse;

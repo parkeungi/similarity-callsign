@@ -323,22 +323,30 @@ function transformCallsignRow(row: any): Callsign & {
   return mapped;
 }
 
+// 국내 항공사 코드 목록 (airlines 테이블 기준, FOREIGN 제외)
+const DOMESTIC_AIRLINES = new Set([
+  'KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR', 'ARK',
+]);
+
 function calculateFinalStatus(row: any): 'completed' | 'partial' | 'in_progress' {
   const myStatus = row.my_action_status || 'no_action';
   const otherStatus = row.other_action_status || 'no_action';
   const myCompleted = myStatus === 'completed';
   const otherCompleted = otherStatus === 'completed';
   const sameAirline = row.other_airline_code && row.other_airline_code === row.airline_code;
-  const isForeignCounterparty = row.other_airline_code && !sameAirline;
+  const otherIsForeign = !row.other_airline_code || !DOMESTIC_AIRLINES.has(row.other_airline_code);
 
+  // 같은 항공사: 한쪽만 완료해도 완료
   if (!row.other_airline_code || sameAirline) {
     return myCompleted || otherCompleted ? 'completed' : 'in_progress';
   }
 
-  if (isForeignCounterparty) {
+  // 상대가 외항사: 자사만 완료하면 완료
+  if (otherIsForeign) {
     return myCompleted ? 'completed' : 'in_progress';
   }
 
+  // 국내↔국내: 양쪽 모두 완료해야 완료
   if (myCompleted && otherCompleted) {
     return 'completed';
   }

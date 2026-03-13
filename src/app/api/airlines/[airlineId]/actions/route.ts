@@ -366,9 +366,8 @@ export async function POST(
       );
     }
 
-    // 국내 항공사 목록 (CLAUDE.md 정의: 항공사 테이블에 입력된 11개만 국내항공사)
-    // DB에서 확인된 ICAO 3글자 코드: KAL, AAR, JJA, JNA, TWB, ABL, ASV, EOK, FGW, APZ, ESR
-    const domesticAirlines = new Set(['KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR']);
+    // 국내 항공사 목록 (airlines 테이블 기준, FOREIGN 제외)
+    const domesticAirlines = new Set(['KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR', 'ARK']);
 
     // 요청 본문 (ActionModal에서 snake_case로 전송)
     body = await request.json();
@@ -508,10 +507,10 @@ export async function POST(
         [actionType, description || null, managerName || null, plannedDueDate || null, completedTimestamp, actionStatus, nowIso, existingActionId]
       );
 
-      // 2. 국내 항공사 목록 조회 (완료 조건 계산용)
-      const airlinesResult = await trx('SELECT code FROM airlines');
-      const domesticAirlines = new Set(
-        (airlinesResult.rows || []).map((a: any) => a.code)
+      // 2. 국내 항공사 목록 조회 (완료 조건 계산용, FOREIGN 제외)
+      const airlinesResult = await trx("SELECT code FROM airlines WHERE code != 'FOREIGN'");
+      const domesticAirlines = new Set<string>(
+        (airlinesResult.rows || []).map((a: any) => a.code as string)
       );
 
       const isMy = callsignData.airline_code === airlineCode;
