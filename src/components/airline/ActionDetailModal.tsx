@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { Callsign } from '@/types/action';
-import { getErrorTypeDarkColor } from '@/lib/error-type-colors';
+import { getErrorTypeDarkStyle } from '@/lib/error-type-colors';
 
 interface ActionDetailModalProps {
   callsign: Callsign;
@@ -165,11 +165,12 @@ export function ActionDetailModal({
                 style={{ gridTemplateColumns: `repeat(${Math.min(errorTypeEntries.length, 3)}, minmax(0, 1fr))` }}
               >
                 {errorTypeEntries.map(([type, count]) => {
-                  const p = getErrorTypeDarkColor(type);
+                  const s = getErrorTypeDarkStyle(type);
                   return (
-                    <div key={type} className={`flex items-center justify-between p-3.5 rounded-none border ${p.border} ${p.bg}`}>
-                      <span className={`text-xs font-bold ${p.label}`}>{type}</span>
-                      <span className={`text-sm font-black ${p.value}`}>
+                    <div key={type} className="flex items-center justify-between p-3.5 rounded-none"
+                      style={{ border: s.border, backgroundColor: s.bg }}>
+                      <span className="text-xs font-bold" style={{ color: s.label }}>{type}</span>
+                      <span className="text-sm font-black" style={{ color: s.value }}>
                         {count}<span className="text-xs font-semibold ml-0.5 opacity-60">건</span>
                       </span>
                     </div>
