@@ -1,7 +1,7 @@
 // 유사호출부호 목록 탭 - Incident[] 테이블 렌더링, 위험도·유사성 배지, Excel(xlsx) 내보내기 기능, 정렬·필터 지원
 'use client';
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { Callsign } from '@/types/action';
 import * as XLSX from 'xlsx';
@@ -168,6 +168,13 @@ export function AirlineCallsignListTab({
   // 페이지네이션
   const limit = 10;
   const totalPages = Math.max(1, Math.ceil(sortedCallsigns.length / limit));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   const pagedCallsigns = useMemo(() => {
     const start = (page - 1) * limit;
     return sortedCallsigns.slice(start, start + limit);

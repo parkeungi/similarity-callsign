@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,7 +82,7 @@ export async function GET(
         AND is_active = true
         AND (
           target_airlines IS NULL
-          OR (',' || COALESCE(target_airlines, '') || ',') LIKE $3
+          OR (',' || COALESCE(target_airlines, '') || ',') ILIKE $3
         )
       `,
       [id, id, targetPattern]
@@ -112,7 +113,7 @@ export async function GET(
       viewedAt: viewResult.rows.length > 0 ? viewResult.rows[0].viewedAt : null
     });
   } catch (error) {
-    console.error('[GET /api/announcements/{id}] Error:', error);
+    logger.error('공지사항 상세 조회 오류', error, 'api/announcements/[id]');
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }
@@ -173,7 +174,7 @@ export async function POST(
 
     return NextResponse.json({ status: 'recorded' }, { status: 200 });
   } catch (error) {
-    console.error('[POST /api/announcements/{id}] Error:', error);
+    logger.error('공지사항 읽음 상태 기록 오류', error, 'api/announcements/[id]');
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }

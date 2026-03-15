@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';
+import { logger } from '@/lib/logger';
 
 // 허용된 테이블 목록 (화이트리스트)
 const ALLOWED_TABLES = [
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: tableInfos });
   } catch (error) {
-    console.error('[DB Tables] Error:', error);
+    logger.error('테이블 목록 조회 실패', error, 'admin/database/tables');
     return NextResponse.json({ error: '테이블 목록 조회 실패' }, { status: 500 });
   }
 }

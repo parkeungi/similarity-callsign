@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('항공사 목록 조회 오류:', error);
+    logger.error('항공사 목록 조회 오류', error, 'api/airlines');
     return NextResponse.json(
       { error: '항공사 목록 조회 중 오류가 발생했습니다.' },
       { status: 500 }

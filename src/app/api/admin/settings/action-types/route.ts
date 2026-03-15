@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 function checkAdminAuth(authHeader: string | null) {
   if (!authHeader?.startsWith('Bearer ')) {
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
       total: result.rows.length,
     });
   } catch (error) {
-    console.error('[ActionTypes] GET error:', error);
+    logger.error('조치유형 조회 실패', error, 'admin/settings/action-types');
     return NextResponse.json({ error: '조치유형 조회 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: result.rows[0] }, { status: 201 });
   } catch (error) {
-    console.error('[ActionTypes] POST error:', error);
+    logger.error('조치유형 생성 실패', error, 'admin/settings/action-types');
     return NextResponse.json({ error: '조치유형 생성 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

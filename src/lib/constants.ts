@@ -38,7 +38,7 @@ export const COOKIE_OPTIONS = {
   PATH: '/',
   HTTP_ONLY: true,
   SECURE: process.env.NODE_ENV === 'production',
-  SAME_SITE: 'lax' as const,
+  SAME_SITE: 'strict' as const,
 };
 
 /**
@@ -59,7 +59,7 @@ export const ROUTES = {
   CHANGE_PASSWORD: '/change-password',
   AIRLINE: '/airline',
   ANNOUNCEMENTS: '/airline/announcements',
-  ADMIN: '/callsign-management?tab=overview',
+  ADMIN: '/callsign-management?tab=occurrences',
   ADMIN_USERS: '/admin/users',
   ADMIN_PASSWORD_RESET: '/admin/password-reset',
   ADMIN_AIRLINES: '/admin/airlines',

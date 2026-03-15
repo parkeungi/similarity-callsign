@@ -1,4 +1,4 @@
-# Gap Detector Memory - KATC1 Project
+# Gap Detector Memory - 유사호출부호 공유시스템
 
 ## Project Overview
 - **Stack**: Next.js 14 + SQLite 3 (better-sqlite3, no ORM) -- MIGRATED from PostgreSQL 2026-02-27

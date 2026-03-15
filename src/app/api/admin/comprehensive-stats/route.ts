@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
 import { dayBucket, hourBucket, monthBucket, fullTime } from '@/lib/db/sql-helpers';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
       SELECT COALESCE(c.departure_airport1, '미상') || '-' || COALESCE(c.arrival_airport1, '미상') as name, COUNT(*) as count
       FROM callsigns c
       WHERE 1=1 ${conditions}
-      GROUP BY 1
+      GROUP BY c.departure_airport1, c.arrival_airport1
       ORDER BY count DESC
       LIMIT 6
     `;
@@ -124,7 +125,7 @@ export async function GET(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('통계 조회 오류:', error);
+        logger.error('종합 통계 조회 오류', error, 'admin/comprehensive-stats');
         return NextResponse.json({ error: '조회 중 오류가 발생했습니다.' }, { status: 500 });
     }
 }

@@ -23,6 +23,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,7 +102,7 @@ export async function GET(request: NextRequest) {
 
     let whereClause = `(
       a.target_airlines IS NULL
-      OR (',' || COALESCE(a.target_airlines, '') || ',') LIKE $${whereParamIndex++}
+      OR (',' || COALESCE(a.target_airlines, '') || ',') ILIKE $${whereParamIndex++}
     )`;
 
     const targetPattern = user.airline_code ? `%,${user.airline_code},%` : null;
@@ -135,7 +136,7 @@ export async function GET(request: NextRequest) {
 
     // 제목/내용 검색
     if (search) {
-      whereClause += ` AND (a.title LIKE $${whereParamIndex++} OR a.content LIKE $${whereParamIndex++})`;
+      whereClause += ` AND (a.title ILIKE $${whereParamIndex++} OR a.content ILIKE $${whereParamIndex++})`;
       queryParams.push(`%${search}%`, `%${search}%`);
     }
 
@@ -183,7 +184,7 @@ export async function GET(request: NextRequest) {
       limit
     });
   } catch (error) {
-    console.error('[GET /api/announcements/history] Error:', error);
+    logger.error('공지사항 이력 조회 오류', error, 'api/announcements/history');
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }

@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query, transaction } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 // 관리자 인증 확인 헬퍼
 function checkAdminAuth(authHeader: string | null) {
@@ -113,6 +114,12 @@ export async function POST(request: NextRequest) {
       return deletedCounts;
     });
 
+    // 감사 로그: 시스템 데이터 초기화 (경고 레벨 - 중요한 작업)
+    logger.warn('관리자 작업: 시스템 데이터 초기화', 'admin/reset-data', {
+      adminId: userId,
+      deletedCounts: result,
+    });
+
     return NextResponse.json(
       {
         success: true,
@@ -122,7 +129,7 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('[API] 데이터 초기화 오류:', error);
+    logger.error('시스템 데이터 초기화 실패', error, 'admin/reset-data');
     return NextResponse.json(
       { error: '데이터 초기화 중 오류가 발생했습니다.' },
       { status: 500 }

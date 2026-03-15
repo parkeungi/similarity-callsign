@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error('[API] /api/admin/action-type-stats error:', error);
+    logger.error('조치 유형별 통계 조회 실패', error, 'admin/action-type-stats');
     return NextResponse.json(
       { error: '통계 조회 중 오류가 발생했습니다.' },
       { status: 500 }

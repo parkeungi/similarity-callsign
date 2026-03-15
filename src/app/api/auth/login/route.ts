@@ -16,6 +16,8 @@ import { query } from '@/lib/db';
 import { generateAccessToken, generateRefreshToken, hashRefreshToken } from '@/lib/jwt';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { COOKIE_OPTIONS } from '@/lib/constants';
+import { setCsrfTokenCookie } from '@/lib/csrf';
+import { logger } from '@/lib/logger';
 import * as authQueries from '@/lib/db/queries/auth';
 
 const MAX_FAILED_ATTEMPTS = 5;       // 계정 잠금 임계값
@@ -160,7 +162,7 @@ export async function POST(request: NextRequest) {
       airlineId: user.airline_id,
     });
 
-    const refreshToken = generateRefreshToken(user.id);
+    const refreshToken = generateRefreshToken(user.id, user.role);
     const tokenHash = hashRefreshToken(refreshToken);
 
     // RefreshToken 해시 DB 저장 (로그아웃/탈취 무효화용)
@@ -206,9 +208,12 @@ export async function POST(request: NextRequest) {
       path: COOKIE_OPTIONS.PATH,
     });
 
+    // CSRF 토큰 쿠키 설정 (Double Submit Cookie 패턴)
+    setCsrfTokenCookie(response);
+
     return response;
   } catch (error) {
-    console.error('[api/auth/login] error:', error);
+    logger.error('로그인 처리 중 오류', error, 'auth/login');
     return NextResponse.json(
       { error: '로그인 중 오류가 발생했습니다.' },
       { status: 500 }

@@ -2,6 +2,7 @@
 import { Pool } from 'pg';
 import type { DatabaseProvider, QueryResult } from '../../interface';
 import { initializeSchema } from './schema';
+import { logger } from '@/lib/logger';
 
 export class PostgreSQLProvider implements DatabaseProvider {
   private pool: Pool;
@@ -13,10 +14,11 @@ export class PostgreSQLProvider implements DatabaseProvider {
       throw new Error('[PostgreSQLProvider] DATABASE_URL is not set');
     }
 
+    // SSL 검증 비활성화: 명시적 환경변수 또는 개발 환경에서만 허용
+    // Supabase 프로덕션에서 필요 시 DB_DISABLE_SSL_VERIFY=true 설정
     const shouldDisableSslVerify =
       process.env.DB_DISABLE_SSL_VERIFY === 'true' ||
-      process.env.NODE_ENV !== 'production' ||
-      /supabase\.co/.test(connectionString);
+      process.env.NODE_ENV !== 'production';
 
     let normalizedConnectionString = connectionString;
     try {
@@ -33,10 +35,13 @@ export class PostgreSQLProvider implements DatabaseProvider {
     this.pool = new Pool({
       connectionString: normalizedConnectionString,
       ssl: sslConfig,
+      max: 20,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 5000,
     });
 
     this.pool.on('error', err => {
-      console.error('[PostgreSQLProvider] Pool error', err);
+      logger.error('Pool error', err, 'db/postgresql');
     });
   }
 

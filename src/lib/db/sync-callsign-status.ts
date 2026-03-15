@@ -19,6 +19,8 @@
  * });
  */
 
+import { logger } from '@/lib/logger';
+
 export interface SyncCallsignStatusParams {
   callsignId: string;
   actingAirlineCode: string;  // 조치를 수행한(또는 수행 중인) 항공사 코드
@@ -83,7 +85,7 @@ export async function syncCallsignStatus(
   if (providedCallsignData) {
     // 미리 조회된 데이터 사용 (트랜잭션 외부에서 조회됨)
     callsign = providedCallsignData;
-    console.log('[syncCallsignStatus] Using provided callsign data:', {
+    logger.debug('Using provided callsign data', 'db/sync-callsign-status', {
       callsignId,
       providedData: callsign,
     });
@@ -97,7 +99,7 @@ export async function syncCallsignStatus(
 
     callsign = callsignResult.rows?.[0];
     if (!callsign) {
-      console.error('[syncCallsignStatus] ERROR: callsign not found', {
+      logger.error('callsign not found', new Error(`callsign not found: ${callsignId}`), 'db/sync-callsign-status', {
         callsignId,
         queryResult: callsignResult,
       });
@@ -145,11 +147,11 @@ export async function syncCallsignStatus(
 
   // 일부 SQLite 드라이버는 변경 사항이 없으면 0을 반환하므로 단순 경고만 출력
   if (!updateResult.changes) {
-    console.warn('[syncCallsignStatus] No row updated (values already in sync)', { callsignId });
+    logger.warn('No row updated (values already in sync)', 'db/sync-callsign-status', { callsignId });
   }
 
   // 로깅 (개발/디버깅 용도)
-  console.log('[syncCallsignStatus] Updated:', {
+  logger.debug('Callsign status updated', 'db/sync-callsign-status', {
     callsignId,
     callsignPair: `${callsign.airline_code}|${callsign.other_airline_code}`,
     actingAirline: actingAirlineCode,

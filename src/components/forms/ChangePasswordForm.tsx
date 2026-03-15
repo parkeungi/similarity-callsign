@@ -10,6 +10,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ROUTES } from '@/lib/constants';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -196,7 +197,7 @@ export function ChangePasswordForm({ forced = false }: ChangePasswordFormProps) 
                 onClick={async () => {
                   setIsRedirecting(true);
                   await logout();
-                  router.push('/login');
+                  router.push(ROUTES.LOGIN);
                 }}
                 disabled={isRedirecting}
               >

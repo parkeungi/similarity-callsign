@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
 import { monthBucket } from '@/lib/db/sql-helpers';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,7 +110,7 @@ export async function GET(request: NextRequest) {
     const { rows } = await query(sqlQuery);
     const results = (rows || []) as MonthlyTrendData[];
 
-    console.log('[MonthlyDetectionTrend] 조회 완료:', {
+    logger.debug('조회 완료', 'admin/monthly-detection-trend', {
       months: results.length,
       data: results.slice(0, 3)
     });
@@ -119,7 +120,7 @@ export async function GET(request: NextRequest) {
       data: results
     });
   } catch (error) {
-    console.error('[MonthlyDetectionTrend] 에러:', error);
+    logger.error('월별 탐지 추세 조회 실패', error, 'admin/monthly-detection-trend');
     return NextResponse.json(
       { error: '조회 중 오류가 발생했습니다.' },
       { status: 500 }

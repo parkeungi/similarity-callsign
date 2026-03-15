@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(stats);
   } catch (error) {
-    console.error('유사호출부호 통계 조회 오류:', error);
+    logger.error('유사호출부호 통계 조회 오류', error, 'api/callsigns/stats');
     return NextResponse.json(
       { error: '통계 조회 중 오류가 발생했습니다.' },
       { status: 500 }

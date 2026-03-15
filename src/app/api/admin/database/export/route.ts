@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';
 import * as XLSX from 'xlsx';
+import { logger } from '@/lib/logger';
 
 // 허용된 테이블 목록 (화이트리스트 - SQL Injection 방지)
 const ALLOWED_TABLES = new Set([
@@ -22,7 +23,7 @@ const ALLOWED_TABLES = new Set([
 ]);
 
 // 마스킹할 컬럼
-const MASKED_COLUMNS = new Set(['password', 'password_hash', 'hashed_password', 'refresh_token']);
+const MASKED_COLUMNS = new Set(['password', 'password_hash', 'hashed_password', 'refresh_token', 'refresh_token_hash']);
 
 export async function POST(request: NextRequest) {
   const token = request.headers.get('Authorization')?.substring(7);
@@ -77,9 +78,16 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const fileName = `katc1_db_backup_${dateStr}.xlsx`;
+    const fileName = `db_backup_${dateStr}.xlsx`;
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // 감사 로그: 데이터 내보내기
+    logger.info('관리자 작업: DB 데이터 내보내기', 'admin/database/export', {
+      adminId: payload.userId,
+      tables: tables,
+      fileName,
+    });
 
     return new NextResponse(buffer, {
       headers: {
@@ -88,7 +96,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[DB Export] Error:', error);
+    logger.error('DB 데이터 내보내기 실패', error, 'admin/database/export');
     return NextResponse.json({ error: '엑셀 내보내기 실패' }, { status: 500 });
   }
 }

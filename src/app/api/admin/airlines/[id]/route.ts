@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 // 관리자 인증 확인 헬퍼
 function checkAdminAuth(authHeader: string | null) {
@@ -102,6 +103,12 @@ export async function PATCH(
 
     await query(sql, values);
 
+    // 감사 로그: 항공사 정보 변경
+    logger.info('관리자 작업: 항공사 정보 수정', 'admin/airlines', {
+      airlineId: id,
+      changes: { code, name_ko, name_en, display_order },
+    });
+
     // 업데이트된 항공사 조회
     const updatedResult = await query(
       'SELECT id, code, name_ko, name_en, display_order FROM airlines WHERE id = $1',
@@ -120,7 +127,7 @@ export async function PATCH(
       { status: 200 }
     );
   } catch (error) {
-    console.error('항공사 수정 오류:', error);
+    logger.error('항공사 수정 실패', error, 'admin/airlines');
     return NextResponse.json(
       { error: '항공사 수정 중 오류가 발생했습니다.' },
       { status: 500 }
@@ -171,12 +178,17 @@ export async function DELETE(
     // 삭제
     await query('DELETE FROM airlines WHERE id = $1', [id]);
 
+    // 감사 로그: 항공사 삭제
+    logger.warn('관리자 작업: 항공사 삭제', 'admin/airlines', {
+      airlineId: id,
+    });
+
     return NextResponse.json(
       { message: '항공사가 삭제되었습니다.' },
       { status: 200 }
     );
   } catch (error) {
-    console.error('항공사 삭제 오류:', error);
+    logger.error('항공사 삭제 실패', error, 'admin/airlines');
     return NextResponse.json(
       { error: '항공사 삭제 중 오류가 발생했습니다.' },
       { status: 500 }

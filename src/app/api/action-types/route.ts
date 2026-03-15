@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: result.rows });
   } catch (error) {
-    console.error('[ActionTypes] GET error:', error);
+    logger.error('조치유형 조회 오류', error, 'api/action-types');
     return NextResponse.json({ error: '조치유형 조회 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

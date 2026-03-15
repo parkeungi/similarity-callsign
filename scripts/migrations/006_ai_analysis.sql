@@ -2,7 +2,7 @@
 -- 생성일: 2026-03-11
 
 CREATE TABLE IF NOT EXISTS callsign_ai_analysis (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   callsign_pair TEXT NOT NULL UNIQUE,
   ai_score INT NOT NULL CHECK (ai_score BETWEEN 1 AND 100),
   ai_reason TEXT NOT NULL,

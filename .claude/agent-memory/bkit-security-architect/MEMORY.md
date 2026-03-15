@@ -1,7 +1,7 @@
-# Security Architect Memory - KATC1
+# Security Architect Memory - 유사호출부호 공유시스템
 
 ## Project Overview
-- KATC1: Aviation similar callsign warning system
+- 유사호출부호 공유시스템: Aviation similar callsign sharing system
 - Stack: Next.js 14, React 18, TypeScript, Zustand, better-sqlite3, bcryptjs, JWT
 - Self-hosted backend: SQLite + JWT generation in API routes
 - Level: Dynamic (fullstack)

@@ -6,7 +6,6 @@ import { AppFooter } from '@/components/layout/AppFooter';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { OverviewTab } from '@/components/callsign-management/OverviewTab';
-// import { ActionsTab } from '@/components/callsign-management/ActionsTab';
 import { StatisticsTab } from '@/components/callsign-management/StatisticsTab';
 import { Sidebar } from '@/components/callsign-management/Sidebar';
 import { AdminOccurrenceTab } from '@/components/admin/callsign-management/AdminOccurrenceTab';
@@ -107,23 +106,10 @@ export default function CallsignManagementPublicPage() {
         {/* 메인 콘텐츠 영역 */}
         <div className="flex-1 overflow-y-auto">
           <main className="flex-1 w-full px-6 pt-6 pb-10">
-            {/* 페이지 헤더 */}
-            <div className="flex items-center gap-4 border-b border-slate-200/80 pb-3 mb-5">
-              <span className="w-5 h-0.5 bg-primary rounded-full shrink-0" />
-              <span className="text-primary font-bold text-xs tracking-widest uppercase shrink-0">
-                System Management
-              </span>
-              <h1 className="text-xl font-black text-slate-800 tracking-tight shrink-0">유사호출부호 관리</h1>
-              <span className="text-slate-300">|</span>
-              <p className="text-sm text-slate-500 font-medium truncate">
-                항공교통본부 관리자 통합 대시보드 - 유사호출부호 업로드 및 항공사 조치 현황
-              </p>
-            </div>
 
             {/* 콘텐츠 표시 */}
             {activeTab === 'overview' && <OverviewTab />}
             {activeTab === 'occurrences' && <AdminOccurrenceTab />}
-            {/* {activeTab === 'actions' && <ActionsTab />} */}
             {activeTab === 'stats' && <StatisticsTab />}
             {activeTab === 'upload' && <Sidebar />}
           </main>

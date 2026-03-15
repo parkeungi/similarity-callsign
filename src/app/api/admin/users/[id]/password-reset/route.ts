@@ -14,6 +14,7 @@ import bcrypt from 'bcryptjs';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
 import { PASSWORD_REGEX } from '@/lib/constants';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,12 +109,19 @@ export async function PUT(request: NextRequest, { params }: Params) {
       [passwordHash, userId]
     );
 
+    // 감사 로그: 비밀번호 초기화 (보안 이벤트)
+    logger.warn('관리자 작업: 사용자 비밀번호 초기화', 'admin/password-reset', {
+      adminId: payload.userId,
+      targetUserId: userId,
+      targetUserEmail: targetUser.email,
+    });
+
     return NextResponse.json({
       message: '비밀번호가 초기화되었습니다.',
       email: targetUser.email,
     });
   } catch (error) {
-    console.error('비밀번호 초기화 오류:', error);
+    logger.error('비밀번호 초기화 실패', error, 'admin/password-reset');
     return NextResponse.json(
       { error: '비밀번호 초기화 중 오류가 발생했습니다.' },
       { status: 500 }

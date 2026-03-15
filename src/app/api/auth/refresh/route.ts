@@ -4,6 +4,7 @@
  * 토큰 갱신 (refreshToken 쿠키 기반)
  *
  * 보안 정책:
+ * - IP 기반 Rate Limiting: 30회/분
  * - JWT 서명 검증 (REFRESH_TOKEN_SECRET, audience: katc1:refresh)
  * - DB 저장 해시와 비교 → 탈취된 토큰 즉시 차단
  * - 토큰 rotation: 갱신마다 새 refreshToken 발급 + 해시 업데이트
@@ -18,11 +19,29 @@ import {
 } from '@/lib/jwt';
 import { query } from '@/lib/db';
 import { COOKIE_OPTIONS } from '@/lib/constants';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
+
+const REFRESH_RATE_LIMIT = 30;       // IP당 허용 횟수
+const REFRESH_WINDOW_MS = 60 * 1000; // 1분
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Rate Limiting ────────────────────────────────────────────────────────
+    const ip = getClientIp(request);
+    const rl = rateLimit(`refresh:${ip}`, REFRESH_RATE_LIMIT, REFRESH_WINDOW_MS);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `요청이 너무 많습니다. ${rl.retryAfterSec}초 후 다시 시도해주세요.` },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rl.retryAfterSec) },
+        }
+      );
+    }
+
     const refreshToken = request.cookies.get('refreshToken')?.value;
 
     if (!refreshToken) {
@@ -77,7 +96,7 @@ export async function POST(request: NextRequest) {
       airlineId: user.airline_id,
     });
 
-    const newRefreshToken = generateRefreshToken(user.id);
+    const newRefreshToken = generateRefreshToken(user.id, user.role);
     const newHash = hashRefreshToken(newRefreshToken);
 
     // DB 해시 업데이트 (이전 refreshToken 즉시 무효화)
@@ -122,7 +141,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('[auth/refresh] 오류:', error);
+    logger.error('토큰 갱신 중 오류', error, 'auth/refresh');
     return NextResponse.json({ error: '토큰 갱신 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

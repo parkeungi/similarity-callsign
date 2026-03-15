@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
 import { dateDiffInDays, monthBucket } from '@/lib/db/sql-helpers';
+import { logger } from '@/lib/logger';
 
 function toDateOnlyString(date: Date) {
   return date.toISOString().split('T')[0];
@@ -146,7 +147,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('조치 통계 조회 오류:', error);
+    logger.error('조치 통계 조회 오류', error, 'api/airlines/[airlineId]/actions/stats');
     return NextResponse.json(
       { error: '조치 통계 조회 중 오류가 발생했습니다.' },
       { status: 500 }

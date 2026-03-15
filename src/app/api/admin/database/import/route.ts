@@ -1,25 +1,9 @@
-// POST /api/admin/database/import - JSON 데이터로 DB 복원, 트랜잭션 내 TRUNCATE+INSERT, 관리자 전용
+// POST/PUT /api/admin/database/import - AI 분석 결과 JSON 임포트 및 미리보기, 관리자 전용
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';
-
-// 허용된 reason_type 목록
-const VALID_REASON_TYPES = new Set([
-  'SAME_NUMBER',
-  'CONTAINMENT',
-  'TRANSPOSITION',
-  'SIMILAR_CODE',
-  'DIGIT_OVERLAP',
-  'PHONETIC_DIGIT',
-  'LOW_RISK',
-]);
-
-interface AiAnalysisResult {
-  callsign_pair: string;
-  ai_score: number;
-  reason_type: string;
-  ai_reason: string;
-}
+import { importAiResults, validateResults, type AiAnalysisResult } from '@/lib/ai/import-results';
+import { logger } from '@/lib/logger';
 
 interface ImportRequest {
   results: AiAnalysisResult[];
@@ -46,7 +30,6 @@ export async function POST(request: NextRequest) {
 
   const { results, overwrite = false } = body;
 
-  // 기본 검증
   if (!results || !Array.isArray(results)) {
     return NextResponse.json({ error: 'results 배열이 필요합니다.' }, { status: 400 });
   }
@@ -55,94 +38,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '임포트할 데이터가 없습니다.' }, { status: 400 });
   }
 
-  // 각 항목 검증
-  const errors: string[] = [];
-  const validResults: AiAnalysisResult[] = [];
-
-  for (let i = 0; i < results.length; i++) {
-    const item = results[i];
-    const idx = i + 1;
-
-    if (!item.callsign_pair || typeof item.callsign_pair !== 'string') {
-      errors.push(`[${idx}] callsign_pair가 누락되었습니다.`);
-      continue;
-    }
-
-    if (!item.ai_score || typeof item.ai_score !== 'number' || item.ai_score < 1 || item.ai_score > 100) {
-      errors.push(`[${idx}] ai_score는 1~100 사이 정수여야 합니다. (${item.callsign_pair})`);
-      continue;
-    }
-
-    if (!item.reason_type || !VALID_REASON_TYPES.has(item.reason_type)) {
-      errors.push(`[${idx}] 유효하지 않은 reason_type: ${item.reason_type} (${item.callsign_pair})`);
-      continue;
-    }
-
-    if (!item.ai_reason || typeof item.ai_reason !== 'string' || item.ai_reason.length < 10) {
-      errors.push(`[${idx}] ai_reason이 너무 짧습니다. (${item.callsign_pair})`);
-      continue;
-    }
-
-    validResults.push(item);
-  }
-
-  if (validResults.length === 0) {
-    return NextResponse.json({
-      error: '유효한 데이터가 없습니다.',
-      validationErrors: errors,
-    }, { status: 400 });
-  }
-
   try {
-    let insertedCount = 0;
-    let updatedCount = 0;
-    let skippedCount = 0;
+    const summary = await importAiResults(results, overwrite, 'admin');
 
-    for (const item of validResults) {
-      // 기존 데이터 확인
-      const existingResult = await query(
-        `SELECT id FROM callsign_ai_analysis WHERE callsign_pair = $1`,
-        [item.callsign_pair]
-      );
-
-      if (existingResult.rows.length > 0) {
-        if (overwrite) {
-          // 덮어쓰기
-          await query(
-            `UPDATE callsign_ai_analysis
-             SET ai_score = $1, ai_reason = $2, reason_type = $3, analyzed_at = NOW()
-             WHERE callsign_pair = $4`,
-            [item.ai_score, item.ai_reason, item.reason_type, item.callsign_pair]
-          );
-          updatedCount++;
-        } else {
-          skippedCount++;
-        }
-      } else {
-        // 신규 INSERT
-        await query(
-          `INSERT INTO callsign_ai_analysis (callsign_pair, ai_score, ai_reason, reason_type, analyzed_at, analyzed_by)
-           VALUES ($1, $2, $3, $4, NOW(), 'admin')`,
-          [item.callsign_pair, item.ai_score, item.ai_reason, item.reason_type]
-        );
-        insertedCount++;
-      }
+    if (summary.valid === 0) {
+      return NextResponse.json({
+        error: '유효한 데이터가 없습니다.',
+        validationErrors: summary.validationErrors,
+      }, { status: 400 });
     }
+
+    // 감사 로그: 데이터 임포트
+    logger.info('관리자 작업: AI 분석 결과 임포트', 'admin/database/import', {
+      adminId: payload.userId,
+      total: summary.total,
+      inserted: summary.inserted,
+      updated: summary.updated,
+    });
 
     return NextResponse.json({
       success: true,
       summary: {
-        total: results.length,
-        valid: validResults.length,
-        inserted: insertedCount,
-        updated: updatedCount,
-        skipped: skippedCount,
-        errors: errors.length,
+        total: summary.total,
+        valid: summary.valid,
+        inserted: summary.inserted,
+        updated: summary.updated,
+        skipped: summary.skipped,
+        errors: summary.errors,
       },
-      validationErrors: errors.length > 0 ? errors : undefined,
+      validationErrors: summary.validationErrors.length > 0 ? summary.validationErrors : undefined,
     });
   } catch (error) {
-    console.error('[AI Analysis Import] Error:', error);
+    logger.error('AI 분석 결과 임포트 실패', error, 'admin/database/import');
     return NextResponse.json({ error: '임포트 실패' }, { status: 500 });
   }
 }
@@ -171,39 +98,11 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'results 배열이 필요합니다.' }, { status: 400 });
   }
 
-  // 각 항목 검증
-  const errors: string[] = [];
-  const validPairs: string[] = [];
-
-  for (let i = 0; i < results.length; i++) {
-    const item = results[i];
-    const idx = i + 1;
-
-    if (!item.callsign_pair || typeof item.callsign_pair !== 'string') {
-      errors.push(`[${idx}] callsign_pair가 누락되었습니다.`);
-      continue;
-    }
-
-    if (!item.ai_score || typeof item.ai_score !== 'number' || item.ai_score < 1 || item.ai_score > 100) {
-      errors.push(`[${idx}] ai_score는 1~100 사이 정수여야 합니다.`);
-      continue;
-    }
-
-    if (!item.reason_type || !VALID_REASON_TYPES.has(item.reason_type)) {
-      errors.push(`[${idx}] 유효하지 않은 reason_type: ${item.reason_type}`);
-      continue;
-    }
-
-    if (!item.ai_reason || typeof item.ai_reason !== 'string' || item.ai_reason.length < 10) {
-      errors.push(`[${idx}] ai_reason이 너무 짧습니다.`);
-      continue;
-    }
-
-    validPairs.push(item.callsign_pair);
-  }
+  const { validResults, errors } = validateResults(results);
 
   // 기존 데이터 중복 확인
   let existingCount = 0;
+  const validPairs = validResults.map(r => r.callsign_pair);
   if (validPairs.length > 0) {
     try {
       const existingResult = await query(

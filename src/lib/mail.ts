@@ -12,6 +12,7 @@
 
 import nodemailer, { Transporter } from 'nodemailer';
 import { ROUTES } from '@/lib/constants';
+import { logger } from '@/lib/logger';
 
 // SMTP 트랜스포터 (이메일 발송 설정)
 let transporter: Transporter | null = null;
@@ -32,7 +33,7 @@ function initializeTransporter(): Transporter {
 
   // 개발환경: 이메일 발송 없이 콘솔에만 출력
   if (!smtpHost || !smtpPort) {
-    console.warn('⚠️  SMTP 설정이 없습니다. 개발 모드로 실행 중...');
+    logger.warn('SMTP 설정이 없습니다. 개발 모드로 실행 중...', 'mail');
     return nodemailer.createTransport({
       host: 'localhost',
       port: 1025,
@@ -69,20 +70,20 @@ export async function sendEmail(options: {
     const mailer = initializeTransporter();
 
     const result = await mailer.sendMail({
-      from: process.env.SMTP_FROM_EMAIL || 'noreply@katc1.com',
+      from: process.env.SMTP_FROM_EMAIL || 'noreply@callsign.system',
       to: options.to,
       subject: options.subject,
       html: options.html,
       text: options.text,
     });
 
-    console.log('✅ 이메일 발송 성공:', {
+    logger.info('이메일 발송 성공', 'mail', {
       messageId: result.messageId,
       to: options.to,
       subject: options.subject,
     });
   } catch (error) {
-    console.error('❌ 이메일 발송 실패:', error);
+    logger.error('이메일 발송 실패', error, 'mail');
     throw error;
   }
 }

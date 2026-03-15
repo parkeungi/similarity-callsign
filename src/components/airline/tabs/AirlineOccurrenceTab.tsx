@@ -1,7 +1,8 @@
 // 발생현황 탭 - Incident[] 카드 렌더링, AI분석(점수·유형·사유) 표시, reasonType·riskLevel 필터, ai_score/risk/count/latest 정렬, IncidentFilters 연동
 'use client';
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import { getErrorTypeColor } from '@/lib/error-type-colors';
 import {
   Incident,
   DateRangeFilterState,
@@ -177,19 +178,18 @@ export function AirlineOccurrenceTab({
 
   const hasAiData = Object.keys(reasonTypeStats).length > 0;
 
-  // 오류유형 카드 색상 팔레트
-  const ERROR_TYPE_PALETTE = [
-    { border: 'border-rose-200',    activeBorder: 'border-rose-400',    bg: 'bg-rose-50',    activeBg: 'bg-rose-100',    label: 'text-rose-600',    value: 'text-rose-700',    pct: 'text-rose-500'    },
-    { border: 'border-orange-200',  activeBorder: 'border-orange-400',  bg: 'bg-orange-50',  activeBg: 'bg-orange-100',  label: 'text-orange-600',  value: 'text-orange-700',  pct: 'text-orange-500'  },
-    { border: 'border-emerald-200', activeBorder: 'border-emerald-400', bg: 'bg-emerald-50', activeBg: 'bg-emerald-100', label: 'text-emerald-600', value: 'text-emerald-700', pct: 'text-emerald-500' },
-    { border: 'border-blue-200',    activeBorder: 'border-blue-400',    bg: 'bg-blue-50',    activeBg: 'bg-blue-100',    label: 'text-blue-600',    value: 'text-blue-700',    pct: 'text-blue-500'    },
-    { border: 'border-violet-200',  activeBorder: 'border-violet-400',  bg: 'bg-violet-50',  activeBg: 'bg-violet-100',  label: 'text-violet-600',  value: 'text-violet-700',  pct: 'text-violet-500'  },
-    { border: 'border-amber-200',   activeBorder: 'border-amber-400',   bg: 'bg-amber-50',   activeBg: 'bg-amber-100',   label: 'text-amber-600',   value: 'text-amber-700',   pct: 'text-amber-500'   },
-    { border: 'border-gray-200',    activeBorder: 'border-gray-400',    bg: 'bg-gray-50',    activeBg: 'bg-gray-100',    label: 'text-gray-500',    value: 'text-gray-700',    pct: 'text-gray-400'    },
-  ];
+  // 오류유형 카드 색상: 유형명 기반 고정 매핑 (getErrorTypeColor)
 
   // 페이징
   const totalPages = Math.max(1, Math.ceil(allFilteredIncidents.length / incidentsLimit));
+
+  // 현재 페이지가 총 페이지를 초과하면 자동으로 마지막 페이지로 이동
+  useEffect(() => {
+    if (incidentsPage > totalPages) {
+      onPageChange(totalPages);
+    }
+  }, [incidentsPage, totalPages, onPageChange]);
+
   const pagedIncidents = useMemo(() => {
     const start = (incidentsPage - 1) * incidentsLimit;
     return allFilteredIncidents.slice(start, start + incidentsLimit);
@@ -305,11 +305,10 @@ export function AirlineOccurrenceTab({
             </button>
             {Object.entries(stats.errorTypeCounts)
               .sort((a, b) => b[1] - a[1])
-              .map(([type, count], idx) => {
+              .map(([type, count]) => {
                 const pct = stats.totalOccurrences > 0 ? Math.round((count / stats.totalOccurrences) * 100) : 0;
                 const isActive = errorTypeFilter === type;
-                const borderColors = ['#ef4444','#f97316','#10b981','#6366f1','#8b5cf6','#f59e0b','#6b7280'];
-                const borderColor = borderColors[idx % borderColors.length];
+                const borderColor = getErrorTypeColor(type).hex;
                 return (
                   <button
                     key={type}
@@ -511,7 +510,7 @@ export function AirlineOccurrenceTab({
                     <div className="text-[11px] font-semibold text-gray-500 mb-1">📊 오류유형</div>
                     <div className="flex flex-wrap gap-1.5">
                       {incident.errorTypeSummary.map((summary, i) => {
-                        const p = ERROR_TYPE_PALETTE[i % ERROR_TYPE_PALETTE.length];
+                        const p = getErrorTypeColor(summary.errorType || '');
                         return (
                           <span
                             key={i}

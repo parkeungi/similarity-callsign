@@ -51,7 +51,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 JWT_SECRET=your_jwt_secret_generated_with_openssl_rand_base64_32
 
 # ─── App ──────────────────────────────────────────────────────
-NEXT_PUBLIC_APP_NAME=KATC 유사호출부호 경고시스템
+NEXT_PUBLIC_APP_NAME=유사호출부호 공유시스템
 NODE_ENV=development
 ```
 
@@ -83,7 +83,7 @@ SUPABASE_ANON_KEY=REPLACE_ME
 SUPABASE_SERVICE_ROLE_KEY=REPLACE_ME
 
 JWT_SECRET=dev-secret-key-for-local-only
-NEXT_PUBLIC_APP_NAME=KATC 유사호출부호 경고시스템
+NEXT_PUBLIC_APP_NAME=유사호출부호 공유시스템
 EOF
     echo -e "${YELLOW}⚠️  .env.local이 생성됐습니다. Supabase 값을 입력 후 재실행하세요.${NC}"
     exit 1

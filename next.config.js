@@ -2,6 +2,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
   experimental: {
     missingSuspenseWithCSRBailout: false,
   },
@@ -10,14 +11,13 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // 빌드 중 TypeScript 검사 비활성화 (better-sqlite3 타입 오류 대비)
+    // Next.js 14.2 내부 타입과 @types/react 호환성 문제로 비활성화 (Next.js 업그레이드 시 false로 전환 시도)
     ignoreBuildErrors: true,
   },
   headers: async () => {
     const isDevelopment = process.env.NODE_ENV === 'development';
 
-    // 개발 환경: CSP 비활성화 (faster development)
-    // 프로덕션: 엄격한 CSP 적용
+    // 개발 환경: CSP 완화 (faster development), 기본 보안 헤더는 유지
     if (isDevelopment) {
       return [
         {
@@ -25,11 +25,23 @@ const nextConfig = {
           headers: [
             {
               key: 'X-Frame-Options',
-              value: 'SAMEORIGIN',
+              value: 'DENY',
             },
             {
               key: 'X-Content-Type-Options',
               value: 'nosniff',
+            },
+            {
+              key: 'X-XSS-Protection',
+              value: '1; mode=block',
+            },
+            {
+              key: 'Referrer-Policy',
+              value: 'strict-origin-when-cross-origin',
+            },
+            {
+              key: 'Permissions-Policy',
+              value: 'camera=(), microphone=(), geolocation=()',
             },
           ],
         },
@@ -47,7 +59,7 @@ const nextConfig = {
           },
           {
             key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
+            value: 'DENY',
           },
           {
             key: 'X-Content-Type-Options',
@@ -63,7 +75,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; script-src 'self' cdn.jsdelivr.net 'unsafe-eval' 'unsafe-inline' https://vercel.live https://*.vercel.live; style-src 'self' cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' cdn.jsdelivr.net; connect-src 'self' https://api-client.bkend.ai https://*.supabase.co https://vercel.live https://*.vercel.live wss://*.vercel.live;`,
+            value: `default-src 'self'; script-src 'self' cdn.jsdelivr.net 'unsafe-inline' https://vercel.live https://*.vercel.live; style-src 'self' cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' cdn.jsdelivr.net; connect-src 'self' https://api-client.bkend.ai https://*.supabase.co https://vercel.live https://*.vercel.live wss://*.vercel.live;`,
           },
           {
             key: 'Permissions-Policy',
@@ -79,14 +91,6 @@ const nextConfig = {
         source: '/dashboard',
         destination: '/admin/dashboard',
         permanent: false,
-      },
-    ];
-  },
-  rewrites: async () => {
-    return [
-      {
-        source: '/admin/dashboard',
-        destination: '/dashboard',
       },
     ];
   },

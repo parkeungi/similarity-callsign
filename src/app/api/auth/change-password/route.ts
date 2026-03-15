@@ -2,6 +2,10 @@
 /**
  * POST /api/auth/change-password
  * 비밀번호 변경 API (초기 비밀번호 강제 변경 + 사용자가 언제든 비밀번호 변경)
+ *
+ * 보안:
+ * - IP 기반 Rate Limiting: 5회/분
+ * - CSRF 토큰 검증 필수
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,9 +13,33 @@ import bcrypt from 'bcryptjs';
 import { verifyToken } from '@/lib/jwt';
 import { query, transaction } from '@/lib/db';
 import { PASSWORD_REGEX } from '@/lib/constants';
+import { verifyCsrfToken, csrfErrorResponse } from '@/lib/csrf';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
+
+const CHANGE_PW_RATE_LIMIT = 5;       // IP당 허용 횟수 (비밀번호 추측 방지)
+const CHANGE_PW_WINDOW_MS = 60 * 1000; // 1분
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Rate Limiting ────────────────────────────────────────────────────────
+    const ip = getClientIp(request);
+    const rl = rateLimit(`change-password:${ip}`, CHANGE_PW_RATE_LIMIT, CHANGE_PW_WINDOW_MS);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `요청이 너무 많습니다. ${rl.retryAfterSec}초 후 다시 시도해주세요.` },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rl.retryAfterSec) },
+        }
+      );
+    }
+
+    // CSRF 토큰 검증
+    if (!verifyCsrfToken(request)) {
+      return csrfErrorResponse();
+    }
+
     // 인증 토큰 검증
     const authHeader = request.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -120,12 +148,11 @@ export async function POST(request: NextRequest) {
       );
 
       // 2. 사용자 비밀번호 업데이트 + 플래그 업데이트
-      // 📌 SQLite boolean 호환성: false 대신 0 사용
       await trx(
         `UPDATE users
          SET password_hash = $1,
-             is_default_password = 0,
-             password_change_required = 0,
+             is_default_password = false,
+             password_change_required = false,
              last_password_changed_at = CURRENT_TIMESTAMP,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $2`,
@@ -175,7 +202,7 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('비밀번호 변경 오류:', error);
+    logger.error('비밀번호 변경 중 오류', error, 'auth/change-password');
     return NextResponse.json(
       { error: '비밀번호 변경 중 오류가 발생했습니다.' },
       { status: 500 }

@@ -1,6 +1,6 @@
-# KATC1 Frontend Architect Memory
+# Frontend Architect Memory
 
-## Project: KATC 유사호출부호 경고시스템
+## Project: 유사호출부호 공유시스템
 
 ### Stack
 - Next.js 14 App Router, TypeScript, Tailwind CSS

@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -172,7 +173,7 @@ export async function PATCH(
 
     return NextResponse.json(updatedResult.rows[0], { status: 200 });
   } catch (error) {
-    console.error('[PATCH /api/admin/announcements/{id}] Error:', error);
+    logger.error('공지사항 수정 실패', error, 'admin/announcements');
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }
@@ -231,7 +232,7 @@ export async function DELETE(
       { status: 200 }
     );
   } catch (error) {
-    console.error('[DELETE /api/admin/announcements/{id}] Error:', error);
+    logger.error('공지사항 삭제 실패', error, 'admin/announcements');
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }

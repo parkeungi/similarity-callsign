@@ -1,7 +1,7 @@
 // 조치 이력 탭 - GET /api/airlines/[id]/actions로 조치 목록 조회, 페이지네이션·상태필터, ActionDetailModal 연동
 'use client';
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
 import { Action, ActionListResponse } from '@/types/action';
 
 interface AirlineActionHistoryTabProps {
@@ -79,6 +79,13 @@ export function AirlineActionHistoryTab({
 
   // 페이징
   const totalPages = Math.max(1, Math.ceil(filteredActions.length / actionLimit));
+
+  useEffect(() => {
+    if (actionPage > totalPages) {
+      onPageChange(totalPages);
+    }
+  }, [actionPage, totalPages, onPageChange]);
+
   const pagedActions = useMemo(() => {
     const start = (actionPage - 1) * actionLimit;
     return filteredActions.slice(start, start + actionLimit);

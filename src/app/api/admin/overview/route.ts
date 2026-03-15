@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -92,8 +93,9 @@ export async function GET(request: NextRequest) {
       ORDER BY c.uploaded_at DESC
     `);
 
-    // 국내항공사 목록
-    const domesticAirlines = ['KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'ESR', 'EOK', 'FGW', 'APZ', 'ARK'];
+    // 국내항공사 목록 (DB에서 조회)
+    const domesticAirlinesResult = await query("SELECT code FROM airlines WHERE code != $1", ['FOREIGN']);
+    const domesticAirlines = (domesticAirlinesResult.rows || []).map((a: any) => a.code as string);
 
     // 데이터 변환
     const data = result.rows.map((row: any) => {
@@ -167,7 +169,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('전체 현황 조회 오류:', error);
+    logger.error('전체 현황 조회 오류', error, 'admin/overview');
     return NextResponse.json(
       { error: '전체 현황 조회 중 오류가 발생했습니다.' },
       { status: 500 }

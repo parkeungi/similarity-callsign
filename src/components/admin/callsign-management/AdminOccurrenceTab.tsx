@@ -1,8 +1,9 @@
 // 관리자 발생현황 탭 - GET /api/admin/occurrences 호출, 양쪽 항공사 조치상태 표시, riskLevel·airline 필터, 페이지네이션
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { getErrorTypeColor } from '@/lib/error-type-colors';
 import { useAuthStore } from '@/store/authStore';
 import { apiFetch } from '@/lib/api/client';
 import { useAdminAirlines } from '@/hooks/useAirlines';
@@ -132,16 +133,7 @@ export function AdminOccurrenceTab() {
     };
   }, [filteredByDate]);
 
-  // 오류유형 카드 색상 팔레트 (순서대로 순환)
-  const ERROR_TYPE_PALETTE = [
-    { border: 'border-rose-200',    bg: 'bg-rose-50',    label: 'text-rose-600',    value: 'text-rose-700',    pct: 'text-rose-500'    },
-    { border: 'border-orange-200',  bg: 'bg-orange-50',  label: 'text-orange-600',  value: 'text-orange-700',  pct: 'text-orange-500'  },
-    { border: 'border-emerald-200', bg: 'bg-emerald-50', label: 'text-emerald-600', value: 'text-emerald-700', pct: 'text-emerald-500' },
-    { border: 'border-blue-200',    bg: 'bg-blue-50',    label: 'text-blue-600',    value: 'text-blue-700',    pct: 'text-blue-500'    },
-    { border: 'border-violet-200',  bg: 'bg-violet-50',  label: 'text-violet-600',  value: 'text-violet-700',  pct: 'text-violet-500'  },
-    { border: 'border-amber-200',   bg: 'bg-amber-50',   label: 'text-amber-600',   value: 'text-amber-700',   pct: 'text-amber-500'   },
-    { border: 'border-gray-200',    bg: 'bg-gray-50',    label: 'text-gray-500',    value: 'text-gray-700',    pct: 'text-gray-400'    },
-  ];
+  // 오류유형 카드 색상: 유형명 기반 고정 매핑 (getErrorTypeColor)
 
   // 필터 + 정렬
   const allFilteredIncidents = useMemo(() => {
@@ -213,6 +205,14 @@ export function AdminOccurrenceTab() {
   }, [filteredByDate, actionStatusFilter, searchKeyword, sortOrder, errorTypeFilter]);
 
   const totalPages = Math.max(1, Math.ceil(allFilteredIncidents.length / limit));
+
+  // 현재 페이지가 총 페이지를 초과하면 자동으로 마지막 페이지로 이동
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   const pagedIncidents = useMemo(() => {
     const start = (page - 1) * limit;
     return allFilteredIncidents.slice(start, start + limit);
@@ -398,8 +398,8 @@ export function AdminOccurrenceTab() {
           >
             {Object.entries(stats.errorTypeCounts)
               .sort((a, b) => b[1] - a[1])
-              .map(([type, count], idx) => {
-                const palette = ERROR_TYPE_PALETTE[idx % ERROR_TYPE_PALETTE.length];
+              .map(([type, count]) => {
+                const palette = getErrorTypeColor(type);
                 const pct = stats.totalOcc > 0 ? Math.round((count / stats.totalOcc) * 100) : 0;
                 const isSelected = errorTypeFilter === type;
                 return (

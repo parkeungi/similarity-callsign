@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 function normalizeOccurrenceTime(value: any): string {
   if (!value) return '00:00';
@@ -64,25 +65,24 @@ export async function GET(request: NextRequest) {
     }
 
     const callsignIds = callsignsResult.rows.map((cs: any) => cs.id);
-    const inPlaceholders = callsignIds.map((_: any, i: number) => `$${i + 1}`).join(',');
 
-    // 2. 전체 콜사인 액션 상태 한 번에 조회
+    // 2. 전체 콜사인 액션 상태 한 번에 조회 (IN 서브쿼리로 대체 - 대용량 파라미터 방지)
     const actionsResult = await query(
       `SELECT DISTINCT ON (callsign_id) id, callsign_id, airline_id, status, action_type, completed_at
        FROM actions
-       WHERE callsign_id IN (${inPlaceholders})
+       WHERE callsign_id IN (SELECT id FROM callsigns)
          AND COALESCE(is_cancelled, false) = false
        ORDER BY callsign_id, registered_at DESC`,
-      callsignIds
+      []
     );
 
-    // 3. 전체 발생 이력 한 번에 조회 (섹터별 모든 검출 포함)
+    // 3. 전체 발생 이력 한 번에 조회 (IN 서브쿼리로 대체)
     const occurrencesResult = await query(
       `SELECT callsign_id, occurred_date, occurred_time, error_type, sub_error
        FROM callsign_occurrences
-       WHERE callsign_id IN (${inPlaceholders})
+       WHERE callsign_id IN (SELECT id FROM callsigns)
        ORDER BY callsign_id, occurred_date DESC, occurred_time DESC NULLS LAST`,
-      callsignIds
+      []
     );
 
     // 맵 구성
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data });
   } catch (error) {
-    console.error('[admin/occurrences] 오류:', error);
+    logger.error('발생현황 조회 오류', error, 'admin/occurrences');
     return NextResponse.json({ error: '발생현황 조회 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

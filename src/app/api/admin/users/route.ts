@@ -17,6 +17,7 @@ import bcrypt from 'bcryptjs';
 import { verifyToken } from '@/lib/jwt';
 import { query, transaction } from '@/lib/db';
 import { PASSWORD_REGEX } from '@/lib/constants';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
 
     // 이메일 검색 (LIKE 검색)
     if (emailSearch) {
-      sql += ` AND u.email LIKE $${paramIndex++}`;
+      sql += ` AND u.email ILIKE $${paramIndex++}`;
       params.push(`%${emailSearch}%`);
     }
 
@@ -186,7 +187,7 @@ export async function POST(request: NextRequest) {
     try {
       passwordHash = await bcrypt.hash(password, 10);
     } catch (hashError) {
-      console.error('[USER_CREATE] 비밀번호 암호화 실패:', hashError);
+      logger.error('비밀번호 암호화 실패', hashError, 'admin/users');
       return NextResponse.json(
         { error: '비밀번호 처리 중 오류가 발생했습니다.' },
         { status: 500 }
@@ -205,10 +206,9 @@ export async function POST(request: NextRequest) {
         [email, passwordHash, resolvedAirlineId, 'active', role, 1, 1]
       );
     } catch (insertError: any) {
-      console.error('[USER_CREATE] 사용자 INSERT 실패:', {
+      logger.error('사용자 INSERT 실패', insertError, 'admin/users', {
         email,
-        airlineId: resolvedAirlineId,
-        error: insertError.message
+        airlineId: resolvedAirlineId
       });
       return NextResponse.json(
         { error: '사용자 생성 중 오류가 발생했습니다.' },

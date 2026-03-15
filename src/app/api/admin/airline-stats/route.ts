@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -145,7 +146,7 @@ export async function GET(request: NextRequest) {
       }),
     });
   } catch (error) {
-    console.error('[API] /api/admin/airline-stats error:', error);
+    logger.error('항공사별 통계 조회 실패', error, 'admin/airline-stats');
     return NextResponse.json(
       { error: '통계 조회 중 오류가 발생했습니다.' },
       { status: 500 }

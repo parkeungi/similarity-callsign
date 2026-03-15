@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query, transaction } from '@/lib/db';
 import { syncCallsignStatus } from '@/lib/db/sync-callsign-status';
+import { logger } from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -110,7 +111,7 @@ export async function GET(
       review_comment: action.review_comment,
     });
   } catch (error) {
-    console.error('조치 상세 조회 오류:', error);
+    logger.error('조치 상세 조회 오류', error, 'api/actions/[id]');
     return NextResponse.json(
       { error: '조치 상세 조회 중 오류가 발생했습니다.' },
       { status: 500 }
@@ -374,7 +375,7 @@ export async function PATCH(
       reviewComment: updatedAction.review_comment,
     });
   } catch (error) {
-    console.error('조치 업데이트 오류:', error);
+    logger.error('조치 업데이트 오류', error, 'api/actions/[id]');
     return NextResponse.json(
       { error: '조치 업데이트 중 오류가 발생했습니다.' },
       { status: 500 }
@@ -450,7 +451,7 @@ export async function DELETE(
       { status: 200 }
     );
   } catch (error) {
-    console.error('조치 삭제 오류:', error);
+    logger.error('조치 삭제 오류', error, 'api/actions/[id]');
     return NextResponse.json(
       { error: '조치 삭제 중 오류가 발생했습니다.' },
       { status: 500 }

@@ -30,20 +30,8 @@ export function useSessionTimeout() {
 
     // 새 타이머 설정
     timeoutRef.current = setTimeout(async () => {
-      console.log('[SessionTimeout] 30분 비활동으로 자동 로그아웃');
-
-      // 서버 로그아웃 API 호출 (DB refresh_token_hash 무효화 + 쿠키 삭제)
-      try {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          credentials: 'include',
-        });
-      } catch {
-        // 네트워크 실패 시에도 클라이언트 상태는 정리
-      }
-
-      // 클라이언트 상태 정리
-      logout();
+      // store.logout()이 서버 API 호출 + 클라이언트 상태 초기화를 모두 처리
+      await logout();
       router.push('/');
     }, SESSION_TIMEOUT_MS);
   }, [isAuthenticated, logout, router]);

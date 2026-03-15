@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 function checkAdminAuth(authHeader: string | null) {
   if (!authHeader?.startsWith('Bearer ')) {
@@ -78,7 +79,7 @@ export async function PATCH(
 
     return NextResponse.json({ data: result.rows[0] });
   } catch (error) {
-    console.error('[ActionTypes] PATCH error:', error);
+    logger.error('조치유형 수정 실패', error, 'admin/settings/action-types');
     return NextResponse.json({ error: '조치유형 수정 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
@@ -109,7 +110,7 @@ export async function DELETE(
 
     return NextResponse.json({ data: result.rows[0], message: '비활성화되었습니다.' });
   } catch (error) {
-    console.error('[ActionTypes] DELETE error:', error);
+    logger.error('조치유형 비활성화 실패', error, 'admin/settings/action-types');
     return NextResponse.json({ error: '조치유형 비활성화 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

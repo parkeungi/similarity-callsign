@@ -29,6 +29,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest) {
 
     // 제목/내용 검색
     if (search) {
-      whereClause += ` AND (a.title LIKE $${paramIndex++} OR a.content LIKE $${paramIndex++})`;
+      whereClause += ` AND (a.title ILIKE $${paramIndex++} OR a.content ILIKE $${paramIndex++})`;
       queryParams.push(`%${search}%`, `%${search}%`);
     }
 
@@ -153,7 +154,7 @@ export async function GET(request: NextRequest) {
       limit
     });
   } catch (error) {
-    console.error('[GET /api/admin/announcements] Error:', error);
+    logger.error('공지사항 목록 조회 실패', error, 'admin/announcements');
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }
@@ -280,7 +281,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(createdResult.rows[0], { status: 201 });
   } catch (error) {
-    console.error('[POST /api/admin/announcements] Error:', error);
+    logger.error('공지사항 생성 실패', error, 'admin/announcements');
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }

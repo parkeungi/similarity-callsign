@@ -12,7 +12,7 @@ import { useAuthStore } from '@/store/authStore';
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [isRestoring, setIsRestoring] = useState(true);
-  const { user, accessToken, setAuth, setLoading } = useAuthStore();
+  const { user, accessToken, setAuth, setLoading, setSessionRestoring } = useAuthStore();
 
   // 세션 타임아웃 활성화
   useSessionTimeout();
@@ -23,32 +23,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // 이미 인증 상태면 복구 불필요
       if (user && accessToken) {
         setIsRestoring(false);
+        setSessionRestoring(false);
         return;
       }
 
-      // sessionStorage에 accessToken이 남아있으면 (같은 탭 새로고침)
-      const storedToken = typeof window !== 'undefined'
-        ? sessionStorage.getItem('accessToken')
-        : null;
-
-      if (storedToken) {
-        // /api/auth/me로 유저 정보만 복구
-        try {
-          const meRes = await fetch('/api/auth/me', {
-            headers: { Authorization: `Bearer ${storedToken}` },
-          });
-          if (meRes.ok) {
-            const data = await meRes.json();
-            setAuth(data.user, storedToken);
-            setIsRestoring(false);
-            return;
-          }
-        } catch {
-          // 실패 시 아래 refresh 시도
-        }
-      }
-
-      // sessionStorage에 토큰 없음 (탭 재열기/서버 재시작) → refreshToken 쿠키로 복구
+      // refreshToken 쿠키 기반 세션 복구 (refresh 응답에 user 포함 → /me 호출 불필요)
       try {
         setLoading(true);
         const refreshRes = await fetch('/api/auth/refresh', {
@@ -58,16 +37,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
         if (refreshRes.ok) {
           const refreshData = await refreshRes.json();
-          const newAccessToken = refreshData.accessToken;
-
-          // 새 accessToken으로 유저 정보 조회
-          const meRes = await fetch('/api/auth/me', {
-            headers: { Authorization: `Bearer ${newAccessToken}` },
-          });
-
-          if (meRes.ok) {
-            const meData = await meRes.json();
-            setAuth(meData.user, newAccessToken);
+          if (refreshData.user && refreshData.accessToken) {
+            setAuth(refreshData.user, refreshData.accessToken);
           }
         }
       } catch {
@@ -75,6 +46,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       } finally {
         setLoading(false);
         setIsRestoring(false);
+        setSessionRestoring(false);
       }
     }
 

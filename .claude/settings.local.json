@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npx next:*)",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" \"http://localhost:3001/api/callsigns-with-actions?dateFrom=2026-02-11&dateTo=2026-03-11&page=1&limit=10\" -H \"Authorization: Bearer test\")",
+      "Bash(curl -s \"http://localhost:3001/api/auth/login\" -X POST -H \"Content-Type: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"lsm17@airport.co.kr\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"1234\"\"\"\"}')",
+      "Bash(NODE_TLS_REJECT_UNAUTHORIZED=0 node -e \":*)",
+      "Bash(grep -n \"LIKE ?\\\\|= ?\" /c/Users/Administrator/Desktop/similarity-callsign/src/app/api/airlines/[airlineId]/actions/route.ts)",
+      "Bash(grep -n \"$1\\\\|$2\\\\|$3\\\\|?\" \"c:/Users/Administrator/Desktop/similarity-callsign/src/app/api/airlines/\\\\[airlineId\\\\]/callsigns/route.ts\")",
+      "Bash(grep -n \"callsign_pair LIKE\" /c/Users/Administrator/Desktop/similarity-callsign/src/app/api/airlines/[airlineId]/actions/route.ts)",
+      "Bash(npx tsc:*)",
+      "Bash(node extract-sample.js)",
+      "Bash(xargs grep:*)",
+      "Bash(node scripts/compare-query.mjs)",
+      "Bash(node scripts/compare-query-4.mjs)",
+      "Bash(node scripts/run-migration-009.mjs)"
+    ]
+  }
+}

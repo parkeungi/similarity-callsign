@@ -4,12 +4,38 @@
  *
  * 동작 원리:
  * 1. 모든 API 요청에 Authorization 헤더 자동 삽입
- * 2. 응답이 401인 경우 /api/auth/refresh 로 토큰 갱신 시도
- * 3. 갱신 성공 시 원래 요청을 새 accessToken 으로 재시도
- * 4. 갱신 실패(refreshToken 만료 등) 시 로그아웃 처리
+ * 2. 상태 변경 요청(POST/PATCH/DELETE)에 CSRF 토큰 헤더 자동 삽입
+ * 3. 응답이 401인 경우 /api/auth/refresh 로 토큰 갱신 시도
+ * 4. 갱신 성공 시 원래 요청을 새 accessToken 으로 재시도
+ * 5. 갱신 실패(refreshToken 만료 등) 시 로그아웃 처리
  */
 
 import { authStore } from '@/store/authStore';
+import { CSRF_TOKEN_NAME, CSRF_HEADER_NAME } from '@/lib/csrf';
+
+/**
+ * 쿠키에서 CSRF 토큰 읽기
+ */
+function getCsrfTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === CSRF_TOKEN_NAME) {
+      return value;
+    }
+  }
+  return null;
+}
+
+/**
+ * 상태 변경 요청 여부 확인 (CSRF 토큰 필요)
+ */
+function isStateChangingMethod(method?: string): boolean {
+  const m = (method || 'GET').toUpperCase();
+  return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(m);
+}
 
 /** 동시 refresh 요청 방지를 위한 싱글 Promise 플래그 (모듈 레벨에서 공유) */
 export let refreshingPromise: Promise<string | null> | null = null;
@@ -98,6 +124,14 @@ export async function apiFetch(
     headers.set('Content-Type', 'application/json');
   }
 
+  // CSRF 토큰 헤더 추가 (상태 변경 요청에만)
+  if (isStateChangingMethod(options.method)) {
+    const csrfToken = getCsrfTokenFromCookie();
+    if (csrfToken) {
+      headers.set(CSRF_HEADER_NAME, csrfToken);
+    }
+  }
+
   const firstResponse = await fetch(url, {
     ...options,
     headers,
@@ -116,9 +150,15 @@ export async function apiFetch(
     // 갱신 실패 → 로그아웃 및 쿠키 삭제 후 리다이렉트
     // 쿠키 삭제 API를 기다린 후 리다이렉트해야 middleware가 올바르게 작동함
     try {
+      const csrfToken = getCsrfTokenFromCookie();
+      const logoutHeaders: HeadersInit = {};
+      if (csrfToken) {
+        logoutHeaders[CSRF_HEADER_NAME] = csrfToken;
+      }
       await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
+        headers: logoutHeaders,
       });
     } catch {
       // 로그아웃 API 실패해도 계속 진행
@@ -129,7 +169,7 @@ export async function apiFetch(
 
     // 브라우저 환경에서만 리다이렉트
     if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+      window.location.href = '/';
     }
     return firstResponse;
   }
@@ -139,6 +179,14 @@ export async function apiFetch(
   retryHeaders.set('Authorization', `Bearer ${newToken}`);
   if (!retryHeaders.has('Content-Type') && !(options.body instanceof FormData)) {
     retryHeaders.set('Content-Type', 'application/json');
+  }
+
+  // CSRF 토큰 헤더 추가 (상태 변경 요청에만)
+  if (isStateChangingMethod(options.method)) {
+    const csrfToken = getCsrfTokenFromCookie();
+    if (csrfToken) {
+      retryHeaders.set(CSRF_HEADER_NAME, csrfToken);
+    }
   }
 
   return fetch(url, {

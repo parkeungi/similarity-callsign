@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 function normalizeOccurrenceTime(value: any): string {
   if (!value) return '00:00';
@@ -310,7 +311,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('항공사별 호출부호 조회 오류:', error);
+    logger.error('항공사별 호출부호 조회 오류', error, 'api/airlines/[airlineId]/callsigns');
     return NextResponse.json(
       { error: '항공사별 호출부호 조회 중 오류가 발생했습니다.' },
       { status: 500 }

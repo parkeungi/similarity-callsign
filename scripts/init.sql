@@ -53,6 +53,8 @@ CREATE INDEX IF NOT EXISTS idx_users_airline_id ON users(airline_id);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+-- 성능 최적화: 관리자 사용자 목록 조회
+CREATE INDEX IF NOT EXISTS idx_users_status_created ON users(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_airlines_code ON airlines(code);
 CREATE INDEX IF NOT EXISTS idx_password_history_user_id ON password_history(user_id);
 
@@ -71,7 +73,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
 
--- 국내 항공사 11개 데이터 삽입 (display_order 포함)
+-- 국내 항공사 12개 데이터 삽입 (display_order 포함)
 INSERT INTO airlines (code, name_ko, name_en, display_order) VALUES
 ('KAL', '대한항공', 'KOREAN AIR', 1),
 ('AAR', '아시아나항공', 'ASIANA AIRLINES', 2),
@@ -271,6 +273,11 @@ CREATE INDEX IF NOT EXISTS idx_callsigns_pair ON callsigns(callsign_pair);
 CREATE INDEX IF NOT EXISTS idx_callsigns_risk_level ON callsigns(risk_level);
 CREATE INDEX IF NOT EXISTS idx_callsigns_status ON callsigns(status);
 CREATE INDEX IF NOT EXISTS idx_callsigns_created_at ON callsigns(created_at DESC);
+-- 성능 최적화 복합 인덱스
+CREATE INDEX IF NOT EXISTS idx_callsigns_risk_occurrence ON callsigns(risk_level, occurrence_count DESC, last_occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_callsigns_airline_id_code ON callsigns(airline_id, airline_code);
+CREATE INDEX IF NOT EXISTS idx_callsigns_airports ON callsigns(departure_airport1, arrival_airport1);
+CREATE INDEX IF NOT EXISTS idx_callsigns_uploaded_at ON callsigns(uploaded_at DESC);
 
 -- 2-1. callsign_occurrences 테이블 (호출부호 쌍의 발생 이력)
 -- 같은 호출부호 쌍이 여러 날짜에 발생한 경우를 별도로 관리
@@ -300,6 +307,8 @@ CREATE TABLE IF NOT EXISTS callsign_occurrences (
 
 CREATE INDEX IF NOT EXISTS idx_callsign_occurrences_callsign_id ON callsign_occurrences(callsign_id);
 CREATE INDEX IF NOT EXISTS idx_callsign_occurrences_occurred_date ON callsign_occurrences(occurred_date DESC);
+-- 성능 최적화: LATERAL JOIN 발생이력 조회용
+CREATE INDEX IF NOT EXISTS idx_occurrences_callsign_date_time ON callsign_occurrences(callsign_id, occurred_date DESC, occurred_time DESC NULLS LAST);
 
 -- 3. actions 테이블 (조치 이력 관리)
 CREATE TABLE IF NOT EXISTS actions (
@@ -339,6 +348,11 @@ CREATE INDEX IF NOT EXISTS idx_actions_status ON actions(status);
 CREATE INDEX IF NOT EXISTS idx_actions_registered_by ON actions(registered_by);
 CREATE INDEX IF NOT EXISTS idx_actions_registered_at ON actions(registered_at DESC);
 CREATE INDEX IF NOT EXISTS idx_actions_completed_at ON actions(completed_at DESC);
+-- 성능 최적화 복합 인덱스
+CREATE INDEX IF NOT EXISTS idx_actions_callsign_cancelled_registered ON actions(callsign_id, is_cancelled, registered_at DESC);
+CREATE INDEX IF NOT EXISTS idx_actions_completed_active ON actions(status, completed_at) WHERE COALESCE(is_cancelled, false) = false;
+CREATE INDEX IF NOT EXISTS idx_actions_airline_action_type ON actions(airline_id, action_type) WHERE action_type IS NOT NULL AND action_type != '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_actions_airline_callsign_active ON actions(airline_id, callsign_id) WHERE COALESCE(is_cancelled, false) = false;
 
 -- 4. action_history 테이블 (조치 수정 이력 - 감사 추적)
 CREATE TABLE IF NOT EXISTS action_history (
@@ -383,7 +397,7 @@ CREATE TABLE IF NOT EXISTS announcements (
   target_airlines TEXT,                 -- 대상 항공사 IDs (JSON 배열 형식 또는 CSV)
 
   -- 메타데이터
-  created_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -416,6 +430,8 @@ CREATE TABLE IF NOT EXISTS announcement_views (
 CREATE INDEX IF NOT EXISTS idx_announcement_views_announcement_id ON announcement_views(announcement_id);
 CREATE INDEX IF NOT EXISTS idx_announcement_views_user_id ON announcement_views(user_id);
 CREATE INDEX IF NOT EXISTS idx_announcement_views_viewed_at ON announcement_views(viewed_at DESC);
+-- 성능 최적화: NOT EXISTS 조회용 역방향 복합 인덱스
+CREATE INDEX IF NOT EXISTS idx_announcement_views_user_announcement ON announcement_views(user_id, announcement_id);
 
 -- 샘플 데이터 제거됨 - 실제 데이터는 엑셀 업로드를 통해 등록
 
@@ -457,9 +473,38 @@ CREATE TABLE IF NOT EXISTS callsign_ai_analysis (
   ai_reason TEXT NOT NULL,
   reason_type TEXT NOT NULL DEFAULT 'LOW_RISK',
   analyzed_at TIMESTAMPTZ DEFAULT NOW(),
-  analyzed_by TEXT DEFAULT 'claude'
+  analyzed_by TEXT DEFAULT 'claude',
+  coexistence_snapshot INT NULL,
+  occurrence_snapshot INT NULL,
+  atc_snapshot VARCHAR(50) NULL,
+  needs_reanalysis BOOLEAN DEFAULT FALSE
 );
 
 CREATE INDEX IF NOT EXISTS idx_ai_analysis_pair ON callsign_ai_analysis(callsign_pair);
 CREATE INDEX IF NOT EXISTS idx_ai_analysis_score ON callsign_ai_analysis(ai_score DESC);
 CREATE INDEX IF NOT EXISTS idx_ai_analysis_reason_type ON callsign_ai_analysis(reason_type);
+CREATE INDEX IF NOT EXISTS idx_ai_analysis_reanalysis ON callsign_ai_analysis(needs_reanalysis) WHERE needs_reanalysis = TRUE;
+
+-- ================================================================
+-- Phase 8: AI 자동 분석 작업 이력
+-- ================================================================
+
+CREATE TABLE IF NOT EXISTS ai_analysis_jobs (
+  id SERIAL PRIMARY KEY,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'running', 'completed', 'failed')),
+  provider VARCHAR(20) NOT NULL,
+  model VARCHAR(50) NOT NULL,
+  total_pairs INT NOT NULL DEFAULT 0,
+  processed_pairs INT NOT NULL DEFAULT 0,
+  inserted_count INT DEFAULT 0,
+  updated_count INT DEFAULT 0,
+  error_count INT DEFAULT 0,
+  error_message TEXT,
+  token_input INT,
+  token_output INT,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL
+);

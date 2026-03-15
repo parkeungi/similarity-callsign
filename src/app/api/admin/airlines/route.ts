@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 // 관리자 인증 확인 헬퍼
 function checkAdminAuth(authHeader: string | null) {
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('항공사 목록 조회 오류:', error);
+    logger.error('항공사 목록 조회 오류', error, 'admin/airlines');
     return NextResponse.json(
       { error: '항공사 목록 조회 중 오류가 발생했습니다.' },
       { status: 500 }
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('항공사 생성 오류:', error);
+    logger.error('항공사 생성 오류', error, 'admin/airlines');
     return NextResponse.json(
       { error: '항공사 생성 중 오류가 발생했습니다.' },
       { status: 500 }

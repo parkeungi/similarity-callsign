@@ -3,6 +3,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { getErrorTypeColor } from '@/lib/error-type-colors';
 import * as XLSX from 'xlsx';
 import { useCallsignsWithActions } from '@/hooks/useActions';
 import { useAirlines } from '@/hooks/useAirlines';
@@ -940,23 +941,15 @@ export function OverviewTab() {
 
             {/* 오류유형별 집계 (동적) */}
             {Object.keys(callsignDetailMeta.errorTypeCounts).length > 0 && (() => {
-              const PALETTE = [
-                { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-600' },
-                { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-600' },
-                { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600' },
-                { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-600' },
-                { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-600' },
-                { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-600' },
-              ];
               const entries = Object.entries(callsignDetailMeta.errorTypeCounts).sort((a, b) => b[1] - a[1]);
               return (
                 <div className={`grid gap-2 mb-4`} style={{ gridTemplateColumns: `repeat(${Math.min(entries.length, 4)}, minmax(0, 1fr))` }}>
-                  {entries.map(([type, count], idx) => {
-                    const p = PALETTE[idx % PALETTE.length];
+                  {entries.map(([type, count]) => {
+                    const p = getErrorTypeColor(type);
                     return (
                       <div key={type} className={`px-3 py-2 ${p.bg} border ${p.border} rounded-lg flex items-center justify-between gap-2`}>
-                        <p className={`text-xs font-semibold ${p.text} truncate`}>{type}</p>
-                        <p className={`text-sm font-black ${p.text} shrink-0`}>{count}건</p>
+                        <p className={`text-xs font-semibold ${p.label} truncate`}>{type}</p>
+                        <p className={`text-sm font-black ${p.label} shrink-0`}>{count}건</p>
                       </div>
                     );
                   })}

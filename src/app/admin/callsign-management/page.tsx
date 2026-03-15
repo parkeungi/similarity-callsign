@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { AppFooter } from '@/components/layout/AppFooter';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
+import { ROUTES } from '@/lib/constants';
 import { OverviewTab } from '@/components/callsign-management/OverviewTab';
 import { AdminOccurrenceTab } from '@/components/admin/callsign-management/AdminOccurrenceTab';
 // import { ActionsTab } from '@/components/callsign-management/ActionsTab';
@@ -33,7 +34,7 @@ export default function CallsignManagementPage() {
   useEffect(() => {
     // 관리자가 아니면 항공사용 화면으로 즉시 이동
     if (!accessToken || !user) {
-      router.replace('/login');
+      router.replace(ROUTES.LOGIN);
       return;
     }
 

@@ -16,26 +16,8 @@ export function useAuth() {
   const store = useAuthStore();
 
   async function logout() {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch {
-      // 서버 오류에 관계없이 클라이언트 초기화
-    } finally {
-      store.logout();
-      router.push(ROUTES.HOME);
-    }
-  }
-
-  async function refreshUser() {
-    try {
-      const response = await fetch('/api/auth/me');
-      if (!response.ok) throw new Error('Failed to refresh user');
-      const user = await response.json();
-      store.setUser(user);
-      return user;
-    } catch {
-      return null;
-    }
+    await store.logout();
+    router.push(ROUTES.HOME);
   }
 
   return {
@@ -47,6 +29,5 @@ export function useAuth() {
     isActive: store.isActive(),
     isLoading: store.isLoading,
     logout,
-    refreshUser,
   };
 }

@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { Callsign } from '@/types/action';
+import { getErrorTypeDarkColor } from '@/lib/error-type-colors';
 
 interface ActionDetailModalProps {
   callsign: Callsign;
@@ -50,15 +51,7 @@ export function ActionDetailModal({
   });
   const errorTypeEntries = Object.entries(errorTypeCounts).sort((a, b) => b[1] - a[1]);
 
-  // 다크 테마 팔레트 (모달 배경색 맞춤)
-  const DARK_PALETTE = [
-    { border: 'border-rose-900/50',    bg: 'bg-rose-900/20',    label: 'text-rose-300/70',    value: 'text-rose-400'    },
-    { border: 'border-amber-900/50',   bg: 'bg-amber-900/20',   label: 'text-amber-300/70',   value: 'text-amber-400'   },
-    { border: 'border-emerald-900/50', bg: 'bg-emerald-900/20', label: 'text-emerald-300/70', value: 'text-emerald-400' },
-    { border: 'border-blue-900/50',    bg: 'bg-blue-900/20',    label: 'text-blue-300/70',    value: 'text-blue-400'    },
-    { border: 'border-violet-900/50',  bg: 'bg-violet-900/20',  label: 'text-violet-300/70',  value: 'text-violet-400'  },
-    { border: 'border-slate-700',      bg: 'bg-slate-800/50',   label: 'text-slate-400',      value: 'text-slate-300'   },
-  ];
+  // 다크 테마: 유형명 기반 고정 매핑 (getErrorTypeDarkColor)
 
   return (
     <div 
@@ -171,8 +164,8 @@ export function ActionDetailModal({
                 className="grid gap-3"
                 style={{ gridTemplateColumns: `repeat(${Math.min(errorTypeEntries.length, 3)}, minmax(0, 1fr))` }}
               >
-                {errorTypeEntries.map(([type, count], idx) => {
-                  const p = DARK_PALETTE[idx % DARK_PALETTE.length];
+                {errorTypeEntries.map(([type, count]) => {
+                  const p = getErrorTypeDarkColor(type);
                   return (
                     <div key={type} className={`flex items-center justify-between p-3.5 rounded-none border ${p.border} ${p.bg}`}>
                       <span className={`text-xs font-bold ${p.label}`}>{type}</span>

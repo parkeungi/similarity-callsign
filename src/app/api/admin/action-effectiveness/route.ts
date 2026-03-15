@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
 import { dateDiffInDaysInt } from '@/lib/db/sql-helpers';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,7 +121,7 @@ export async function GET(request: NextRequest) {
     const { rows } = await query(sqlQuery);
     const results = (rows || []) as ActionEffectivenessData[];
 
-    console.log('[ActionEffectiveness] 조회 완료:', {
+    logger.debug('조회 완료', 'admin/action-effectiveness', {
       actionTypes: results.length,
       data: results.slice(0, 3)
     });
@@ -130,7 +131,7 @@ export async function GET(request: NextRequest) {
       data: results
     });
   } catch (error) {
-    console.error('[ActionEffectiveness] 에러:', error);
+    logger.error('조치 효과성 분석 조회 실패', error, 'admin/action-effectiveness');
     return NextResponse.json(
       { error: '조회 중 오류가 발생했습니다.' },
       { status: 500 }

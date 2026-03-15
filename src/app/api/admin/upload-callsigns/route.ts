@@ -14,8 +14,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
-import { query } from '@/lib/db';
+import { query, transaction } from '@/lib/db';
 import { buildStorageTimestamp } from '@/lib/occurrence-format';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,6 +82,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 파일 크기 제한 (10MB)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: '파일 크기가 10MB를 초과합니다.' },
+        { status: 400 }
+      );
+    }
+
     // 파일 확장자 체크
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
       return NextResponse.json(
@@ -132,6 +142,9 @@ export async function POST(request: NextRequest) {
       let insertedCount = 0;
       let updatedCount = 0;
       const errors: string[] = [];
+
+      // 트랜잭션으로 전체 행 처리 (원자성 보장)
+      await transaction(async (trx) => {
 
       // 각 행 처리
       for (let i = 0; i < rows.length; i++) {
@@ -192,20 +205,8 @@ export async function POST(request: NextRequest) {
 
           // 항공사 코드가 우리 시스템의 항공사 코드에 매핑되는지 확인
           // 우리 시스템에서 관리하는 국내 항공사만 필터링
-          const domesticAirlines = [
-            'KAL', // 대한항공
-            'AAR', // 아시아나항공
-            'JJA', // 제주항공
-            'JNA', // 진에어
-            'TWB', // 티웨이항공
-            'ABL', // 에어부산
-            'ASV', // 에어서울
-            'ESR', // 이스타항공
-            'EOK', // 이스타항공 (구코드)
-            'FGW', // 플라이강원
-            'ARK', // 에어로케이항공
-            'APZ', // 에어프레미아
-          ];
+          const domesticAirlinesResult = await query("SELECT code FROM airlines WHERE code != $1", ['FOREIGN']);
+          const domesticAirlines = (domesticAirlinesResult.rows || []).map((a: any) => a.code as string);
 
           // 편명1과 편명2에서 항공사 코드 추출 (예: KAL852 -> KAL)
           const airlineCode1 = callsign1.replace(/[0-9]/g, '').trim();
@@ -296,7 +297,7 @@ export async function POST(request: NextRequest) {
           }
 
           // 항공사 ID 조회
-          const airlineResult = await query(
+          const airlineResult = await trx(
             'SELECT id FROM airlines WHERE code = $1',
             [rowData.airline_code]
           );
@@ -309,7 +310,7 @@ export async function POST(request: NextRequest) {
           const airlineId = airlineResult.rows[0].id;
 
           // Step 1: 기존 레코드 확인
-          const existingResult = await query(
+          const existingResult = await trx(
             `SELECT id FROM callsigns WHERE airline_code = $1 AND callsign_pair = $2`,
             [rowData.airline_code, rowData.callsign_pair]
           );
@@ -322,7 +323,7 @@ export async function POST(request: NextRequest) {
             callsignId = existingResult.rows[0].id;
             isNewCallsign = false;
 
-            await query(
+            await trx(
               `UPDATE callsigns SET
                 sector = $1,
                 departure_airport1 = $2,
@@ -379,7 +380,7 @@ export async function POST(request: NextRequest) {
 
             try {
               // 1. Callsign INSERT (초기 상태: 조치 미등록)
-              const insertResult = await query(
+              const insertResult = await trx(
                 `INSERT INTO callsigns
                   (airline_id, airline_code, callsign_pair, my_callsign, other_callsign,
                    other_airline_code, sector, departure_airport1, arrival_airport1,
@@ -489,7 +490,7 @@ export async function POST(request: NextRequest) {
           // Step 3: callsign_occurrences 테이블에 발생 이력 저장
           // 같은 callsign+날짜+시간 조합이면 스킵 (UNIQUE constraint)
           try {
-            await query(
+            await trx(
               `INSERT INTO callsign_occurrences
                 (callsign_id, occurred_date, occurred_time, error_type, sub_error, file_upload_id)
                VALUES ($1, $2, $3, $4, $5, $6)
@@ -505,10 +506,11 @@ export async function POST(request: NextRequest) {
             );
           } catch (occurrenceError) {
             // 발생 이력 저장 실패해도 호출부호는 이미 저장되었으므로 진행
-            console.warn(
-              `발생 이력 저장 실패 (callsignId: ${callsignId}, date: ${normalizedDate}, time: ${occurredTime}):`,
-              occurrenceError
-            );
+            logger.warn('발생 이력 저장 실패', 'admin/upload-callsigns', {
+              callsignId,
+              date: normalizedDate,
+              time: occurredTime
+            });
           }
 
           if (isNewCallsign) {
@@ -521,33 +523,41 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Step 4: 각 callsign의 occurrence_count와 last_occurred_at 업데이트
-      // SQLite 호환 UPDATE 문법 사용
-      const callsignIds = await query(
-        `SELECT id FROM callsigns WHERE file_upload_id = $1`,
+      // Step 4: 각 callsign의 occurrence_count와 last_occurred_at 일괄 업데이트
+      await trx(
+        `UPDATE callsigns c SET
+          occurrence_count = sub.cnt,
+          first_occurred_at = sub.min_date,
+          last_occurred_at = sub.max_date
+        FROM (
+          SELECT callsign_id,
+                 COUNT(*) as cnt,
+                 MIN(occurred_date) as min_date,
+                 MAX(occurred_date) as max_date
+          FROM callsign_occurrences
+          WHERE callsign_id IN (SELECT id FROM callsigns WHERE file_upload_id = $1)
+          GROUP BY callsign_id
+        ) sub
+        WHERE c.id = sub.callsign_id`,
         [uploadId]
       );
 
-      for (const callsign of callsignIds.rows) {
-        const countResult = await query(
-          `SELECT COUNT(*) as count FROM callsign_occurrences WHERE callsign_id = $1`,
-          [callsign.id]
-        );
+      // Step 5: AI 재분석 필요 여부 자동 감지 (FR-03)
+      await trx(
+        `UPDATE callsign_ai_analysis ai
+         SET needs_reanalysis = TRUE
+         FROM callsigns c
+         WHERE c.callsign_pair = ai.callsign_pair
+           AND c.file_upload_id = $1
+           AND ai.needs_reanalysis = FALSE
+           AND (
+             ai.coexistence_snapshot IS DISTINCT FROM c.coexistence_minutes
+             OR ai.atc_snapshot IS DISTINCT FROM c.atc_recommendation
+           )`,
+        [uploadId]
+      );
 
-        const dateResult = await query(
-          `SELECT MIN(occurred_date) as min_date, MAX(occurred_date) as max_date FROM callsign_occurrences WHERE callsign_id = $1`,
-          [callsign.id]
-        );
-
-        const count = parseInt(countResult.rows[0].count, 10) || 0;
-        const minDate = dateResult.rows[0].min_date;
-        const maxDate = dateResult.rows[0].max_date;
-
-        await query(
-          `UPDATE callsigns SET occurrence_count = $1, first_occurred_at = $2, last_occurred_at = $3 WHERE id = $4`,
-          [count, minDate || null, maxDate || null, callsign.id]
-        );
-      }
+      }); // transaction 끝
 
       // 업로드 기록 업데이트
       await query(
@@ -583,7 +593,7 @@ export async function POST(request: NextRequest) {
       throw parseError;
     }
   } catch (error) {
-    console.error('Excel 업로드 오류:', error);
+    logger.error('Excel 업로드 오류', error, 'admin/upload-callsigns');
     // W-10 FIX: 500 에러에서 내부 상세 메시지 제거
     return NextResponse.json(
       { error: 'Excel 업로드 중 오류가 발생했습니다.' },

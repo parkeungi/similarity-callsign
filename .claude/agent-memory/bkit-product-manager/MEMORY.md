@@ -1,7 +1,7 @@
-# KATC1 Project - Product Manager Memory
+# Product Manager Memory
 
 ## Project Identity
-- Name: KATC1 항공사 유사호출부호 경고시스템
+- Name: 유사호출부호 공유시스템
 - Level: Dynamic (Next.js 14, TypeScript, TanStack Query v5, PostgreSQL via bkend.ai)
 - Plan docs path: `docs/01-plan/features/{feature}.plan.md`
 - Template: `/Users/sein/.claude/plugins/cache/bkit-marketplace/bkit/1.5.5/templates/plan.template.md`

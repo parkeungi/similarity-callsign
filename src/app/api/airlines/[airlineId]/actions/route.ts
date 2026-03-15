@@ -29,6 +29,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query, transaction } from '@/lib/db';
 import { syncCallsignStatus } from '@/lib/db/sync-callsign-status';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,9 +92,9 @@ export async function GET(
     if (search && search.trim()) {
       const searchValue = `%${search}%`;
       actionConditions.push(`(
-        cs.callsign_pair LIKE $${actionParamIndex++}
-        OR a.action_type LIKE $${actionParamIndex++}
-        OR a.manager_name LIKE $${actionParamIndex++}
+        cs.callsign_pair ILIKE $${actionParamIndex++}
+        OR a.action_type ILIKE $${actionParamIndex++}
+        OR a.manager_name ILIKE $${actionParamIndex++}
       )`);
       actionParams.push(searchValue, searchValue, searchValue);
     }
@@ -158,9 +159,9 @@ export async function GET(
       if (search && search.trim()) {
         const searchValue = `%${search}%`;
         virtualConditions.push(`(
-          cs.callsign_pair LIKE $${virtualParamIndex++}
-          OR '조치 등록 필요' LIKE $${virtualParamIndex++}
-          OR '' LIKE $${virtualParamIndex++}
+          cs.callsign_pair ILIKE $${virtualParamIndex++}
+          OR '조치 등록 필요' ILIKE $${virtualParamIndex++}
+          OR '' ILIKE $${virtualParamIndex++}
         )`);
         virtualParams.push(searchValue, searchValue, searchValue);
       }
@@ -319,7 +320,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('항공사별 조치 목록 조회 오류:', error);
+    logger.error('항공사별 조치 목록 조회 오류', error, 'api/airlines/[airlineId]/actions');
     return NextResponse.json(
       { error: '항공사별 조치 목록 조회 중 오류가 발생했습니다.' },
       { status: 500 }
@@ -366,8 +367,11 @@ export async function POST(
       );
     }
 
-    // 국내 항공사 목록 (airlines 테이블 기준, FOREIGN 제외)
-    const domesticAirlines = new Set(['KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR', 'ARK']);
+    // 국내 항공사 목록 (airlines 테이블에서 조회, FOREIGN 제외)
+    const domesticAirlinesResult = await query("SELECT code FROM airlines WHERE code != $1", ['FOREIGN']);
+    const domesticAirlines = new Set<string>(
+      (domesticAirlinesResult.rows || []).map((a: any) => a.code as string)
+    );
 
     // 요청 본문 (ActionModal에서 snake_case로 전송)
     body = await request.json();
@@ -456,8 +460,8 @@ export async function POST(
       ? new Date().toISOString()
       : completedAt || null;
 
-    // Step 1: 기존 action 조회 (취소된 행도 포함하여 재조치 지원)
-    // COALESCE(is_cancelled, 0)=0인 행 우선, 그 다음 is_cancelled=1 (취소된 행)을 조회
+    // Step 1: 기존 action 조회 또는 생성 (ON CONFLICT로 race condition 방지)
+    // 취소된 행도 포함하여 재조치 지원
     const existingActionResult = await query(
       `SELECT id FROM actions WHERE airline_id = $1 AND callsign_id = $2
        ORDER BY COALESCE(is_cancelled, false) ASC, registered_at DESC LIMIT 1`,
@@ -466,25 +470,22 @@ export async function POST(
 
     let existingActionId: string;
 
-    // action이 없으면 새로 생성, 있으면 기존 ID 사용
     if (existingActionResult.rows.length === 0) {
-      // 📌 NEW: action이 없으면 INSERT (호출부호만 있는 경우)
+      // action이 없으면 INSERT (ON CONFLICT로 동시 요청 시 중복 방지)
       const nowIso = new Date().toISOString();
-      await query(
+      const insertResult = await query(
         `INSERT INTO actions
           (airline_id, callsign_id, action_type, status, registered_by, registered_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (airline_id, callsign_id) WHERE COALESCE(is_cancelled, false) = false
+         DO UPDATE SET updated_at = EXCLUDED.updated_at
+         RETURNING id`,
         [airlineId, callsignId, actionType || '조치등록', actionStatus, payload.userId, nowIso, nowIso]
       );
-      // 실제 UUID id를 조회 (lastInsertRowid는 SQLite 내부 rowid이므로 불가)
-      const newActionResult = await query(
-        `SELECT id FROM actions WHERE airline_id = $1 AND callsign_id = $2 ORDER BY registered_at DESC LIMIT 1`,
-        [airlineId, callsignId]
-      );
-      if (newActionResult.rows.length === 0) {
-        throw new Error('신규 조치 생성 후 조회 실패');
+      if (insertResult.rows.length === 0) {
+        throw new Error('신규 조치 생성 실패');
       }
-      existingActionId = newActionResult.rows[0].id;
+      existingActionId = insertResult.rows[0].id;
     } else {
       existingActionId = existingActionResult.rows[0].id;
     }
@@ -508,7 +509,7 @@ export async function POST(
       );
 
       // 2. 국내 항공사 목록 조회 (완료 조건 계산용, FOREIGN 제외)
-      const airlinesResult = await trx("SELECT code FROM airlines WHERE code != 'FOREIGN'");
+      const airlinesResult = await trx("SELECT code FROM airlines WHERE code != $1", ['FOREIGN']);
       const domesticAirlines = new Set<string>(
         (airlinesResult.rows || []).map((a: any) => a.code as string)
       );
@@ -578,13 +579,10 @@ export async function POST(
       { status: 201 }
     );
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error('[POST /api/airlines/[airlineId]/actions] 조치 생성 오류:', {
+    logger.error('조치 생성 오류', error, 'api/airlines/[airlineId]/actions', {
       airlineId,
       callsignId,
       actionType,
-      errorMessage: errorMsg,
-      stack: error instanceof Error ? error.stack : undefined,
     });
     // W-10 FIX: 500 에러에서 내부 상세 메시지 제거
     return NextResponse.json(

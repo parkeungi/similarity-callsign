@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -172,71 +173,69 @@ export async function GET(request: NextRequest) {
 
     const conditions = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-    // 호출부호 목록 조회 (callsigns + actions 조인으로 조치유형과 처리일자 포함)
-    // 자사/타사 조치 상세정보를 airline_code 기준으로 각각 조회
+    // 호출부호 목록 조회 (LATERAL JOIN으로 자사/타사 조치 + 발생이력 통합)
+    // 기존 8개 상관 서브쿼리 → LATERAL JOIN 4개로 최적화
     const callsignsResult = await query(
       `SELECT c.id, c.airline_id, c.airline_code, c.callsign_pair, c.my_callsign, c.other_callsign,
               c.other_airline_code, c.error_type, c.sub_error, c.risk_level, c.similarity,
               c.occurrence_count, c.first_occurred_at, c.last_occurred_at,
               c.file_upload_id, c.uploaded_at, c.status, c.created_at, c.updated_at,
               c.my_action_status, c.other_action_status,
-              -- 자사 조치 상세 (airline_code 기준)
-              (SELECT a.action_type FROM actions a
-               JOIN airlines al ON a.airline_id = al.id
-               WHERE a.callsign_id = c.id AND al.code = c.airline_code
-               AND COALESCE(a.is_cancelled, false) = false
-               ORDER BY a.registered_at DESC LIMIT 1) as action_type,
-              (SELECT a.completed_at FROM actions a
-               JOIN airlines al ON a.airline_id = al.id
-               WHERE a.callsign_id = c.id AND al.code = c.airline_code
-               AND COALESCE(a.is_cancelled, false) = false
-               ORDER BY a.registered_at DESC LIMIT 1) as action_completed_at,
-              (SELECT a.description FROM actions a
-               JOIN airlines al ON a.airline_id = al.id
-               WHERE a.callsign_id = c.id AND al.code = c.airline_code
-               AND COALESCE(a.is_cancelled, false) = false
-               ORDER BY a.registered_at DESC LIMIT 1) as my_action_description,
-              (SELECT a.manager_name FROM actions a
-               JOIN airlines al ON a.airline_id = al.id
-               WHERE a.callsign_id = c.id AND al.code = c.airline_code
-               AND COALESCE(a.is_cancelled, false) = false
-               ORDER BY a.registered_at DESC LIMIT 1) as my_manager_name,
-              -- 타사 조치 상세 (other_airline_code 기준)
-              (SELECT a.action_type FROM actions a
-               JOIN airlines al ON a.airline_id = al.id
-               WHERE a.callsign_id = c.id AND al.code = c.other_airline_code
-               AND COALESCE(a.is_cancelled, false) = false
-               ORDER BY a.registered_at DESC LIMIT 1) as other_action_type_detail,
-              (SELECT a.description FROM actions a
-               JOIN airlines al ON a.airline_id = al.id
-               WHERE a.callsign_id = c.id AND al.code = c.other_airline_code
-               AND COALESCE(a.is_cancelled, false) = false
-               ORDER BY a.registered_at DESC LIMIT 1) as other_action_description,
-              (SELECT a.manager_name FROM actions a
-               JOIN airlines al ON a.airline_id = al.id
-               WHERE a.callsign_id = c.id AND al.code = c.other_airline_code
-               AND COALESCE(a.is_cancelled, false) = false
-               ORDER BY a.registered_at DESC LIMIT 1) as other_manager_name,
-              (SELECT a.completed_at FROM actions a
-               JOIN airlines al ON a.airline_id = al.id
-               WHERE a.callsign_id = c.id AND al.code = c.other_airline_code
-               AND COALESCE(a.is_cancelled, false) = false
-               ORDER BY a.registered_at DESC LIMIT 1) as other_completed_at,
-              -- 오류유형별 발생건수 (동적)
-              (SELECT json_object_agg(COALESCE(error_type, '오류미발생'), cnt) FROM (
-                SELECT error_type, COUNT(*) as cnt FROM callsign_occurrences WHERE callsign_id = c.id GROUP BY error_type
-              ) t) as error_type_counts,
-              -- 발생이력 날짜+시간 목록 (전체 발생건수, MM-DD HH:MM 포맷)
-              (SELECT STRING_AGG(
-                TO_CHAR(occurred_date, 'MM-DD') || ' ' || COALESCE(TO_CHAR(occurred_time, 'HH24:MI'), ''),
-                ',' ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST
-              ) FROM (
-                SELECT occurred_date, occurred_time
-                FROM callsign_occurrences WHERE callsign_id = c.id
-                ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST
-                LIMIT 30
-              ) _occ) as occurrence_dates
+              -- 자사 조치 상세 (LATERAL JOIN)
+              ma.action_type,
+              ma.completed_at as action_completed_at,
+              ma.description as my_action_description,
+              ma.manager_name as my_manager_name,
+              -- 타사 조치 상세 (LATERAL JOIN)
+              oa.action_type as other_action_type_detail,
+              oa.description as other_action_description,
+              oa.manager_name as other_manager_name,
+              oa.completed_at as other_completed_at,
+              -- 오류유형별 발생건수 (LATERAL JOIN)
+              ec.error_type_counts,
+              -- 발생이력 날짜+시간 목록 (LATERAL JOIN)
+              od.occurrence_dates
        FROM callsigns c
+       -- 자사 최신 조치 1건 (airline_code 기준)
+       LEFT JOIN LATERAL (
+         SELECT a.action_type, a.completed_at, a.description, a.manager_name
+         FROM actions a
+         JOIN airlines al ON a.airline_id = al.id
+         WHERE a.callsign_id = c.id AND al.code = c.airline_code
+           AND COALESCE(a.is_cancelled, false) = false
+         ORDER BY a.registered_at DESC LIMIT 1
+       ) ma ON true
+       -- 타사 최신 조치 1건 (other_airline_code 기준)
+       LEFT JOIN LATERAL (
+         SELECT a.action_type, a.completed_at, a.description, a.manager_name
+         FROM actions a
+         JOIN airlines al ON a.airline_id = al.id
+         WHERE a.callsign_id = c.id AND al.code = c.other_airline_code
+           AND COALESCE(a.is_cancelled, false) = false
+         ORDER BY a.registered_at DESC LIMIT 1
+       ) oa ON true
+       -- 오류유형별 발생건수 집계
+       LEFT JOIN LATERAL (
+         SELECT json_object_agg(COALESCE(error_type, '오류미발생'), cnt) as error_type_counts
+         FROM (
+           SELECT error_type, COUNT(*) as cnt
+           FROM callsign_occurrences WHERE callsign_id = c.id
+           GROUP BY error_type
+         ) t
+       ) ec ON true
+       -- 최근 30건 발생이력 날짜+시간 목록
+       LEFT JOIN LATERAL (
+         SELECT STRING_AGG(
+           TO_CHAR(occurred_date, 'MM-DD') || ' ' || COALESCE(TO_CHAR(occurred_time, 'HH24:MI'), ''),
+           ',' ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST
+         ) as occurrence_dates
+         FROM (
+           SELECT occurred_date, occurred_time
+           FROM callsign_occurrences WHERE callsign_id = c.id
+           ORDER BY occurred_date DESC, occurred_time DESC NULLS LAST
+           LIMIT 30
+         ) _occ
+       ) od ON true
        ${conditions}
        ORDER BY
          CASE
@@ -417,7 +416,7 @@ export async function GET(request: NextRequest) {
       summary,
     });
   } catch (error) {
-    console.error('호출부호 조치 상태 조회 오류:', error);
+    logger.error('호출부호 조치 상태 조회 오류', error, 'api/callsigns-with-actions');
     return NextResponse.json(
       { error: '호출부호 조치 상태 조회 중 오류가 발생했습니다.' },
       { status: 500 }

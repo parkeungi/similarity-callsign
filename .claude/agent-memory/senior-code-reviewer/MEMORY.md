@@ -1,6 +1,6 @@
 # Senior Code Reviewer - Agent Memory
 
-## Project: KATC1 (항공사 유사호출부호 경고시스템)
+## Project: 유사호출부호 공유시스템
 
 ### Key Architecture Facts
 - Next.js 14 App Router, TypeScript, Tailwind CSS, TanStack Query v5, Zustand

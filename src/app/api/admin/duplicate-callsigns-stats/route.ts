@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,32 +57,28 @@ export async function GET(request: NextRequest) {
 
     // 2️⃣ 중복 유사호출부호 현황 조회
     // 같은 조치 유형으로 3건 이상 처리한 항공사만 조회
+    // CTE로 airline별 total_actions를 1회만 계산 (기존: SELECT 내 서브쿼리 2회 반복)
     const duplicateResult = await query(
       `
+      WITH airline_totals AS (
+        SELECT airline_id, COUNT(*) as total_actions
+        FROM actions
+        GROUP BY airline_id
+      )
       SELECT
         a.airline_id,
         al.code as airline_code,
         al.name_ko as airline_name_ko,
         a.action_type,
         COUNT(*) as count,
-        (
-          SELECT COUNT(*) FROM actions
-          WHERE airline_id = a.airline_id
-        ) as total_actions,
-        ROUND(
-          COUNT(*) * 100.0 / (
-            SELECT COUNT(*) FROM actions
-            WHERE airline_id = a.airline_id
-          ),
-          1
-        ) as percentage,
-        ROUND(
-          COUNT(*) * 50.0 / 100.0
-        ) as opportunity_score
+        at2.total_actions,
+        ROUND(COUNT(*) * 100.0 / at2.total_actions, 1) as percentage,
+        ROUND(COUNT(*) * 50.0 / 100.0) as opportunity_score
       FROM actions a
       LEFT JOIN airlines al ON a.airline_id = al.id
+      JOIN airline_totals at2 ON at2.airline_id = a.airline_id
       WHERE a.action_type IS NOT NULL AND a.action_type != ''
-      GROUP BY a.airline_id, al.code, al.name_ko, a.action_type
+      GROUP BY a.airline_id, al.code, al.name_ko, a.action_type, at2.total_actions
       HAVING COUNT(*) >= 3
       ORDER BY count DESC
       LIMIT 100
@@ -132,7 +129,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error('[API] /api/admin/duplicate-callsigns-stats error:', error);
+    logger.error('중복 호출부호 통계 조회 실패', error, 'admin/duplicate-callsigns-stats');
     return NextResponse.json(
       { error: '통계 조회 중 오류가 발생했습니다.' },
       { status: 500 }

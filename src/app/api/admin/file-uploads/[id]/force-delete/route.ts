@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query, transaction } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -193,7 +194,7 @@ export async function DELETE(
         ...deletedStats,
       });
     } catch (txError) {
-      console.error('[Force Delete] 트랜잭션 실패:', txError);
+      logger.error('강제 삭제 트랜잭션 실패', txError, 'admin/file-uploads/force-delete');
       const errorMessage = txError instanceof Error ? txError.message : '파일 삭제 중 오류가 발생했습니다.';
       return NextResponse.json(
         { error: errorMessage },
@@ -201,7 +202,7 @@ export async function DELETE(
       );
     }
   } catch (error) {
-    console.error('[Force Delete] 오류:', error);
+    logger.error('파일 강제 삭제 오류', error, 'admin/file-uploads/force-delete');
     return NextResponse.json(
       { error: '파일 강제 삭제 중 오류가 발생했습니다.' },
       { status: 500 }

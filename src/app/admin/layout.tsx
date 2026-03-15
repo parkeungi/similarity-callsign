@@ -13,22 +13,26 @@ export default function AdminLayout({
     children: React.ReactNode;
 }) {
     const user = useAuthStore((s) => s.user);
+    const isSessionRestoring = useAuthStore((s) => s.isSessionRestoring);
     const router = useRouter();
 
-    // 관리자가 아니면 즉시 홈으로 리다이렉트
+    // 세션 복원 완료 후, 관리자가 아니면 홈으로 리다이렉트
     useEffect(() => {
+        if (isSessionRestoring) return;
         if (user === null) {
-            // user가 null이면 로그인하지 않은 상태 → 홈으로 리다이렉트
             router.push('/');
         } else if (user.role !== 'admin') {
-            // user가 있지만 admin이 아니면 홈으로 리다이렉트
             router.push('/');
         }
-    }, [user, router]);
+    }, [user, isSessionRestoring, router]);
 
-    // 관리자가 아니거나 로드 중이면 아무것도 렌더링하지 않음
-    if (!user || user.role !== 'admin') {
-        return null;
+    // 세션 복원 중이거나 관리자가 아니면 로딩(리다이렉트 대기) 표시
+    if (isSessionRestoring || !user || user.role !== 'admin') {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+            </div>
+        );
     }
 
     return (

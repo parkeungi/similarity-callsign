@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,9 +84,9 @@ export async function GET(request: NextRequest) {
     if (search && search.trim()) {
       const searchValue = `%${search}%`;
       sql += ` AND (
-        cs.callsign_pair LIKE $${paramIndex++}
-        OR a.action_type LIKE $${paramIndex++}
-        OR a.manager_name LIKE $${paramIndex++}
+        cs.callsign_pair ILIKE $${paramIndex++}
+        OR a.action_type ILIKE $${paramIndex++}
+        OR a.manager_name ILIKE $${paramIndex++}
       )`;
       queryParams.push(searchValue, searchValue, searchValue);
     }
@@ -127,9 +128,9 @@ export async function GET(request: NextRequest) {
     if (search && search.trim()) {
       const searchValue = `%${search}%`;
       countSql += ` AND (
-        cs.callsign_pair LIKE $${countParamIndex++}
-        OR a.action_type LIKE $${countParamIndex++}
-        OR a.manager_name LIKE $${countParamIndex++}
+        cs.callsign_pair ILIKE $${countParamIndex++}
+        OR a.action_type ILIKE $${countParamIndex++}
+        OR a.manager_name ILIKE $${countParamIndex++}
       )`;
       countParams.push(searchValue, searchValue, searchValue);
     }
@@ -165,9 +166,9 @@ export async function GET(request: NextRequest) {
     if (search && search.trim()) {
       const searchValue = `%${search}%`;
       summarySql += ` AND (
-        cs.callsign_pair LIKE $${summaryParamIndex++}
-        OR a.action_type LIKE $${summaryParamIndex++}
-        OR a.manager_name LIKE $${summaryParamIndex++}
+        cs.callsign_pair ILIKE $${summaryParamIndex++}
+        OR a.action_type ILIKE $${summaryParamIndex++}
+        OR a.manager_name ILIKE $${summaryParamIndex++}
       )`;
       summaryCountParams.push(searchValue, searchValue, searchValue);
     }
@@ -251,7 +252,7 @@ export async function GET(request: NextRequest) {
       summary,
     });
   } catch (error) {
-    console.error('조치 목록 조회 오류:', error);
+    logger.error('조치 목록 조회 오류', error, 'api/actions');
     return NextResponse.json(
       { error: '조치 목록 조회 중 오류가 발생했습니다.' },
       { status: 500 }

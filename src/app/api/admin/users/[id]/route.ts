@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 interface Params {
   params: Promise<{
@@ -119,6 +120,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     await query(sql, params_array);
 
+    // 감사 로그: 사용자 상태/역할 변경
+    logger.info('관리자 작업: 사용자 정보 변경', 'admin/users', {
+      adminId: payload.userId,
+      targetUserId: userId,
+      changes: { status, role, airlineId: resolvedAirlineId },
+    });
+
     // 업데이트된 사용자 조회
     const userResult = await query(
       `SELECT id, email, status, role, airline_id, last_login_at, created_at, updated_at
@@ -169,7 +177,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       },
     });
   } catch (error) {
-    console.error('사용자 상태 변경 오류:', error);
+    logger.error('사용자 상태 변경 실패', error, 'admin/users');
     return NextResponse.json(
       { error: '사용자 상태 변경 중 오류가 발생했습니다.' },
       { status: 500 }
@@ -235,6 +243,13 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     // 사용자 삭제
     await query('DELETE FROM users WHERE id = $1', [userId]);
 
+    // 감사 로그: 사용자 삭제
+    logger.warn('관리자 작업: 사용자 삭제', 'admin/users', {
+      adminId: payload.userId,
+      deletedUserId: userId,
+      deletedUserEmail: userInfo.email,
+    });
+
     return NextResponse.json({
       message: '사용자가 삭제되었습니다.',
       user: {
@@ -243,7 +258,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       },
     });
   } catch (error) {
-    console.error('사용자 삭제 오류:', error);
+    logger.error('사용자 삭제 실패', error, 'admin/users');
     return NextResponse.json(
       { error: '사용자 삭제 중 오류가 발생했습니다.' },
       { status: 500 }

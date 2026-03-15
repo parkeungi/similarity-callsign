@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';
+import { logger } from '@/lib/logger';
 
 // 허용된 테이블 목록 (화이트리스트 - SQL Injection 방지)
 const ALLOWED_TABLES = new Set([
@@ -79,7 +80,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error(`[DB Table] Error fetching ${tableName}:`, error);
+    logger.error('테이블 데이터 조회 실패', error, 'admin/database/table', { tableName });
     return NextResponse.json({ error: '데이터 조회 실패' }, { status: 500 });
   }
 }
