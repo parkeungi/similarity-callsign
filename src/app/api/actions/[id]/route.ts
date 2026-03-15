@@ -210,7 +210,7 @@ export async function PATCH(
         await trx(
           `UPDATE actions SET
             status = $1,
-            is_cancelled = 1,
+            is_cancelled = true,
             reviewed_by = $2,
             reviewed_at = $3,
             updated_at = $4
