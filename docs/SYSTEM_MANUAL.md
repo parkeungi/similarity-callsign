@@ -936,8 +936,8 @@ users (1) ────── (N) actions        : 사용자가 여러 조치 등
 | 서명 Secret | `JWT_SECRET` | `REFRESH_TOKEN_SECRET` (별도 분리) |
 | audience | `katc1:access` | `katc1:refresh` |
 | issuer | `katc1` | `katc1` |
-| 만료 | 1시간 | 7일 |
-| 저장 | sessionStorage | httpOnly 쿠키 |
+| 만료 | 30분 | 7일 |
+| 저장 | 메모리 (Zustand) | httpOnly 쿠키 |
 | DB 저장 | 없음 | SHA-256 해시 저장 (`users.refresh_token_hash`) |
 
 **토큰 혼용 공격 차단**: audience/issuer 검증으로 RefreshToken을 AccessToken 자리에 사용하는 공격 차단

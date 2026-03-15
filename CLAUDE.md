@@ -4,16 +4,16 @@
 > Claude Code는 이 지침을 우선시하여 작업합니다.
 
 ---
-# Project Guidelines (Next.js on Render)
+# Project Guidelines (Next.js on Vercel)
 
-이 프로젝트는 Render.com에 배포되는 폐쇄형(관리자 전용) Next.js 웹 서비스입니다.
+이 프로젝트는 Vercel에 배포되는 폐쇄형(관리자 전용) Next.js 웹 서비스입니다.
 
 ## 1. Tech Stack & Rules
-- **Framework**: Next.js (App Router 필수)
-- **Styling**: Tailwind CSS (권장)
-- **Deployment**: Render.com (Node.js Environment)
-- **Database**: PostgreSQL (Prisma 또는 Drizzle 사용 권장)
-- **Auth**: NextAuth.js (Admin 전용, 회원가입 없음)
+- **Framework**: Next.js 14 (App Router 필수)
+- **Styling**: Tailwind CSS
+- **Deployment**: Vercel (Serverless)
+- **Database**: PostgreSQL (Supabase)
+- **Auth**: JWT (AccessToken + RefreshToken, 회원가입 없음)
 
 ## 2. Next.js Best Practices (Strict)
 - **Routing**: `app/` 디렉토리(App Router)만 사용하세요.
@@ -38,15 +38,15 @@
 ### 프로젝트 개요
 - **프로젝트명**: KATC1 - 항공사 유사호출부호 경고시스템
 - **설명**: 항공사 운항 중 발생하는 유사 호출부호 상황을 감지하고 관리하는 시스템
-- **레벨**: Dynamic (Next.js + SQLite + TanStack Query)
-- **배포**: Vercel (예정)
+- **레벨**: Dynamic (Next.js + PostgreSQL + TanStack Query)
+- **배포**: Vercel (Supabase PostgreSQL)
 
 ### 기술 스택
 ```
 Frontend: Next.js 14, TypeScript, Tailwind CSS, Zustand, TanStack Query v5
-Backend: Node.js (API Routes), SQLite 3
-Auth: JWT (AccessToken + RefreshToken)
-Tools: better-sqlite3, bash scripts
+Backend: Node.js (API Routes), PostgreSQL (Supabase)
+Auth: JWT (AccessToken 30분 + RefreshToken 7일)
+Tools: pg (node-postgres), bash scripts
 ```
 
 ### 주요 데이터베이스
@@ -144,10 +144,10 @@ POST   /api/auth/refresh                 # 토큰 갱신
 
 ### 국내/외항사 판별 규칙 (필수)
 ```typescript
-// 항공사 테이블(airlines)에 입력된 11개만 국내항공사로 인정
-// 그 외는 모두 외항사로 취급
-// 국내항공사 (ICAO 3글자 코드) - DB에서 확인한 항공사 테이블의 모든 항공사
-const domesticAirlines = new Set(['KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR']);
+// 항공사 테이블(airlines)에 입력된 12개만 국내항공사로 인정
+// 그 외는 모두 외항사로 취급 (FOREIGN 코드로 관리)
+// 국내항공사 (ICAO 3글자 코드) - DB airlines 테이블 기준
+const domesticAirlines = new Set(['KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR', 'ARK']);
 const isForeignAirline = !domesticAirlines.has(otherAirlineCode);
 ```
 
@@ -437,7 +437,7 @@ UI 표시:
 **보유 권한**:
 ```
 도구: Read, Write, Edit, Glob, Grep, Bash, Task(qa-monitor)
-접근 범위: src/app/(main)/airline/**, src/components/airline/**, src/hooks/**, data/katc1.db
+접근 범위: src/app/(main)/airline/**, src/components/airline/**, src/hooks/**
 제한사항: 코드 수정 불가 (검증만 수행), admin 페이지 검증 불가
 ```
 
@@ -550,7 +550,7 @@ UI 표시:
 **보유 권한**:
 ```
 도구: Read, Write, Edit, Glob, Grep, Bash
-접근 범위: src/app/api/airlines/, src/app/api/actions/, src/hooks/useActions.ts, src/components/actions/**, data/katc1.db
+접근 범위: src/app/api/airlines/, src/app/api/actions/, src/hooks/useActions.ts, src/components/actions/**
 제한사항: 인증 시스템 수정 불가, 다른 기능 API 수정 불가
 ```
 
@@ -563,8 +563,8 @@ UI 표시:
 
 ---
 
-#### 🐘 **pgsql-migrator 에이전트** (SQLite → PostgreSQL 마이그레이션)
-**목적**: SQLite 기반 코드를 PostgreSQL로 완전 마이그레이션하고, 모든 쿼리/설정/의존성을 정확하게 수정하는 시니어 개발자
+#### 🐘 **pgsql-migrator 에이전트** (PostgreSQL 마이그레이션 - 완료)
+**목적**: ~~SQLite 기반 코드를 PostgreSQL로 완전 마이그레이션~~ **마이그레이션 완료됨 (2026-03)**. 현재는 PostgreSQL 스키마 변경 및 쿼리 최적화 시 활용
 
 **자동 호출 시점**:
 ```
@@ -672,11 +672,9 @@ CREATE TABLE users (
 | Airline 페이지 검증 | **✅ airline-validator** (자동 검증) |
 | Admin 페이지 수정 | 👨‍💼 admin |
 | **Actions API 수정** | **🧪 actions-test** (자동 테스트) |
-| **SQLite → PostgreSQL 마이그레이션** | **🐘 pgsql-migrator** (자동 실행) |
-| **쿼리 문법 pgsql 전환** | **🐘 pgsql-migrator** (자동 실행) |
 | API 엔드포인트 수정 | security-architect (보안 검증) |
 | 인증 시스템 수정 | 직접 처리 (에이전트 미배정) |
-| 데이터베이스 스키마 | 🐘 pgsql-migrator (마이그레이션 시) |
+| 데이터베이스 스키마 변경 | 🐘 pgsql-migrator (스키마/쿼리 최적화) |
 | 코드 품질 검증 | code-analyzer |
 | Gap 분석 | gap-detector |
 
@@ -926,27 +924,29 @@ git push origin master
 - tsconfig.json                       # TypeScript 설정
 
 데이터베이스:
-- scripts/init.sql                    # DB 초기화 스크립트
-- docker-compose.yml                  # Docker 설정
+- scripts/init.sql                    # DB 초기화 스크립트 (Supabase SQL Editor에서 실행)
+- src/lib/db/providers/postgresql/    # PostgreSQL 연결 프로바이더
 
 핵심 API:
 - src/app/api/auth/login/route.ts    # 로그인
-- src/app/api/airlines/[id]/callsigns/route.ts  # 유사호출부호 조회
+- src/app/api/auth/refresh/route.ts  # 토큰 갱신
+- src/app/api/airlines/[airlineId]/callsigns/route.ts  # 유사호출부호 조회
+- src/app/api/airlines/[airlineId]/actions/route.ts    # 조치 등록
 
 상태 관리:
-- src/store/authStore.ts              # 인증 상태
-- src/hooks/useAirlineCallsigns.ts    # 데이터 조회 훅
+- src/store/authStore.ts              # 인증 상태 (Zustand)
+- src/lib/api/client.ts               # API 클라이언트 (인증 인터셉터)
 ```
 
 ---
 
-## 📊 최근 개선 사항 (2026-03-01)
+## 📊 최근 개선 사항
 
 | 날짜 | 항목 | 상태 |
 |------|------|------|
-| 2026-02-24 | DB 스키마 불일치 수정 | ✅ |
-| 2026-02-25 | API limit 100→1000 상향 | ✅ |
-| 2026-02-25 | 156개 전체 데이터 조회 가능 | ✅ |
+| 2026-03-15 | Vercel+Supabase 배포 전 전체 코드 리뷰 수정 (CRITICAL 7건, HIGH 10건) | ✅ |
+| 2026-03-15 | 오류유형 색상 통일, 페이지네이션 수정, 세션 속도 개선 | ✅ |
+| 2026-03-09 | SQLite → PostgreSQL 마이그레이션 완료 | ✅ |
 | 2026-03-01 | 통계 차트 2종 추가 (관리자 대시보드) | ✅ |
 | 2026-03-01 | Actions 상태 관리 로직 명확화 | ✅ |
 
@@ -962,5 +962,5 @@ git push origin master
 
 ---
 
-**최종 수정**: 2026-03-02 (airline-validator 에이전트 추가)
+**최종 수정**: 2026-03-15 (Vercel+Supabase 배포 전 문서 동기화)
 **관리자**: sein

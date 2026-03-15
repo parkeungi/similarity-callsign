@@ -56,7 +56,7 @@ cp .env.example .env.local
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service_role 키 (서버 전용) |
 | `JWT_SECRET` | JWT 서명 비밀키 (openssl rand -base64 32) |
 
-Supabase 연결 설정은 `docs/04-migration/supabase-db-checklist.md`를 참고하세요.
+Supabase 연결 설정은 `docs/supabase-setup-checklist.md`를 참고하세요.
 
 ### 4️⃣ 데이터베이스 초기화
 

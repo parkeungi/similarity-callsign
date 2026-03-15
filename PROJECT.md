@@ -54,8 +54,7 @@ Frontend:  Next.js 14 (App Router), TypeScript, Tailwind CSS
 State:     Zustand (전역 인증 상태), TanStack Query v5 (서버 상태)
 Forms:     react-hook-form + zod
 Charts:    recharts
-Database:  PostgreSQL (Supabase) — 프로덕션
-           SQLite (better-sqlite3) — 로컬 개발 (레거시)
+Database:  PostgreSQL (Supabase)
 ORM:       없음 — 직접 SQL (pg 드라이버)
 Auth:      JWT (AccessToken + RefreshToken / httpOnly 쿠키)
 Email:     nodemailer
@@ -74,7 +73,6 @@ Icons:     lucide-react
   "zod": "^3",
   "@supabase/supabase-js": "^2",
   "pg": "^8",
-  "better-sqlite3": "^12",
   "bcryptjs": "^3",
   "jsonwebtoken": "^9",
   "recharts": "^3",
@@ -208,7 +206,7 @@ PostgreSQL 기준. 전체 DDL은 `scripts/init.sql` 참조.
 
 | 테이블 | 역할 |
 |--------|------|
-| `airlines` | 국내 항공사 마스터 (11개) |
+| `airlines` | 국내 항공사 마스터 (12개 + FOREIGN) |
 | `users` | 사용자 계정 (관리자 + 항공사 담당자) |
 | `password_history` | 비밀번호 변경 이력 |
 | `callsigns` | 유사호출부호 마스터 데이터 |
@@ -265,7 +263,7 @@ CREATE TABLE airlines (
 );
 ```
 
-**등록된 국내 항공사 (11개)**
+**등록된 국내 항공사 (12개 + FOREIGN)**
 
 | code | name_ko | display_order |
 |------|---------|---------------|
@@ -280,6 +278,8 @@ CREATE TABLE airlines (
 | FGW | 플라이강원 | 9 |
 | APZ | 에어프레미아 | 10 |
 | ESR | 이스타항공 | 11 |
+| ARK | 에어로케이 | 12 |
+| FOREIGN | 외항사 | 99 |
 
 #### users
 ```sql
