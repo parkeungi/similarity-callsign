@@ -11,19 +11,25 @@ interface ErrorTypeColorSet {
   hex: string;
 }
 
+const PILOT_ERROR: ErrorTypeColorSet = {
+  bg: 'bg-rose-50', activeBg: 'bg-rose-100',
+  border: 'border-rose-200', activeBorder: 'border-rose-400',
+  label: 'text-rose-600', value: 'text-rose-700', pct: 'text-rose-500',
+  hex: '#ef4444',
+};
+
+const ATC_ERROR: ErrorTypeColorSet = {
+  bg: 'bg-blue-50', activeBg: 'bg-blue-100',
+  border: 'border-blue-200', activeBorder: 'border-blue-400',
+  label: 'text-blue-600', value: 'text-blue-700', pct: 'text-blue-500',
+  hex: '#3b82f6',
+};
+
 const ERROR_TYPE_COLOR_MAP: Record<string, ErrorTypeColorSet> = {
-  '조종사': {
-    bg: 'bg-rose-50', activeBg: 'bg-rose-100',
-    border: 'border-rose-200', activeBorder: 'border-rose-400',
-    label: 'text-rose-600', value: 'text-rose-700', pct: 'text-rose-500',
-    hex: '#ef4444',
-  },
-  '관제사': {
-    bg: 'bg-blue-50', activeBg: 'bg-blue-100',
-    border: 'border-blue-200', activeBorder: 'border-blue-400',
-    label: 'text-blue-600', value: 'text-blue-700', pct: 'text-blue-500',
-    hex: '#3b82f6',
-  },
+  '조종사오류': PILOT_ERROR,
+  '조종사': PILOT_ERROR,
+  '관제사오류': ATC_ERROR,
+  '관제사': ATC_ERROR,
   '오류미발생': {
     bg: 'bg-emerald-50', activeBg: 'bg-emerald-100',
     border: 'border-emerald-200', activeBorder: 'border-emerald-400',
@@ -58,14 +64,16 @@ interface DarkColorSet {
 }
 
 const DARK_COLOR_MAP: Record<string, DarkColorSet> = {
-  '조종사': { border: 'border-rose-900/50', bg: 'bg-rose-900/20', label: 'text-rose-300/70', value: 'text-rose-400' },
-  '관제사': { border: 'border-blue-900/50', bg: 'bg-blue-900/20', label: 'text-blue-300/70', value: 'text-blue-400' },
-  '오류미발생': { border: 'border-emerald-900/50', bg: 'bg-emerald-900/20', label: 'text-emerald-300/70', value: 'text-emerald-400' },
-  '시스템': { border: 'border-violet-900/50', bg: 'bg-violet-900/20', label: 'text-violet-300/70', value: 'text-violet-400' },
+  '조종사오류': { border: 'border-rose-800/60', bg: 'bg-rose-950/40', label: 'text-rose-200', value: 'text-rose-300' },
+  '조종사': { border: 'border-rose-800/60', bg: 'bg-rose-950/40', label: 'text-rose-200', value: 'text-rose-300' },
+  '관제사오류': { border: 'border-blue-800/60', bg: 'bg-blue-950/40', label: 'text-blue-200', value: 'text-blue-300' },
+  '관제사': { border: 'border-blue-800/60', bg: 'bg-blue-950/40', label: 'text-blue-200', value: 'text-blue-300' },
+  '오류미발생': { border: 'border-emerald-800/60', bg: 'bg-emerald-950/40', label: 'text-emerald-200', value: 'text-emerald-300' },
+  '시스템': { border: 'border-violet-800/60', bg: 'bg-violet-950/40', label: 'text-violet-200', value: 'text-violet-300' },
 };
 
 const DARK_FALLBACK: DarkColorSet = {
-  border: 'border-amber-900/50', bg: 'bg-amber-900/20', label: 'text-amber-300/70', value: 'text-amber-400',
+  border: 'border-amber-800/60', bg: 'bg-amber-950/40', label: 'text-amber-200', value: 'text-amber-300',
 };
 
 export function getErrorTypeDarkColor(errorType: string): DarkColorSet {
