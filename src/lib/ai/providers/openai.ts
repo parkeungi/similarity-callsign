@@ -32,6 +32,8 @@ export async function callOpenAI(
     ],
     response_format: { type: 'json_object' },
     max_completion_tokens: 16384,
+    temperature: 0,
+    seed: 42,
   });
 
   const text = response.choices[0]?.message?.content || '';
