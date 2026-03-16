@@ -13,6 +13,7 @@ import {
   BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
+import { TimePatternChart } from '@/components/admin/charts/TimePatternChart';
 
 interface CallsignStatsResponse {
   total: number;
@@ -72,7 +73,10 @@ function getPeriodLabel(period: PeriodType, offset: number, customFrom?: string,
   return '';
 }
 
+type StatsSubTab = 'overview' | 'timePattern';
+
 export function StatisticsTab() {
+  const [statsSubTab, setStatsSubTab] = useState<StatsSubTab>('overview');
   const [period, setPeriod] = useState<PeriodType>('monthly');
   const [periodOffset, setPeriodOffset] = useState(0);
   const [customFrom, setCustomFrom] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
@@ -90,13 +94,14 @@ export function StatisticsTab() {
       if (!res.ok) throw new Error('통계 조회 실패');
       return res.json();
     },
-    enabled: !!accessToken,
+    enabled: !!accessToken && statsSubTab === 'overview',
   });
 
-  const totalActionsQuery = useAllActions({ page: 1, limit: 1, dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo });
-  const pendingActionsQuery = useAllActions({ page: 1, limit: 1, status: 'pending', dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo });
-  const inProgressActionsQuery = useAllActions({ page: 1, limit: 1, status: 'in_progress', dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo });
-  const completedActionsQuery = useAllActions({ page: 1, limit: 1, status: 'completed', dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo });
+  const isOverview = statsSubTab === 'overview';
+  const totalActionsQuery = useAllActions({ page: 1, limit: 1, dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo }, { enabled: isOverview });
+  const pendingActionsQuery = useAllActions({ page: 1, limit: 1, status: 'pending', dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo }, { enabled: isOverview });
+  const inProgressActionsQuery = useAllActions({ page: 1, limit: 1, status: 'in_progress', dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo }, { enabled: isOverview });
+  const completedActionsQuery = useAllActions({ page: 1, limit: 1, status: 'completed', dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo }, { enabled: isOverview });
 
   const airlineDetailStatsQuery = useAirlineDetailStats(dateRange);
   const sysStatsQuery = useSystemStats(dateRange);
@@ -150,6 +155,35 @@ export function StatisticsTab() {
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
+      {/* 서브탭 선택 */}
+      <div className="flex gap-1 border-b border-gray-200">
+        <button
+          onClick={() => setStatsSubTab('overview')}
+          className={`px-5 py-2.5 text-sm font-bold transition-colors -mb-px ${
+            statsSubTab === 'overview'
+              ? 'text-indigo-600 border-b-2 border-indigo-600'
+              : 'text-gray-500 hover:text-gray-800'
+          }`}
+        >
+          기본 통계
+        </button>
+        <button
+          onClick={() => setStatsSubTab('timePattern')}
+          className={`px-5 py-2.5 text-sm font-bold transition-colors -mb-px ${
+            statsSubTab === 'timePattern'
+              ? 'text-indigo-600 border-b-2 border-indigo-600'
+              : 'text-gray-500 hover:text-gray-800'
+          }`}
+        >
+          시간대 패턴 분석
+        </button>
+      </div>
+
+      {/* 시간대 패턴 분석 탭 */}
+      {statsSubTab === 'timePattern' && <TimePatternChart />}
+
+      {/* 기본 통계 탭 */}
+      {statsSubTab === 'overview' && <>
       {/* 1. 시간 범위 선택 UI */}
       <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 p-8">
         <div className="flex flex-col gap-6">
@@ -353,6 +387,8 @@ export function StatisticsTab() {
           </div>
         )}
       </div>
+
+      </>}
     </div>
   );
 }

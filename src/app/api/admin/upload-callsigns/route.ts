@@ -492,9 +492,14 @@ export async function POST(request: NextRequest) {
           try {
             await trx(
               `INSERT INTO callsign_occurrences
-                (callsign_id, occurred_date, occurred_time, error_type, sub_error, file_upload_id)
-               VALUES ($1, $2, $3, $4, $5, $6)
-               ON CONFLICT (callsign_id, occurred_date, occurred_time) DO NOTHING`,
+                (callsign_id, occurred_date, occurred_time, error_type, sub_error, file_upload_id,
+                 departure_a, arrival_a, departure_b, arrival_b)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+               ON CONFLICT (callsign_id, occurred_date, occurred_time) DO UPDATE SET
+                 departure_a = COALESCE(EXCLUDED.departure_a, callsign_occurrences.departure_a),
+                 arrival_a = COALESCE(EXCLUDED.arrival_a, callsign_occurrences.arrival_a),
+                 departure_b = COALESCE(EXCLUDED.departure_b, callsign_occurrences.departure_b),
+                 arrival_b = COALESCE(EXCLUDED.arrival_b, callsign_occurrences.arrival_b)`,
               [
                 callsignId,
                 normalizedDate,
@@ -502,6 +507,10 @@ export async function POST(request: NextRequest) {
                 rowData.error_type,
                 rowData.sub_error,
                 uploadId,
+                rowData.departure_airport1 || null,
+                rowData.arrival_airport1 || null,
+                rowData.departure_airport2 || null,
+                rowData.arrival_airport2 || null,
               ]
             );
           } catch (occurrenceError) {
