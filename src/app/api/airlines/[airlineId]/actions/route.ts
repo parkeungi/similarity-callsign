@@ -515,10 +515,23 @@ export async function POST(
       );
 
       const isMy = callsignData.airline_code === airlineCode;
-      const myStatus = isMy ? actionStatus : (callsignData.my_action_status || 'no_action');
-      const otherStatus = isMy ? (callsignData.other_action_status || 'no_action') : actionStatus;
-
       const sameAirline = callsignData.airline_code === callsignData.other_airline_code;
+
+      let myStatus: string;
+      let otherStatus: string;
+
+      if (sameAirline) {
+        // 같은 항공사: 한쪽 조치 시 양쪽 모두 동일 상태로 설정
+        myStatus = actionStatus;
+        otherStatus = actionStatus;
+      } else if (isMy) {
+        myStatus = actionStatus;
+        otherStatus = callsignData.other_action_status || 'no_action';
+      } else {
+        myStatus = callsignData.my_action_status || 'no_action';
+        otherStatus = actionStatus;
+      }
+
       const otherIsForeignAirline = callsignData.other_airline_code && !domesticAirlines.has(callsignData.other_airline_code);
       const myCompleted = myStatus === 'completed';
       const otherCompleted = otherStatus === 'completed';

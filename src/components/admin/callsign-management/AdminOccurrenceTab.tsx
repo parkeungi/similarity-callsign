@@ -541,7 +541,7 @@ export function AdminOccurrenceTab() {
                       </div>
                       {/* AI 사유 텍스트 */}
                       {incident.aiReason && (
-                        <p className="text-[11px] text-purple-800 leading-relaxed line-clamp-2" title={incident.aiReason}>
+                        <p className="text-[11px] text-purple-800 leading-relaxed" title={incident.aiReason}>
                           {incident.aiReason}
                         </p>
                       )}

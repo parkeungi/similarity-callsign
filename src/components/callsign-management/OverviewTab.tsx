@@ -518,33 +518,55 @@ export function OverviewTab() {
             초기화
           </button>
           <button
-            onClick={() => {
-              const excelRows = filteredRows.map((callsign) => ({
-                '호출부호 쌍': callsign.callsign_pair,
-                '위험도': callsign.risk_level,
-                '유사도': callsign.similarity || '-',
-                '오류유형': callsign.error_type || '-',
-                '발생횟수': callsign.occurrence_count || 0,
-                '최근발생일': callsign.last_occurred_at
-                  ? new Date(callsign.last_occurred_at).toLocaleDateString('ko-KR')
-                  : '-',
-                '조치유형': callsign.action_type || '-',
-                '처리일자': callsign.action_completed_at
-                  ? new Date(callsign.action_completed_at).toLocaleDateString('ko-KR')
-                  : '-',
-                '자사(코드)': callsign.my_airline_code || '-',
-                '자사 조치상태': getActionStatusMeta(callsign.my_action_status).label,
-                '타사(코드)': callsign.other_airline_code || '-',
-                '타사 조치상태': getActionStatusMeta(callsign.other_action_status).label,
-                '조치 상태': callsign.final_status === 'complete' ? '완전 완료' : callsign.final_status === 'partial' ? '부분 완료' : '진행중',
-                '등록일': callsign.uploaded_at
-                  ? new Date(callsign.uploaded_at).toLocaleDateString('ko-KR')
-                  : '-',
-              }));
-              const ws = XLSX.utils.json_to_sheet(excelRows);
-              const wb = XLSX.utils.book_new();
-              XLSX.utils.book_append_sheet(wb, ws, '호출부호 현황');
-              XLSX.writeFile(wb, `호출부호현황_${new Date().toLocaleDateString('ko-KR')}.xlsx`);
+            onClick={async () => {
+              try {
+                // 전체 데이터를 가져오기 위해 limit=10000으로 별도 API 호출
+                const params = new URLSearchParams();
+                if (selectedRiskLevel) params.append('riskLevel', selectedRiskLevel);
+                if (selectedAirlineId && selectedAirlineId !== 'foreign' && selectedAirlineId !== 'foreign_domestic') params.append('airlineId', selectedAirlineId);
+                if (selectedAirlineId === 'foreign' || selectedAirlineId === 'foreign_domestic') params.append('airlineFilter', selectedAirlineId);
+                if (selectedStatusFilter !== 'all') params.append('myActionStatus', selectedStatusFilter);
+                else if (selectedActionStatus) params.append('myActionStatus', selectedActionStatus);
+                if (selectedActionType) params.append('actionType', selectedActionType);
+                if (dateFrom) params.append('dateFrom', dateFrom);
+                if (dateTo) params.append('dateTo', dateTo);
+                params.append('page', '1');
+                params.append('limit', '10000');
+
+                const response = await apiFetch(`/api/callsigns-with-actions?${params.toString()}`);
+                if (!response.ok) throw new Error('데이터 조회 실패');
+                const allData = await response.json();
+                const allRows = allData.data || [];
+
+                const excelRows = allRows.map((callsign: any) => ({
+                  '호출부호 쌍': callsign.callsign_pair,
+                  '위험도': callsign.risk_level,
+                  '유사도': callsign.similarity || '-',
+                  '오류유형': callsign.error_type || '-',
+                  '발생횟수': callsign.occurrence_count || 0,
+                  '최근발생일': callsign.last_occurred_at
+                    ? new Date(callsign.last_occurred_at).toLocaleDateString('ko-KR')
+                    : '-',
+                  '조치유형': callsign.action_type || '-',
+                  '처리일자': callsign.action_completed_at
+                    ? new Date(callsign.action_completed_at).toLocaleDateString('ko-KR')
+                    : '-',
+                  '자사(코드)': callsign.my_airline_code || '-',
+                  '자사 조치상태': getActionStatusMeta(callsign.my_action_status).label,
+                  '타사(코드)': callsign.other_airline_code || '-',
+                  '타사 조치상태': getActionStatusMeta(callsign.other_action_status).label,
+                  '조치 상태': callsign.final_status === 'complete' ? '완전 완료' : callsign.final_status === 'partial' ? '부분 완료' : '진행중',
+                  '등록일': callsign.uploaded_at
+                    ? new Date(callsign.uploaded_at).toLocaleDateString('ko-KR')
+                    : '-',
+                }));
+                const ws = XLSX.utils.json_to_sheet(excelRows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, '호출부호 현황');
+                XLSX.writeFile(wb, `호출부호현황_${new Date().toLocaleDateString('ko-KR')}.xlsx`);
+              } catch {
+                alert('Excel 저장 중 오류가 발생했습니다.');
+              }
             }}
             disabled={filteredRows.length === 0}
             className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md shadow-indigo-600/20"

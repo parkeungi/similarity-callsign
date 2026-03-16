@@ -31,6 +31,7 @@ export function Sidebar() {
   const history = useMemo(
     () =>
       (fileUploads?.data || []).map((item) => ({
+        id: item.id,
         fileName: item.fileName || item.file_name,
         uploadedAt: item.uploadedAt || item.uploaded_at,
         totalRows: item.totalRows ?? item.total_rows,

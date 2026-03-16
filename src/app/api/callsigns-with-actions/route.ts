@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
     const dateFrom = request.nextUrl.searchParams.get('dateFrom');
     const dateTo = request.nextUrl.searchParams.get('dateTo');
     const page = Math.max(1, parseInt(request.nextUrl.searchParams.get('page') || '1', 10));
-    const limit = Math.min(100, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '20', 10)));
+    const limit = Math.min(10000, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '20', 10)));
 
     // 입력값 검증
     const validRiskLevels = ['매우높음', '높음'];

@@ -117,10 +117,15 @@ export async function syncCallsignStatus(
   const isMy = callsign.airline_code === actingAirlineCode;
 
   // 4. 양쪽 상태 결정
+  const sameAirline = callsign.airline_code === callsign.other_airline_code;
   let myStatus: string;
   let otherStatus: string;
 
-  if (isMy) {
+  if (sameAirline) {
+    // 같은 항공사: 한쪽 조치 시 양쪽 모두 동일 상태로 설정
+    myStatus = newActionStatus;
+    otherStatus = newActionStatus;
+  } else if (isMy) {
     myStatus = newActionStatus;
     otherStatus = callsign.other_action_status || 'no_action';
   } else {

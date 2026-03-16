@@ -42,7 +42,7 @@ export async function DELETE(
 
     // 1. 해당 file_upload_id로 연결된 callsigns 확인
     const callsignsResult = await query(
-      `SELECT id FROM callsigns WHERE file_upload_id = ?`,
+      `SELECT id FROM callsigns WHERE file_upload_id = $1`,
       [fileUploadId]
     );
 
@@ -50,7 +50,7 @@ export async function DELETE(
 
     if (callsignIds.length > 0) {
       // 2. callsign_id가 actions 테이블에 있는지 확인
-      const placeholders = callsignIds.map(() => '?').join(',');
+      const placeholders = callsignIds.map((_: string, i: number) => `$${i + 1}`).join(',');
       const actionsCountResult = await query(
         `SELECT COUNT(*) as count FROM actions WHERE callsign_id IN (${placeholders})`,
         callsignIds
@@ -73,11 +73,11 @@ export async function DELETE(
 
     // 3. 조치가 없으면 삭제 진행
     // callsigns 삭제 (ON DELETE CASCADE로 callsign_occurrences 자동 삭제)
-    await query(`DELETE FROM callsigns WHERE file_upload_id = ?`, [fileUploadId]);
+    await query(`DELETE FROM callsigns WHERE file_upload_id = $1`, [fileUploadId]);
 
     // file_uploads 삭제
     const deleteResult = await query(
-      `DELETE FROM file_uploads WHERE id = ?`,
+      `DELETE FROM file_uploads WHERE id = $1`,
       [fileUploadId]
     );
 
