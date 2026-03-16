@@ -337,7 +337,7 @@ export function OverviewTab() {
             </div>
           </div>
 
-          {/* 4. 위험도 */}
+          {/* 4. 위험도 - 현재 미사용
           <div className="relative w-[110px] flex-shrink-0">
             <select
               value={selectedRiskLevel}
@@ -355,8 +355,9 @@ export function OverviewTab() {
               <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
             </div>
           </div>
+          */}
 
-          {/* 5. 조치유형 */}
+          {/* 5. 조치유형 - 현재 미사용
           <div className="relative w-[130px] flex-shrink-0">
             <select
               value={selectedActionType}
@@ -375,6 +376,7 @@ export function OverviewTab() {
               <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
             </div>
           </div>
+          */}
         </div>
 
         {/* 페이지 보기 설정 (우측) */}
@@ -587,9 +589,7 @@ export function OverviewTab() {
                   <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     최근발생일
                   </th>
-                  <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
-                    조치유형
-                  </th>
+                  {/* 조치유형 컬럼 숨김 */}
                   <th className="px-3 py-2.5 text-left text-[12px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     처리일자
                   </th>
@@ -685,10 +685,7 @@ export function OverviewTab() {
                         : '-'}
                     </td>
 
-                    {/* 조치유형 */}
-                    <td className="px-3 py-2.5 text-slate-600 font-semibold whitespace-nowrap">
-                      {callsign.action_type || '-'}
-                    </td>
+                    {/* 조치유형 컬럼 숨김 */}
 
                     {/* 처리일자 */}
                     <td className="px-3 py-2.5 text-slate-500 font-medium whitespace-nowrap text-[13px]">

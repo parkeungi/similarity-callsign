@@ -238,14 +238,21 @@ export async function GET(
         const occurrences = occurrencesMap[callsign.id] || [];
         const errorTypeSummary = errorTypeSummaryMap[callsign.id] || [];
 
+        // 로그인 항공사 기준으로 my/other 정렬
+        // DB의 airline_code가 로그인 항공사가 아닌 경우 swap
+        const needSwap = callsign.airline_code !== airlineCode;
+        const myCs = needSwap ? callsign.other_callsign : callsign.my_callsign;
+        const otherCs = needSwap ? callsign.my_callsign : callsign.other_callsign;
+        const otherCode = needSwap ? callsign.airline_code : callsign.other_airline_code;
+
         return {
           id: callsign.id,
           airline_id: callsign.airline_id,
-          airline_code: callsign.airline_code,
+          airline_code: airlineCode,
           callsign_pair: callsign.callsign_pair,
-          my_callsign: callsign.my_callsign,
-          other_callsign: callsign.other_callsign,
-          other_airline_code: callsign.other_airline_code,
+          my_callsign: myCs,
+          other_callsign: otherCs,
+          other_airline_code: otherCode,
           error_type: callsign.error_type,
           sub_error: callsign.sub_error,
           risk_level: callsign.risk_level,
@@ -272,11 +279,11 @@ export async function GET(
           action_completed_at: latestAction?.completed_at || null,
           // camelCase 별칭
           airlineId: callsign.airline_id,
-          airlineCode: callsign.airline_code,
+          airlineCode: airlineCode,
           callsignPair: callsign.callsign_pair,
-          myCallsign: callsign.my_callsign,
-          otherCallsign: callsign.other_callsign,
-          otherAirlineCode: callsign.other_airline_code,
+          myCallsign: myCs,
+          otherCallsign: otherCs,
+          otherAirlineCode: otherCode,
           errorType: callsign.error_type,
           subError: callsign.sub_error,
           riskLevel: callsign.risk_level,

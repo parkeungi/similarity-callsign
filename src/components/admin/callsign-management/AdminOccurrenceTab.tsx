@@ -22,7 +22,7 @@ interface OccurrenceIncident extends Incident {
 }
 
 type SortOrder = 'priority' | 'risk' | 'count' | 'latest' | 'ai_score';
-type ActionStatusFilter = 'all' | 'no_action' | 'in_progress' | 'completed';
+type ActionStatusFilter = 'all' | 'in_progress' | 'completed';
 
 export function AdminOccurrenceTab() {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -143,8 +143,6 @@ export function AdminOccurrenceTab() {
       filtered = filtered.filter(i => i.actionStatus === 'completed');
     } else if (actionStatusFilter === 'in_progress') {
       filtered = filtered.filter(i => i.actionStatus !== 'completed');
-    } else if (actionStatusFilter === 'no_action') {
-      filtered = filtered.filter(i => !i.actionStatus || i.actionStatus === 'no_action');
     }
 
     // 오류유형 필터
@@ -315,9 +313,8 @@ export function AdminOccurrenceTab() {
               className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">전체</option>
+              <option value="in_progress">조치필요</option>
               <option value="completed">조치완료</option>
-              <option value="in_progress">조치중</option>
-              <option value="no_action">미조치</option>
             </select>
           </div>
 
@@ -379,15 +376,10 @@ export function AdminOccurrenceTab() {
 
       {/* 통계 카드 */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-        <div className="flex items-baseline gap-3 mb-1">
-          <span className="text-4xl font-black text-gray-900">{stats.total}</span>
-          <span className="text-sm font-medium text-gray-500">(유사호출부호 쌍)</span>
-        </div>
-        <div className="text-xs text-gray-500 mb-4 space-y-0.5">
-          <p>※ 오류 유형별 건수는 발생 이력 기준이며, 전체 유사호출부호 쌍 수와 일치하지 않습니다.</p>
-          <p>※ 발생건수: 섹터별 검출 건수를 모두 포함한 전체 발생건수</p>
-          <p>※ 오류유형: 전체 발생건수 기준으로 오류유형별 집계</p>
-          <p>※ 발생이력: 같은 날이라도 다른 섹터에서 검출된 건은 별도 표시</p>
+        <div className="flex items-baseline gap-3 mb-4">
+          <span className="text-xs font-medium text-gray-500">발생건수</span>
+          <span className="text-4xl font-black text-gray-900">{stats.totalOcc}</span>
+          <span className="text-sm font-medium text-gray-500">건</span>
         </div>
         {Object.keys(stats.errorTypeCounts).length === 0 ? (
           <div className="text-sm text-gray-400 py-2">발생 이력이 없습니다.</div>

@@ -77,10 +77,9 @@ export function AdminActionsFilters({
             onChange={(e) => onStatusChange(e.target.value as ActionStatus)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">모든 상태</option>
-            <option value="pending">대기중</option>
-            <option value="in_progress">진행중</option>
-            <option value="completed">완료</option>
+            <option value="">전체</option>
+            <option value="in_progress">조치필요</option>
+            <option value="completed">조치완료</option>
           </select>
         </div>
 
@@ -159,7 +158,7 @@ export function AdminActionsFilters({
       {summary && (
         <div className="mt-4 pt-4 border-t border-gray-200">
           <p className="text-sm text-gray-600">
-            전체: <span className="font-semibold">{summary.total}</span>건
+            발생건수: <span className="font-semibold">{summary.total}</span>건
             {summary.selectedStatusLabel && ' / '}
             {summary.selectedStatusLabel && (
               <>

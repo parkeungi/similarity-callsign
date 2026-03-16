@@ -291,15 +291,15 @@ export function AirlineOccurrenceTab({
       {Object.keys(stats.errorTypeCounts).length > 0 && (
         <div className="bg-white border border-gray-200 shadow-sm">
           <div className="flex divide-x divide-gray-100">
-            {/* 전체 건수 카드 */}
+            {/* 발생건수 카드 */}
             <button
               onClick={() => onErrorTypeFilterChange('all')}
               className={`flex-1 px-5 py-3 text-left transition-all hover:bg-gray-50 ${errorTypeFilter === 'all' ? 'bg-gray-50' : ''}`}
               style={{ borderLeft: '3px solid #64748b' }}
             >
-              <div className="text-xs text-gray-500 mb-1">전체</div>
+              <div className="text-xs text-gray-500 mb-1">발생건수</div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black text-gray-900">{stats.total}</span>
+                <span className="text-2xl font-black text-gray-900">{stats.totalOccurrences}</span>
                 <span className="text-sm font-bold italic text-gray-500">건</span>
               </div>
             </button>
@@ -327,13 +327,6 @@ export function AirlineOccurrenceTab({
           </div>
         </div>
       )}
-
-      {/* 가이드라인 */}
-      <div className="text-xs text-gray-500 space-y-0.5 bg-white border border-gray-200 rounded-lg px-4 py-3">
-        <p>※ 발생건수: 섹터별 검출 건수를 모두 포함한 전체 발생건수</p>
-        <p>※ 오류유형: 전체 발생건수 기준으로 오류유형별 집계</p>
-        <p>※ 발생이력: 같은 날이라도 다른 섹터에서 검출된 건은 별도 표시</p>
-      </div>
 
       {/* 발생현황 카드 그리드 */}
       <div className="space-y-4">
@@ -399,21 +392,20 @@ export function AirlineOccurrenceTab({
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center gap-2">
                     {(() => {
-                      const parts = incident.pair.split(' | ');
-                      // 호출부호에서 airline code (앞 3글자) 추출
-                      const airlineCode1 = (parts[0] || '').substring(0, 3);
-                      const airlineCode2 = (parts[1] || '').substring(0, 3);
-                      // 같은 항공사면 둘 다 파란색, 다르면 두 번째만 빨간색
-                      const isSameAirline = airlineCode1 === airlineCode2;
-                      
+                      const myCallsign = incident.mine || '';
+                      const otherCallsign = incident.other || '';
+                      const myCode = myCallsign.substring(0, 3);
+                      const otherCode = otherCallsign.substring(0, 3);
+                      const isSameAirline = myCode === otherCode;
+
                       return (
                         <>
                           <span className="font-mono font-black text-base text-blue-600">
-                            {parts[0] || incident.pair}
+                            {myCallsign}
                           </span>
                           <span className="text-gray-400 text-sm">↔</span>
                           <span className={`font-mono font-black text-base ${isSameAirline ? 'text-blue-600' : 'text-red-600'}`}>
-                            {parts[1] || ''}
+                            {otherCallsign}
                           </span>
                         </>
                       );

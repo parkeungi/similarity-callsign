@@ -100,7 +100,7 @@ export function IncidentFilters({
             className="h-9 border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-800 outline-none shrink-0"
           >
             <option value="all">전체</option>
-            <option value="in_progress">진행중</option>
+            <option value="in_progress">조치필요</option>
             <option value="completed">조치완료</option>
           </select>
         )}

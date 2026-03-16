@@ -76,8 +76,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (status && ['pending', 'in_progress', 'completed'].includes(status)) {
-      sql += ` AND a.status = $${paramIndex++}`;
-      queryParams.push(status);
+      if (status === 'in_progress') {
+        // 조치필요 = pending + in_progress 모두 포함
+        sql += ` AND a.status IN ('pending', 'in_progress')`;
+      } else {
+        sql += ` AND a.status = $${paramIndex++}`;
+        queryParams.push(status);
+      }
     }
 
     // 검색 조건 (유사호출부호, 조치유형, 담당자)
@@ -121,8 +126,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (status && ['pending', 'in_progress', 'completed'].includes(status)) {
-      countSql += ` AND a.status = $${countParamIndex++}`;
-      countParams.push(status);
+      if (status === 'in_progress') {
+        countSql += ` AND a.status IN ('pending', 'in_progress')`;
+      } else {
+        countSql += ` AND a.status = $${countParamIndex++}`;
+        countParams.push(status);
+      }
     }
 
     if (search && search.trim()) {
@@ -159,8 +168,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (status && ['pending', 'in_progress', 'completed'].includes(status)) {
-      summarySql += ` AND a.status = $${summaryParamIndex++}`;
-      summaryCountParams.push(status);
+      if (status === 'in_progress') {
+        summarySql += ` AND a.status IN ('pending', 'in_progress')`;
+      } else {
+        summarySql += ` AND a.status = $${summaryParamIndex++}`;
+        summaryCountParams.push(status);
+      }
     }
 
     if (search && search.trim()) {

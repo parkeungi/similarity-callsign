@@ -309,7 +309,7 @@ export function AirlineCallsignListTab({
             ))}
           </div>
 
-          {/* 정렬 */}
+          {/* 정렬 - 현재 미사용 (필요 시 주석 해제)
           <select
             value={sortBy}
             onChange={(e) => { setSortBy(e.target.value as any); setPage(1); }}
@@ -321,6 +321,7 @@ export function AirlineCallsignListTab({
             <option value="risk">위험도순</option>
             <option value="occurrence">발생횟수순</option>
           </select>
+          */}
 
           <div className="flex-1" />
 

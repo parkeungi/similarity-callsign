@@ -51,16 +51,14 @@ export function ActionTypeDistributionChart({ dateRange }: ActionTypeDistributio
 
   const chartData = statsData.map((stat) => ({
     name: stat.action_type,
-    완료: stat.completed_count,
-    진행중: stat.in_progress_count,
-    미조치: stat.pending_count,
+    조치완료: stat.completed_count,
+    조치필요: stat.in_progress_count + stat.pending_count,
     완료율: Math.round(stat.completion_rate * 10) / 10, // 소수점 1자리
   }));
 
   const colors = {
-    완료: '#10b981', // emerald-600
-    진행중: '#3b82f6', // blue-600
-    미조치: '#f59e0b', // amber-600
+    조치완료: '#10b981', // emerald-600
+    조치필요: '#ef4444', // red-500
   };
 
   return (
@@ -106,9 +104,8 @@ export function ActionTypeDistributionChart({ dateRange }: ActionTypeDistributio
             wrapperStyle={{ paddingTop: '20px' }}
             iconType="square"
           />
-          <Bar dataKey="완료" stackId="status" fill={colors.완료} />
-          <Bar dataKey="진행중" stackId="status" fill={colors.진행중} />
-          <Bar dataKey="미조치" stackId="status" fill={colors.미조치} />
+          <Bar dataKey="조치완료" stackId="status" fill={colors.조치완료} />
+          <Bar dataKey="조치필요" stackId="status" fill={colors.조치필요} />
         </BarChart>
       </ResponsiveContainer>
 
@@ -124,13 +121,10 @@ export function ActionTypeDistributionChart({ dateRange }: ActionTypeDistributio
                 총 건수
               </th>
               <th className="px-4 py-3 text-center font-bold text-gray-700">
-                완료
+                조치완료
               </th>
               <th className="px-4 py-3 text-center font-bold text-gray-700">
-                진행중
-              </th>
-              <th className="px-4 py-3 text-center font-bold text-gray-700">
-                미조치
+                조치필요
               </th>
               <th className="px-4 py-3 text-right font-bold text-gray-700">
                 완료율
@@ -155,13 +149,8 @@ export function ActionTypeDistributionChart({ dateRange }: ActionTypeDistributio
                   </span>
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700">
-                    {stat.in_progress_count}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700">
-                    {stat.pending_count}
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700">
+                    {stat.in_progress_count + stat.pending_count}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right font-bold text-gray-900">

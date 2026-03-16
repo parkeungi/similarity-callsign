@@ -20,11 +20,12 @@ export function ActionDetailModal({
 }: ActionDetailModalProps) {
   if (!isOpen) return null;
 
-  // 호출부호 쌍 분리
-  const parts = callsign.callsign_pair?.split(' | ') || ['', ''];
-  const airlineCode1 = (parts[0] || '').substring(0, 3);
-  const airlineCode2 = (parts[1] || '').substring(0, 3);
-  const isSameAirline = airlineCode1 === airlineCode2;
+  // 호출부호 쌍 분리 - mine(자사)이 항상 앞, other(상대)가 뒤
+  const myCallsign = (callsign as any).my_callsign || '';
+  const otherCallsign = (callsign as any).other_callsign || '';
+  const myCode = myCallsign.substring(0, 3);
+  const otherCode = otherCallsign.substring(0, 3);
+  const isSameAirline = myCode === otherCode;
 
   // 위험도 배지 색상
   const getRiskColor = (risk?: string) => {
@@ -67,10 +68,10 @@ export function ActionDetailModal({
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-bold text-slate-100">조치 상세정보</h2>
             <div className="flex items-center gap-2 px-3 py-1 bg-slate-800 rounded-none border border-slate-700 shadow-sm">
-              <span className="font-mono font-bold text-blue-400 text-sm">{parts[0]}</span>
+              <span className="font-mono font-bold text-blue-400 text-sm">{myCallsign}</span>
               <span className="text-slate-500 text-xs">↔</span>
               <span className={`font-mono font-bold text-sm ${isSameAirline ? 'text-blue-400' : 'text-rose-400'}`}>
-                {parts[1]}
+                {otherCallsign}
               </span>
             </div>
           </div>

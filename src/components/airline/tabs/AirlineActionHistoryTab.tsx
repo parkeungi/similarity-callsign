@@ -322,16 +322,20 @@ export function AirlineActionHistoryTab({
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-2">
                         {(() => {
-                          const pair = action.callsign_pair || action.callsign?.callsign_pair;
-                          const parts = pair?.split(' | ') || [];
+                          const myCallsign = action.my_callsign || '';
+                          const otherCallsign = action.other_callsign || '';
+                          const fallbackPair = action.callsign_pair || action.callsign?.callsign_pair || '';
+                          const myCode = myCallsign.substring(0, 3);
+                          const otherCode = otherCallsign.substring(0, 3);
+                          const isSameAirline = myCode === otherCode;
                           return (
                             <>
                               <span className="font-mono font-bold text-sm text-blue-600">
-                                {parts[0] || pair || '-'}
+                                {myCallsign || fallbackPair || '-'}
                               </span>
                               <span className="text-gray-400 text-xs">↔</span>
-                              <span className="font-mono font-bold text-sm text-red-600">
-                                {parts[1] || ''}
+                              <span className={`font-mono font-bold text-sm ${isSameAirline ? 'text-blue-600' : 'text-red-600'}`}>
+                                {otherCallsign}
                               </span>
                             </>
                           );

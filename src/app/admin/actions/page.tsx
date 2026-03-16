@@ -53,15 +53,15 @@ export default function AdminActionsPage() {
   const callsignsQuery = useAirlineCallsigns(selectedAirlineId, { limit: 100 });
 
   const statusColors: Record<string, string> = {
-    pending: '#f59e0b',
-    in_progress: '#3b82f6',
+    pending: '#ef4444',
+    in_progress: '#ef4444',
     completed: '#10b981',
   };
 
   const statusLabels: Record<string, string> = {
-    pending: '대기중',
-    in_progress: '진행중',
-    completed: '완료',
+    pending: '조치필요',
+    in_progress: '조치필요',
+    completed: '조치완료',
   };
 
   const riskColors: Record<string, string> = {
