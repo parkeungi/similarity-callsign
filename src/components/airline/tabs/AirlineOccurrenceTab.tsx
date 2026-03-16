@@ -331,7 +331,10 @@ export function AirlineOccurrenceTab({
       {/* 발생현황 카드 그리드 */}
       <div className="space-y-4">
         <div className="text-sm font-bold text-gray-600 flex items-center gap-3">
-          <span className="shrink-0">⚠️ 유사호출부호 발생현황 ({allFilteredIncidents.length}건)</span>
+          <span className="shrink-0 flex items-center gap-1.5">
+            <span className="inline-flex items-center justify-center w-5 h-5 bg-red-500 text-white text-[10px] font-black">!</span>
+            유사호출부호 발생현황 ({allFilteredIncidents.length}건)
+          </span>
           {/* 검색 */}
           <div className="relative flex-1 max-w-[300px]">
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -344,7 +347,7 @@ export function AirlineOccurrenceTab({
               value={incidentsSearchInput}
               onChange={(e) => onSearchInputChange(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') onSearchSubmit(); }}
-              className="w-full h-8 border border-gray-200 rounded pl-8 pr-8 text-sm font-medium text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+              className="w-full h-8 border border-gray-200 pl-8 pr-8 text-sm font-medium text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
             />
             {incidentsSearchInput && (
               <button
@@ -366,13 +369,13 @@ export function AirlineOccurrenceTab({
               setShowAiRecommend(next);
               if (next) setSortOrder('ai_score');
             }}
-            className={`h-8 px-3 text-[12px] font-bold shrink-0 transition-colors border rounded ${
+            className={`h-8 px-3 text-[12px] font-bold shrink-0 transition-colors border ${
               showAiRecommend
                 ? 'bg-purple-600 text-white border-purple-600'
                 : 'bg-white text-purple-600 border-purple-300 hover:bg-purple-50'
             }`}
           >
-            🤖 AI 추천
+            AI 추천
           </button>
           <span className="text-xs text-gray-500 ml-auto shrink-0">{incidentsPage} / {totalPages} 페이지</span>
         </div>
@@ -382,7 +385,7 @@ export function AirlineOccurrenceTab({
             {pagedIncidents.map((incident, idx) => (
               <div
                 key={`${incident.pair}-${idx}`}
-                className={`bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-all border-2 ${
+                className={`bg-white p-3 shadow-sm hover:shadow-md transition-all border-2 ${
                   incident.actionStatus === 'completed'
                     ? 'border-blue-200'
                     : 'border-red-400'
@@ -414,7 +417,7 @@ export function AirlineOccurrenceTab({
                   {/* 조치등록/수정 버튼 */}
                   <button
                     onClick={() => onOpenActionModal(incident)}
-                    className={`px-2.5 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
                       incident.actionStatus === 'completed'
                         ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 hover:shadow-sm'
                         : 'bg-blue-600 text-white hover:bg-blue-700'
@@ -457,7 +460,7 @@ export function AirlineOccurrenceTab({
                   <div>
                     <div className="text-[11px] text-gray-500 font-semibold mb-0.5">오류가능성</div>
                     <span
-                      className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold border ${getRiskBadgeColor(
+                      className={`inline-block px-2 py-0.5 text-[11px] font-bold border ${getRiskBadgeColor(
                         incident.risk
                       )}`}
                     >
@@ -468,28 +471,28 @@ export function AirlineOccurrenceTab({
 
                 {/* AI 분석 영역 - 토글 ON + 데이터 있을 때만 표시 */}
                 {showAiRecommend && incident.aiScore != null && (
-                  <div className="mb-2 pb-2 border-b border-purple-200 bg-purple-50 rounded px-2 py-1.5">
+                  <div className="mb-2 pb-2 border-b border-purple-200 bg-purple-50 px-2 py-1.5">
                     <div className="flex items-center gap-2 mb-1">
                       {/* AI 점수 배지 */}
                       {(() => {
                         const scoreColor = getAiScoreColor(incident.aiScore);
                         return (
-                          <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded font-bold ${scoreColor.bg} ${scoreColor.text}`}>
+                          <span className={`inline-flex items-center gap-1 text-[13px] px-2 py-0.5 font-bold ${scoreColor.bg} ${scoreColor.text}`}>
                             AI {incident.aiScore}점
-                            <span className="text-[10px] opacity-75">({scoreColor.label})</span>
+                            <span className="text-[12px] opacity-75">({scoreColor.label})</span>
                           </span>
                         );
                       })()}
                       {/* reason_type 배지 */}
                       {incident.reasonType && REASON_TYPE_CONFIG[incident.reasonType] && (
-                        <span className={`inline-block text-[11px] px-2 py-0.5 rounded font-semibold ${REASON_TYPE_CONFIG[incident.reasonType].bgColor} ${REASON_TYPE_CONFIG[incident.reasonType].textColor}`}>
+                        <span className={`inline-block text-[13px] px-2 py-0.5 font-semibold ${REASON_TYPE_CONFIG[incident.reasonType].bgColor} ${REASON_TYPE_CONFIG[incident.reasonType].textColor}`}>
                           {REASON_TYPE_CONFIG[incident.reasonType].label}
                         </span>
                       )}
                     </div>
                     {/* AI 사유 텍스트 */}
                     {incident.aiReason && (
-                      <p className="text-[11px] text-purple-800 leading-relaxed" title={incident.aiReason}>
+                      <p className="text-[13px] text-purple-800 leading-relaxed" title={incident.aiReason}>
                         {incident.aiReason}
                       </p>
                     )}
@@ -499,14 +502,14 @@ export function AirlineOccurrenceTab({
                 {/* 오류 유형별 집계 - 팔레트 색상 동적 적용 */}
                 {incident.errorTypeSummary && incident.errorTypeSummary.length > 0 && (
                   <div className="mb-2 pb-2 border-b border-gray-200">
-                    <div className="text-[11px] font-semibold text-gray-500 mb-1">📊 오류유형</div>
+                    <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">오류유형</div>
                     <div className="flex flex-wrap gap-1.5">
                       {incident.errorTypeSummary.map((summary, i) => {
                         const p = getErrorTypeColor(summary.errorType || '');
                         return (
                           <span
                             key={i}
-                            className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded font-semibold border ${p.bg} ${p.label} ${p.border}`}
+                            className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 font-semibold border ${p.bg} ${p.label} ${p.border}`}
                           >
                             <span>{getErrorTypeLabel(summary.errorType)}</span>
                             <span className="font-black">({summary.count}건)</span>
@@ -520,7 +523,7 @@ export function AirlineOccurrenceTab({
                 {/* 발생 이력 타임라인 (전체 발생건수, 시간순 오름차순) */}
                 {incident.occurrences && incident.occurrences.length > 0 && (
                   <div>
-                    <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (전체 검출, 시간순)</div>
+                    <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">발생 이력 (전체 검출, 시간순)</div>
                     <div className="flex flex-wrap gap-1.5">
                       {[...incident.occurrences].sort((a, b) => {
                           const dateA = `${a.occurredDate || ''} ${a.occurredTime || '00:00'}`;
@@ -535,7 +538,7 @@ export function AirlineOccurrenceTab({
                         return (
                           <span
                             key={i}
-                            className="inline-block text-[11px] bg-blue-50 text-blue-800 px-2.5 py-0.5 rounded font-mono border border-blue-200"
+                            className="inline-block text-[11px] bg-blue-50 text-blue-800 px-2.5 py-0.5 font-mono border border-blue-200"
                           >
                             {monthDay} <span className="text-blue-500 font-bold">{time}</span>
                           </span>
@@ -548,7 +551,7 @@ export function AirlineOccurrenceTab({
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-lg p-12 text-center text-gray-500">
+          <div className="bg-white p-12 text-center text-gray-500">
             <p className="text-sm">조회 기간 내 발생현황이 없습니다.</p>
           </div>
         )}
