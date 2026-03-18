@@ -123,7 +123,7 @@ export function Header() {
         <div className="flex items-center gap-6 z-10 pl-6 border-l border-white/15">
           {/* 시스템명 */}
           <Link
-            href={ROUTES.HOME}
+            href={isAuthenticated ? (isAdmin ? ROUTES.ADMIN : ROUTES.AIRLINE) : ROUTES.HOME}
             className="flex flex-col text-white hover:opacity-90 transition-opacity"
           >
             <span className="text-white font-black text-3xl leading-tight tracking-tighter">
@@ -179,10 +179,10 @@ export function Header() {
 
             <span className="text-white/10 text-[10px]">|</span> */}
 
-            {/* 유사호출부호 관리 (관리자만) */}
+            {/* 유사호출부호 관리 (관리자만) → 발생현황 */}
             {isAdmin && (
               <Link
-                href={ROUTES.CALLSIGN_MANAGEMENT}
+                href={ROUTES.ADMIN}
                 className="text-white/60 hover:text-white text-[11px] font-black uppercase tracking-widest transition-all"
               >
                 유사호출부호
