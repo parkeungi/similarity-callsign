@@ -2,14 +2,19 @@
 /**
  * POST /api/admin/upload-callsigns
  * Excel 파일로 유사호출부호 데이터 일괄 업로드
- * 
+ *
  * 요청:
  *   - Content-Type: multipart/form-data
  *   - file: Excel 파일 (.xlsx)
- * 
+ *
  * 응답:
  *   - 성공: { success: true, total: N, inserted: N, updated: N }
  *   - 실패: { error: string }
+ *
+ * 성능 최적화 (v2):
+ *   - Batch UPSERT: 행별 쿼리 → 일괄 처리
+ *   - 기존 레코드 일괄 조회
+ *   - SAVEPOINT 제거
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -20,35 +25,35 @@ import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
-interface ExcelRow {
+interface ParsedRow {
   airline_code: string;
+  airline_id: string;
   callsign_pair: string;
   my_callsign: string;
   other_callsign: string;
   other_airline_code?: string;
-  // 관할 섹터 및 공항 정보
   sector?: string;
   departure_airport1?: string;
   arrival_airport1?: string;
   departure_airport2?: string;
   arrival_airport2?: string;
-  // 유사도 분석 정보
   same_airline_code?: string;
   same_callsign_length?: string;
   same_number_position?: string;
   same_number_count?: number | null;
   same_number_ratio?: number | null;
   similarity?: string;
-  // 관제 정보
   max_concurrent_traffic?: number | null;
   coexistence_minutes?: number | null;
   error_probability?: number | null;
   atc_recommendation?: string;
-  // 오류 정보
   error_type?: string;
   sub_error?: string;
   risk_level?: string;
-  occurrence_count?: number | null;
+  occurrence_count?: number;
+  // 발생 이력용
+  occurred_date: string;
+  occurred_time: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -99,7 +104,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 파일 업로드 기록 생성 (RETURNING id로 race condition 방지)
+    // 파일 업로드 기록 생성
     const uploadRecord = await query(
       `INSERT INTO file_uploads (file_name, file_size, uploaded_by, status)
        VALUES ($1, $2, $3, 'processing') RETURNING id`,
@@ -123,31 +128,22 @@ export async function POST(request: NextRequest) {
       // xlsx 라이브러리 동적 import
       const XLSX = await import('xlsx');
       const workbook = XLSX.read(buffer, { type: 'buffer' });
-      
+
       // 첫 번째 시트 읽기
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      
+
       // JSON으로 변환 (헤더 포함)
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-      
+
       if (jsonData.length < 2) {
         throw new Error('데이터가 없습니다.');
       }
 
       // 헤더와 데이터 분리
-      const headers = jsonData[0] as string[];
       const rows = jsonData.slice(1);
 
-      let insertedCount = 0;
-      let updatedCount = 0;
-      let skippedCount = 0;
-      const errors: string[] = [];
-
-      // 50행마다 file_uploads에 진행 상황 기록 (프론트엔드 폴링용)
-      const PROGRESS_INTERVAL = 50;
-
-      // 항공사 목록을 루프 밖에서 한 번만 조회 (성능 최적화: 행마다 조회 → 1회)
+      // 항공사 목록을 한 번만 조회 (성능 최적화)
       const allAirlinesResult = await query("SELECT id, code FROM airlines");
       const domesticAirlines = allAirlinesResult.rows
         .filter((a: { code: string }) => a.code !== 'FOREIGN')
@@ -156,13 +152,49 @@ export async function POST(request: NextRequest) {
         allAirlinesResult.rows.map((a: { id: string; code: string }) => [a.code, a.id])
       );
 
-      // 트랜잭션으로 전체 행 처리 (원자성 보장)
-      await transaction(async (trx) => {
+      // ========== STEP 1: 모든 행 파싱 (DB 호출 없음) ==========
+      const parsedRows: ParsedRow[] = [];
+      const errors: string[] = [];
+      let skippedCount = 0;
 
-      // 각 행 처리
+      // 헬퍼 함수들
+      const toInt = (v: any): number | null => {
+        if (v === undefined || v === null || v === '') return null;
+        const n = Number(v);
+        return isNaN(n) ? null : Math.round(n);
+      };
+      const toFloat = (v: any): number | null => {
+        if (v === undefined || v === null || v === '') return null;
+        const n = Number(v);
+        return isNaN(n) ? null : n;
+      };
+
+      const parseExcelDateTime = (value: any): Date | null => {
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+          return value;
+        }
+        if (typeof value === 'number') {
+          const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+          return new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+        }
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          if (!trimmed) return null;
+          const parsed = Date.parse(trimmed);
+          if (!Number.isNaN(parsed)) {
+            return new Date(parsed);
+          }
+        }
+        return null;
+      };
+
+      const formatMinutes = (date: Date): string => {
+        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+      };
+
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-        
+
         // 빈 행 스킵 (편명1이 있어야 유효한 행)
         if (!row || row.length === 0 || !row[3]) {
           skippedCount++;
@@ -170,23 +202,8 @@ export async function POST(request: NextRequest) {
         }
 
         try {
-          // SAVEPOINT: PostgreSQL 트랜잭션 내 개별 행 에러 복구용
-          await trx(`SAVEPOINT row_${i}`);
-
-          // 엑셀 컬럼 매핑 (2026년3월 포맷 — 순서 컬럼 없음)
-          // 0: 시작일시, 1: 종료일시, 2: 관할섹터명, 3: 편명1
-          // 4: 출발공항1, 5: 도착공항1, 6: 편명2, 7: 출발공항2, 8: 도착공항2
-          // 9: 편명1|편명2, 10: 항공사구분, 11: 항공사국문
-          // 12: 항공사코드동일여부, 13: 편명번호길이동일여부, 14: 편명번호동일숫자위치
-          // 15: 편명번호동일숫자갯수, 16: 편명번호동일숫자구성비율(%)
-          // 17: 편명유사도, 18: 최대동시관제량, 19: 공존시간(분)
-          // 20: 오류발생가능성_점수, 21: 오류발생가능성_등급
-          // 22: 보고여부, 23: 관제사권고사항, 24: 보고일시, 25: 보고자, 26: 혼돈편명
-          // 27: 오류유형, 28: 세부오류유형, 29: 비고
-
           const callsign1 = String(row[3] || '').trim();
           const callsign2 = String(row[6] || '').trim();
-          const airlineCodeRaw = String(row[10] || '').trim(); // "KAL | TWB" 또는 "KAL"
 
           // 추가 필드 추출
           const sector = row[2] ? String(row[2]).trim() : undefined;
@@ -197,56 +214,38 @@ export async function POST(request: NextRequest) {
           const sameAirlineCode = row[12] ? String(row[12]).trim() : undefined;
           const sameCallsignLength = row[13] ? String(row[13]).trim() : undefined;
           const sameNumberPosition = row[14] ? String(row[14]).trim() : undefined;
-          // NaN 방지 헬퍼: 빈 셀/비숫자 → null
-          const toInt = (v: any): number | null => {
-            if (v === undefined || v === null || v === '') return null;
-            const n = Number(v);
-            return isNaN(n) ? null : Math.round(n);
-          };
-          const toFloat = (v: any): number | null => {
-            if (v === undefined || v === null || v === '') return null;
-            const n = Number(v);
-            return isNaN(n) ? null : n;
-          };
-
           const sameNumberCount = toInt(row[15]);
           const sameNumberRatio = toFloat(row[16]);
           const similarity = row[17] ? String(row[17]).trim() : undefined;
           const maxConcurrentTraffic = toInt(row[18]);
           const coexistenceMinutes = toInt(row[19]);
-          const errorProbability = toFloat(row[20]);           // 오류발생가능성_점수 (숫자)
-          const riskLevelGrade = row[21] ? String(row[21]).trim() : undefined; // 오류발생가능성_등급
+          const errorProbability = toFloat(row[20]);
+          const riskLevelGrade = row[21] ? String(row[21]).trim() : undefined;
           const atcRecommendation = row[23] ? String(row[23]).trim() : undefined;
           const errorType = row[27] ? String(row[27]).trim() : undefined;
           const subError = row[28] ? String(row[28]).trim() : undefined;
-          // 발생건수: 신규 포맷에 별도 컬럼 없음 → 기본 1건
-          const occurrenceCount = 1;
 
-          // 편명1과 편명2에서 항공사 코드 추출 (예: KAL852 -> KAL)
+          // 편명에서 항공사 코드 추출
           const airlineCode1 = callsign1.replace(/[0-9]/g, '').trim();
           const airlineCode2 = callsign2.replace(/[0-9]/g, '').trim();
 
-          // 편명1 또는 편명2 중 하나라도 국내 항공사인지 확인
+          // 국내 항공사 여부 확인
           const isCallsign1Domestic = domesticAirlines.includes(airlineCode1);
           const isCallsign2Domestic = domesticAirlines.includes(airlineCode2);
 
-          // 오류발생가능성_등급이 '낮음' 또는 '매우낮음'이면 스킵 (높음/매우높음만 처리)
+          // 오류발생가능성_등급이 '낮음' 또는 '매우낮음'이면 스킵
           const riskGradeNormalized = riskLevelGrade?.replace(/\s+/g, '');
           if (riskGradeNormalized && ['낮음', '매우낮음'].includes(riskGradeNormalized)) {
-            await trx(`ROLLBACK TO SAVEPOINT row_${i}`);
             skippedCount++;
             continue;
           }
 
-          // 국내/외항사 구분하여 my_callsign, other_callsign 설정
+          // 국내/외항사 구분
           let myAirlineCode: string, myCallsign: string, otherCallsign: string, otherAirlineCode: string;
           let myDepartureAirport: string | undefined, myArrivalAirport: string | undefined;
           let otherDepartureAirport: string | undefined, otherArrivalAirport: string | undefined;
-          let isForeignPair = false; // 외항사↔외항사 여부
 
           if (!isCallsign1Domestic && !isCallsign2Domestic) {
-            // 외항사↔외항사: FOREIGN 항공사에 할당 (편명1을 기준으로)
-            isForeignPair = true;
             myAirlineCode = 'FOREIGN';
             myCallsign = callsign1;
             otherCallsign = callsign2;
@@ -275,202 +274,22 @@ export async function POST(request: NextRequest) {
             otherArrivalAirport = arrivalAirport1;
           }
 
-          const rowData: ExcelRow = {
-            airline_code: myAirlineCode,
-            callsign_pair: `${myCallsign} | ${otherCallsign}`,
-            my_callsign: myCallsign,
-            other_callsign: otherCallsign,
-            other_airline_code: otherAirlineCode || undefined,
-            // 관할 섹터 및 공항 정보
-            sector,
-            departure_airport1: myDepartureAirport,
-            arrival_airport1: myArrivalAirport,
-            departure_airport2: otherDepartureAirport,
-            arrival_airport2: otherArrivalAirport,
-            // 유사도 분석 정보
-            same_airline_code: sameAirlineCode,
-            same_callsign_length: sameCallsignLength,
-            same_number_position: sameNumberPosition,
-            same_number_count: sameNumberCount,
-            same_number_ratio: sameNumberRatio,
-            similarity,
-            // 관제 정보
-            max_concurrent_traffic: maxConcurrentTraffic,
-            coexistence_minutes: coexistenceMinutes,
-            error_probability: errorProbability,
-            atc_recommendation: atcRecommendation,
-            // 오류 정보
-            error_type: errorType,
-            sub_error: subError,
-            risk_level: riskLevelGrade, // 오류발생가능성_등급 [21]
-            occurrence_count: occurrenceCount,
-          };
-
           // 필수 필드 검증
-          if (!rowData.airline_code || !rowData.callsign_pair || !rowData.my_callsign || !rowData.other_callsign) {
+          const callsignPair = `${myCallsign} | ${otherCallsign}`;
+          if (!myAirlineCode || !callsignPair || !myCallsign || !otherCallsign) {
             errors.push(`행 ${i + 2}: 필수 필드 누락`);
-            await trx(`ROLLBACK TO SAVEPOINT row_${i}`);
             continue;
           }
 
-          // 항공사 ID 조회 (캐싱된 Map 사용 — DB 호출 없음)
-          const airlineId = airlineIdMap.get(rowData.airline_code);
+          // 항공사 ID 조회
+          const airlineId = airlineIdMap.get(myAirlineCode);
           if (!airlineId) {
-            errors.push(`행 ${i + 2}: 항공사 코드(${rowData.airline_code})를 찾을 수 없습니다.`);
-            await trx(`ROLLBACK TO SAVEPOINT row_${i}`);
+            errors.push(`행 ${i + 2}: 항공사 코드(${myAirlineCode})를 찾을 수 없습니다.`);
             continue;
           }
 
-          // Step 1: 기존 레코드 확인
-          const existingResult = await trx(
-            `SELECT id FROM callsigns WHERE airline_code = $1 AND callsign_pair = $2`,
-            [rowData.airline_code, rowData.callsign_pair]
-          );
-
-          let callsignId: string;
-          let isNewCallsign: boolean;
-
-          if (existingResult.rows.length > 0) {
-            // 업데이트
-            callsignId = existingResult.rows[0].id;
-            isNewCallsign = false;
-
-            await trx(
-              `UPDATE callsigns SET
-                sector = $1,
-                departure_airport1 = $2,
-                arrival_airport1 = $3,
-                departure_airport2 = $4,
-                arrival_airport2 = $5,
-                same_airline_code = $6,
-                same_callsign_length = $7,
-                same_number_position = $8,
-                same_number_count = $9,
-                same_number_ratio = $10,
-                similarity = $11,
-                max_concurrent_traffic = $12,
-                coexistence_minutes = $13,
-                error_probability = $14,
-                atc_recommendation = $15,
-                error_type = $16,
-                sub_error = $17,
-                risk_level = $18,
-                occurrence_count = $19,
-                file_upload_id = $20,
-                updated_at = CURRENT_TIMESTAMP,
-                status = 'in_progress',
-                my_action_status = 'no_action',
-                other_action_status = 'no_action'
-               WHERE id = $21`,
-              [
-                rowData.sector,
-                rowData.departure_airport1,
-                rowData.arrival_airport1,
-                rowData.departure_airport2,
-                rowData.arrival_airport2,
-                rowData.same_airline_code,
-                rowData.same_callsign_length,
-                rowData.same_number_position,
-                rowData.same_number_count,
-                rowData.same_number_ratio,
-                rowData.similarity,
-                rowData.max_concurrent_traffic,
-                rowData.coexistence_minutes,
-                rowData.error_probability,
-                rowData.atc_recommendation,
-                rowData.error_type,
-                rowData.sub_error,
-                rowData.risk_level,
-                rowData.occurrence_count,
-                uploadId,
-                callsignId,
-              ]
-            );
-          } else {
-            // 삽입 (신규 Callsign + Actions 처리)
-            isNewCallsign = true;
-
-            try {
-              // 1. Callsign INSERT (초기 상태: 조치 미등록)
-              const insertResult = await trx(
-                `INSERT INTO callsigns
-                  (airline_id, airline_code, callsign_pair, my_callsign, other_callsign,
-                   other_airline_code, sector, departure_airport1, arrival_airport1,
-                   departure_airport2, arrival_airport2, same_airline_code, same_callsign_length,
-                   same_number_position, same_number_count, same_number_ratio, similarity,
-                   max_concurrent_traffic, coexistence_minutes, error_probability, atc_recommendation,
-                   error_type, sub_error, risk_level, occurrence_count, file_upload_id, uploaded_at, status,
-                   my_action_status, other_action_status)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, CURRENT_TIMESTAMP, 'in_progress', 'no_action', 'no_action') RETURNING id`,
-                [
-                  airlineId,
-                  rowData.airline_code,
-                  rowData.callsign_pair,
-                  rowData.my_callsign,
-                  rowData.other_callsign,
-                  rowData.other_airline_code,
-                  rowData.sector,
-                  rowData.departure_airport1,
-                  rowData.arrival_airport1,
-                  rowData.departure_airport2,
-                  rowData.arrival_airport2,
-                  rowData.same_airline_code,
-                  rowData.same_callsign_length,
-                  rowData.same_number_position,
-                  rowData.same_number_count,
-                  rowData.same_number_ratio,
-                  rowData.similarity,
-                  rowData.max_concurrent_traffic,
-                  rowData.coexistence_minutes,
-                  rowData.error_probability,
-                  rowData.atc_recommendation,
-                  rowData.error_type,
-                  rowData.sub_error,
-                  rowData.risk_level,
-                  rowData.occurrence_count,
-                  uploadId,
-                ]
-              );
-
-              // 2. RETURNING id로 바로 가져오기
-              callsignId = insertResult.rows[0].id;
-
-              // 📌 IMPORTANT: Actions은 나중에 항공사가 조치등록할 때 생성됨
-              // (관리자의 호출부호 업로드에서는 callsigns만 생성)
-            } catch (txError) {
-              errors.push(`행 ${i + 2}: Callsign 또는 Actions 생성 실패 - ${txError instanceof Error ? txError.message : String(txError)}`);
-              await trx(`ROLLBACK TO SAVEPOINT row_${i}`);
-              continue;
-            }
-          }
-
-          // Step 2: 발생 날짜 및 시간 추출 (시작일시 row[1], 종료일시(row[2])는 보조용)
-          const parseExcelDateTime = (value: any): Date | null => {
-            if (value instanceof Date && !Number.isNaN(value.getTime())) {
-              return value;
-            }
-            if (typeof value === 'number') {
-              // Excel serial (with fractional part for time)
-              const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-              return new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
-            }
-            if (typeof value === 'string') {
-              const trimmed = value.trim();
-              if (!trimmed) return null;
-              const parsed = Date.parse(trimmed);
-              if (!Number.isNaN(parsed)) {
-                return new Date(parsed);
-              }
-            }
-            return null;
-          };
-
-
-          const formatMinutes = (date: Date): string => {
-            return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-          };
-
-          const startDateTime = parseExcelDateTime(row[0]); // 시작일시 (row[0])
+          // 발생 날짜/시간 파싱
+          const startDateTime = parseExcelDateTime(row[0]);
           let occurredDate = startDateTime
             ? startDateTime.toISOString().split('T')[0]
             : new Date().toISOString().split('T')[0];
@@ -478,7 +297,6 @@ export async function POST(request: NextRequest) {
             ? formatMinutes(startDateTime)
             : '00:00';
 
-          // 시작일시가 없거나 시간이 00:00이면 종료일시(row[1])에서 보조 추출
           if ((!startDateTime || occurredTime === '00:00') && row[1]) {
             const fallbackDateTime = parseExcelDateTime(row[1]);
             if (fallbackDateTime) {
@@ -497,102 +315,311 @@ export async function POST(request: NextRequest) {
             occurredTime
           );
 
-          // occurred_time은 TIMESTAMP 컬럼이므로 전체 타임스탬프 형식으로 전달
-          const occurredTimeForDb = normalizedTimestamp; // "YYYY-MM-DD HH:MM" 형식
+          parsedRows.push({
+            airline_code: myAirlineCode,
+            airline_id: airlineId,
+            callsign_pair: callsignPair,
+            my_callsign: myCallsign,
+            other_callsign: otherCallsign,
+            other_airline_code: otherAirlineCode || undefined,
+            sector,
+            departure_airport1: myDepartureAirport,
+            arrival_airport1: myArrivalAirport,
+            departure_airport2: otherDepartureAirport,
+            arrival_airport2: otherArrivalAirport,
+            same_airline_code: sameAirlineCode,
+            same_callsign_length: sameCallsignLength,
+            same_number_position: sameNumberPosition,
+            same_number_count: sameNumberCount,
+            same_number_ratio: sameNumberRatio,
+            similarity,
+            max_concurrent_traffic: maxConcurrentTraffic,
+            coexistence_minutes: coexistenceMinutes,
+            error_probability: errorProbability,
+            atc_recommendation: atcRecommendation,
+            error_type: errorType,
+            sub_error: subError,
+            risk_level: riskLevelGrade,
+            occurrence_count: 1,
+            occurred_date: normalizedDate,
+            occurred_time: normalizedTimestamp,
+          });
+        } catch (rowError) {
+          errors.push(`행 ${i + 2}: ${rowError instanceof Error ? rowError.message : String(rowError)}`);
+        }
+      }
 
-          // Step 3: callsign_occurrences 테이블에 발생 이력 저장
-          // 같은 callsign+날짜+시간 조합이면 스킵 (UNIQUE constraint)
-          try {
-            // Nested SAVEPOINT: callsign은 유지하고 occurrence 실패만 롤백
-            await trx(`SAVEPOINT occurrence_${i}`);
+      if (parsedRows.length === 0) {
+        throw new Error('처리할 유효한 데이터가 없습니다.');
+      }
+
+      // ========== STEP 2: 기존 레코드 일괄 조회 ==========
+      const uniquePairs = [...new Set(parsedRows.map(r => `${r.airline_code}::${r.callsign_pair}`))];
+      const existingMap = new Map<string, string>(); // "airline_code::callsign_pair" -> id
+
+      // 청크로 나누어 조회 (PostgreSQL IN 절 제한 방지)
+      const CHUNK_SIZE = 500;
+      for (let i = 0; i < uniquePairs.length; i += CHUNK_SIZE) {
+        const chunk = uniquePairs.slice(i, i + CHUNK_SIZE);
+        const conditions = chunk.map((pair, idx) => {
+          const [code, callsignPair] = pair.split('::');
+          return `($${idx * 2 + 1}, $${idx * 2 + 2})`;
+        }).join(', ');
+
+        const params = chunk.flatMap(pair => {
+          const [code, callsignPair] = pair.split('::');
+          return [code, callsignPair];
+        });
+
+        const existingResult = await query(
+          `SELECT id, airline_code, callsign_pair FROM callsigns
+           WHERE (airline_code, callsign_pair) IN (${conditions})`,
+          params
+        );
+
+        for (const row of existingResult.rows) {
+          existingMap.set(`${row.airline_code}::${row.callsign_pair}`, row.id);
+        }
+      }
+
+      // ========== STEP 3: INSERT/UPDATE 분류 ==========
+      const toInsert: ParsedRow[] = [];
+      const toUpdate: (ParsedRow & { id: string })[] = [];
+
+      for (const row of parsedRows) {
+        const key = `${row.airline_code}::${row.callsign_pair}`;
+        const existingId = existingMap.get(key);
+        if (existingId) {
+          toUpdate.push({ ...row, id: existingId });
+        } else {
+          toInsert.push(row);
+        }
+      }
+
+      let insertedCount = 0;
+      let updatedCount = 0;
+
+      // ========== STEP 4: Batch INSERT (트랜잭션) ==========
+      await transaction(async (trx) => {
+        // 4-1. Batch INSERT for new callsigns
+        if (toInsert.length > 0) {
+          const INSERT_BATCH_SIZE = 100;
+          for (let i = 0; i < toInsert.length; i += INSERT_BATCH_SIZE) {
+            const batch = toInsert.slice(i, i + INSERT_BATCH_SIZE);
+
+            const values: any[] = [];
+            const placeholders: string[] = [];
+            let paramIdx = 1;
+
+            for (const row of batch) {
+              placeholders.push(`($${paramIdx}, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5}, $${paramIdx + 6}, $${paramIdx + 7}, $${paramIdx + 8}, $${paramIdx + 9}, $${paramIdx + 10}, $${paramIdx + 11}, $${paramIdx + 12}, $${paramIdx + 13}, $${paramIdx + 14}, $${paramIdx + 15}, $${paramIdx + 16}, $${paramIdx + 17}, $${paramIdx + 18}, $${paramIdx + 19}, $${paramIdx + 20}, $${paramIdx + 21}, $${paramIdx + 22}, $${paramIdx + 23}, $${paramIdx + 24}, $${paramIdx + 25}, CURRENT_TIMESTAMP, 'in_progress', 'no_action', 'no_action')`);
+              values.push(
+                row.airline_id,
+                row.airline_code,
+                row.callsign_pair,
+                row.my_callsign,
+                row.other_callsign,
+                row.other_airline_code || null,
+                row.sector || null,
+                row.departure_airport1 || null,
+                row.arrival_airport1 || null,
+                row.departure_airport2 || null,
+                row.arrival_airport2 || null,
+                row.same_airline_code || null,
+                row.same_callsign_length || null,
+                row.same_number_position || null,
+                row.same_number_count,
+                row.same_number_ratio,
+                row.similarity || null,
+                row.max_concurrent_traffic,
+                row.coexistence_minutes,
+                row.error_probability,
+                row.atc_recommendation || null,
+                row.error_type || null,
+                row.sub_error || null,
+                row.risk_level || null,
+                row.occurrence_count || 1,
+                uploadId,
+              );
+              paramIdx += 26;
+            }
+
+            const insertResult = await trx(
+              `INSERT INTO callsigns
+                (airline_id, airline_code, callsign_pair, my_callsign, other_callsign,
+                 other_airline_code, sector, departure_airport1, arrival_airport1,
+                 departure_airport2, arrival_airport2, same_airline_code, same_callsign_length,
+                 same_number_position, same_number_count, same_number_ratio, similarity,
+                 max_concurrent_traffic, coexistence_minutes, error_probability, atc_recommendation,
+                 error_type, sub_error, risk_level, occurrence_count, file_upload_id, uploaded_at, status,
+                 my_action_status, other_action_status)
+               VALUES ${placeholders.join(', ')}
+               RETURNING id, callsign_pair`,
+              values
+            );
+
+            // 새로 삽입된 ID를 existingMap에 추가 (occurrence INSERT용)
+            for (const row of insertResult.rows) {
+              const originalRow = batch.find(b => b.callsign_pair === row.callsign_pair);
+              if (originalRow) {
+                existingMap.set(`${originalRow.airline_code}::${originalRow.callsign_pair}`, row.id);
+              }
+            }
+
+            insertedCount += batch.length;
+          }
+        }
+
+        // 4-2. Batch UPDATE for existing callsigns
+        if (toUpdate.length > 0) {
+          const UPDATE_BATCH_SIZE = 100;
+          for (let i = 0; i < toUpdate.length; i += UPDATE_BATCH_SIZE) {
+            const batch = toUpdate.slice(i, i + UPDATE_BATCH_SIZE);
+
+            // PostgreSQL의 UPDATE FROM VALUES 패턴 사용
+            const values: any[] = [];
+            const placeholders: string[] = [];
+            let paramIdx = 1;
+
+            for (const row of batch) {
+              placeholders.push(`($${paramIdx}::uuid, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5}, $${paramIdx + 6}, $${paramIdx + 7}, $${paramIdx + 8}, $${paramIdx + 9}, $${paramIdx + 10}, $${paramIdx + 11}, $${paramIdx + 12}, $${paramIdx + 13}, $${paramIdx + 14}, $${paramIdx + 15}, $${paramIdx + 16}, $${paramIdx + 17}, $${paramIdx + 18}, $${paramIdx + 19}::uuid)`);
+              values.push(
+                row.id,
+                row.sector || null,
+                row.departure_airport1 || null,
+                row.arrival_airport1 || null,
+                row.departure_airport2 || null,
+                row.arrival_airport2 || null,
+                row.same_airline_code || null,
+                row.same_callsign_length || null,
+                row.same_number_position || null,
+                row.same_number_count,
+                row.same_number_ratio,
+                row.similarity || null,
+                row.max_concurrent_traffic,
+                row.coexistence_minutes,
+                row.error_probability,
+                row.atc_recommendation || null,
+                row.error_type || null,
+                row.sub_error || null,
+                row.risk_level || null,
+                uploadId,
+              );
+              paramIdx += 20;
+            }
+
+            await trx(
+              `UPDATE callsigns AS c SET
+                sector = v.sector,
+                departure_airport1 = v.departure_airport1,
+                arrival_airport1 = v.arrival_airport1,
+                departure_airport2 = v.departure_airport2,
+                arrival_airport2 = v.arrival_airport2,
+                same_airline_code = v.same_airline_code,
+                same_callsign_length = v.same_callsign_length,
+                same_number_position = v.same_number_position,
+                same_number_count = v.same_number_count,
+                same_number_ratio = v.same_number_ratio,
+                similarity = v.similarity,
+                max_concurrent_traffic = v.max_concurrent_traffic,
+                coexistence_minutes = v.coexistence_minutes,
+                error_probability = v.error_probability,
+                atc_recommendation = v.atc_recommendation,
+                error_type = v.error_type,
+                sub_error = v.sub_error,
+                risk_level = v.risk_level,
+                file_upload_id = v.file_upload_id,
+                updated_at = CURRENT_TIMESTAMP,
+                status = 'in_progress',
+                my_action_status = 'no_action',
+                other_action_status = 'no_action'
+              FROM (VALUES ${placeholders.join(', ')}) AS v(id, sector, departure_airport1, arrival_airport1, departure_airport2, arrival_airport2, same_airline_code, same_callsign_length, same_number_position, same_number_count, same_number_ratio, similarity, max_concurrent_traffic, coexistence_minutes, error_probability, atc_recommendation, error_type, sub_error, risk_level, file_upload_id)
+              WHERE c.id = v.id`,
+              values
+            );
+
+            updatedCount += batch.length;
+          }
+        }
+
+        // 4-3. Batch INSERT for occurrences
+        const OCCURRENCE_BATCH_SIZE = 200;
+        for (let i = 0; i < parsedRows.length; i += OCCURRENCE_BATCH_SIZE) {
+          const batch = parsedRows.slice(i, i + OCCURRENCE_BATCH_SIZE);
+
+          const values: any[] = [];
+          const placeholders: string[] = [];
+          let paramIdx = 1;
+
+          for (const row of batch) {
+            const callsignId = existingMap.get(`${row.airline_code}::${row.callsign_pair}`);
+            if (!callsignId) continue;
+
+            placeholders.push(`($${paramIdx}::uuid, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5}::uuid, $${paramIdx + 6}, $${paramIdx + 7}, $${paramIdx + 8}, $${paramIdx + 9})`);
+            values.push(
+              callsignId,
+              row.occurred_date,
+              row.occurred_time,
+              row.error_type || null,
+              row.sub_error || null,
+              uploadId,
+              row.departure_airport1 || null,
+              row.arrival_airport1 || null,
+              row.departure_airport2 || null,
+              row.arrival_airport2 || null,
+            );
+            paramIdx += 10;
+          }
+
+          if (placeholders.length > 0) {
             await trx(
               `INSERT INTO callsign_occurrences
                 (callsign_id, occurred_date, occurred_time, error_type, sub_error, file_upload_id,
                  departure_a, arrival_a, departure_b, arrival_b)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+               VALUES ${placeholders.join(', ')}
                ON CONFLICT (callsign_id, occurred_date, occurred_time) DO UPDATE SET
                  departure_a = COALESCE(EXCLUDED.departure_a, callsign_occurrences.departure_a),
                  arrival_a = COALESCE(EXCLUDED.arrival_a, callsign_occurrences.arrival_a),
                  departure_b = COALESCE(EXCLUDED.departure_b, callsign_occurrences.departure_b),
                  arrival_b = COALESCE(EXCLUDED.arrival_b, callsign_occurrences.arrival_b)`,
-              [
-                callsignId,
-                normalizedDate,
-                occurredTimeForDb,
-                rowData.error_type,
-                rowData.sub_error,
-                uploadId,
-                rowData.departure_airport1 || null,
-                rowData.arrival_airport1 || null,
-                rowData.departure_airport2 || null,
-                rowData.arrival_airport2 || null,
-              ]
-            );
-          } catch (occurrenceError) {
-            // 발생 이력 저장 실패: occurrence SAVEPOINT만 롤백 (callsign은 유지)
-            await trx(`ROLLBACK TO SAVEPOINT occurrence_${i}`);
-            logger.warn('발생 이력 저장 실패', 'admin/upload-callsigns', {
-              callsignId,
-              date: normalizedDate,
-              time: occurredTime
-            });
-          }
-
-          if (isNewCallsign) {
-            insertedCount++;
-          } else {
-            updatedCount++;
-          }
-
-          // 진행 상황 DB 기록 (프론트엔드 폴링용)
-          const processedSoFar = insertedCount + updatedCount + errors.length;
-          if (processedSoFar % PROGRESS_INTERVAL === 0) {
-            await query(
-              `UPDATE file_uploads SET total_rows = $1, success_count = $2, failed_count = $3 WHERE id = $4`,
-              [rows.length, insertedCount + updatedCount, errors.length, uploadId]
+              values
             );
           }
-        } catch (rowError) {
-          errors.push(`행 ${i + 2}: ${rowError instanceof Error ? rowError.message : String(rowError)}`);
-          // PostgreSQL 트랜잭션 내 에러 복구: ROLLBACK TO SAVEPOINT 필수
-          await trx(`ROLLBACK TO SAVEPOINT row_${i}`);
         }
-      }
 
-      // Step 4: 각 callsign의 occurrence_count와 last_occurred_at 일괄 업데이트
-      await trx(
-        `UPDATE callsigns c SET
-          occurrence_count = sub.cnt,
-          first_occurred_at = sub.min_date,
-          last_occurred_at = sub.max_date
-        FROM (
-          SELECT callsign_id,
-                 COUNT(*) as cnt,
-                 MIN(occurred_date) as min_date,
-                 MAX(occurred_date) as max_date
-          FROM callsign_occurrences
-          WHERE callsign_id IN (SELECT id FROM callsigns WHERE file_upload_id = $1)
-          GROUP BY callsign_id
-        ) sub
-        WHERE c.id = sub.callsign_id`,
-        [uploadId]
-      );
+        // 4-4. occurrence_count 및 날짜 일괄 업데이트
+        await trx(
+          `UPDATE callsigns c SET
+            occurrence_count = sub.cnt,
+            first_occurred_at = sub.min_date,
+            last_occurred_at = sub.max_date
+          FROM (
+            SELECT callsign_id,
+                   COUNT(*) as cnt,
+                   MIN(occurred_date) as min_date,
+                   MAX(occurred_date) as max_date
+            FROM callsign_occurrences
+            WHERE callsign_id IN (SELECT id FROM callsigns WHERE file_upload_id = $1)
+            GROUP BY callsign_id
+          ) sub
+          WHERE c.id = sub.callsign_id`,
+          [uploadId]
+        );
 
-      // Step 5: AI 재분석 필요 여부 자동 감지 (FR-03)
-      await trx(
-        `UPDATE callsign_ai_analysis ai
-         SET needs_reanalysis = TRUE
-         FROM callsigns c
-         WHERE c.callsign_pair = ai.callsign_pair
-           AND c.file_upload_id = $1
-           AND ai.needs_reanalysis = FALSE
-           AND (
-             ai.coexistence_snapshot IS DISTINCT FROM c.coexistence_minutes
-             OR ai.atc_snapshot IS DISTINCT FROM c.atc_recommendation
-           )`,
-        [uploadId]
-      );
-
+        // 4-5. AI 재분석 필요 여부 자동 감지
+        await trx(
+          `UPDATE callsign_ai_analysis ai
+           SET needs_reanalysis = TRUE
+           FROM callsigns c
+           WHERE c.callsign_pair = ai.callsign_pair
+             AND c.file_upload_id = $1
+             AND ai.needs_reanalysis = FALSE
+             AND (
+               ai.coexistence_snapshot IS DISTINCT FROM c.coexistence_minutes
+               OR ai.atc_snapshot IS DISTINCT FROM c.atc_recommendation
+             )`,
+          [uploadId]
+        );
       }); // transaction 끝
 
       // 업로드 기록 업데이트
@@ -613,13 +640,14 @@ export async function POST(request: NextRequest) {
         total: rows.length,
         inserted: insertedCount,
         updated: updatedCount,
+        skipped: skippedCount,
         failed: errors.length,
-        errors: errors.slice(0, 10), // 최대 10개만 반환
+        errors: errors.slice(0, 10),
       });
     } catch (parseError) {
       // 파싱 실패 시 업로드 기록 업데이트
       await query(
-        `UPDATE file_uploads 
+        `UPDATE file_uploads
          SET status = 'failed',
              error_message = $1
          WHERE id = $2`,
@@ -630,7 +658,6 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     logger.error('Excel 업로드 오류', error, 'admin/upload-callsigns');
-    // W-10 FIX: 500 에러에서 내부 상세 메시지 제거
     return NextResponse.json(
       { error: 'Excel 업로드 중 오류가 발생했습니다.' },
       { status: 500 }
