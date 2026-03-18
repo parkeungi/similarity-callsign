@@ -144,8 +144,17 @@ export async function POST(request: NextRequest) {
       let skippedCount = 0;
       const errors: string[] = [];
 
-      // 10행마다 file_uploads에 진행 상황 기록 (프론트엔드 폴링용)
-      const PROGRESS_INTERVAL = 10;
+      // 50행마다 file_uploads에 진행 상황 기록 (프론트엔드 폴링용)
+      const PROGRESS_INTERVAL = 50;
+
+      // 항공사 목록을 루프 밖에서 한 번만 조회 (성능 최적화: 행마다 조회 → 1회)
+      const allAirlinesResult = await query("SELECT id, code FROM airlines");
+      const domesticAirlines = allAirlinesResult.rows
+        .filter((a: { code: string }) => a.code !== 'FOREIGN')
+        .map((a: { code: string }) => a.code);
+      const airlineIdMap = new Map<string, string>(
+        allAirlinesResult.rows.map((a: { id: string; code: string }) => [a.code, a.id])
+      );
 
       // 트랜잭션으로 전체 행 처리 (원자성 보장)
       await transaction(async (trx) => {
@@ -209,11 +218,6 @@ export async function POST(request: NextRequest) {
           const subError = row[28] ? String(row[28]).trim() : undefined;
           // 발생건수: 신규 포맷에 별도 컬럼 없음 → 기본 1건
           const occurrenceCount = 1;
-
-          // 항공사 코드가 우리 시스템의 항공사 코드에 매핑되는지 확인
-          // 우리 시스템에서 관리하는 국내 항공사만 필터링
-          const domesticAirlinesResult = await query("SELECT code FROM airlines WHERE code != $1", ['FOREIGN']);
-          const domesticAirlines = (domesticAirlinesResult.rows || []).map((a: any) => a.code as string);
 
           // 편명1과 편명2에서 항공사 코드 추출 (예: KAL852 -> KAL)
           const airlineCode1 = callsign1.replace(/[0-9]/g, '').trim();
@@ -303,18 +307,12 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // 항공사 ID 조회
-          const airlineResult = await trx(
-            'SELECT id FROM airlines WHERE code = $1',
-            [rowData.airline_code]
-          );
-
-          if (airlineResult.rows.length === 0) {
+          // 항공사 ID 조회 (캐싱된 Map 사용 — DB 호출 없음)
+          const airlineId = airlineIdMap.get(rowData.airline_code);
+          if (!airlineId) {
             errors.push(`행 ${i + 2}: 항공사 코드(${rowData.airline_code})를 찾을 수 없습니다.`);
             continue;
           }
-
-          const airlineId = airlineResult.rows[0].id;
 
           // Step 1: 기존 레코드 확인
           const existingResult = await trx(
