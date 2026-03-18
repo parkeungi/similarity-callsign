@@ -116,7 +116,7 @@ export function IncidentFilters({
             <option value="ai_score">AI분석순</option>
             <option value="latest">최신순</option>
             <option value="count">발생건수순</option>
-            <option value="risk">오류가능성순</option>
+            {/* <option value="risk">오류가능성순</option> */}
           </select>
         )}
 
