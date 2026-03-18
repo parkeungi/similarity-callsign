@@ -401,17 +401,26 @@ export function AirlineOccurrenceTab({
                       const otherCode = otherCallsign.substring(0, 3);
                       const isSameAirline = myCode === otherCode;
 
-                      return (
-                        <>
+                      // 같은 항공사면 둘 다 표시, 다른 항공사면 내 호출부호만 표시
+                      if (isSameAirline) {
+                        return (
+                          <>
+                            <span className="font-mono font-black text-base text-blue-600">
+                              {myCallsign}
+                            </span>
+                            <span className="text-gray-400 text-sm">↔</span>
+                            <span className="font-mono font-black text-base text-blue-600">
+                              {otherCallsign}
+                            </span>
+                          </>
+                        );
+                      } else {
+                        return (
                           <span className="font-mono font-black text-base text-blue-600">
                             {myCallsign}
                           </span>
-                          <span className="text-gray-400 text-sm">↔</span>
-                          <span className={`font-mono font-black text-base ${isSameAirline ? 'text-blue-600' : 'text-red-600'}`}>
-                            {otherCallsign}
-                          </span>
-                        </>
-                      );
+                        );
+                      }
                     })()}
                   </div>
                   {/* 조치등록/수정 버튼 */}

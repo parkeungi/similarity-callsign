@@ -170,6 +170,9 @@ export async function POST(request: NextRequest) {
         }
 
         try {
+          // SAVEPOINT: PostgreSQL 트랜잭션 내 개별 행 에러 복구용
+          await trx(`SAVEPOINT row_${i}`);
+
           // 엑셀 컬럼 매핑 (2026년3월 포맷 — 순서 컬럼 없음)
           // 0: 시작일시, 1: 종료일시, 2: 관할섹터명, 3: 편명1
           // 4: 출발공항1, 5: 도착공항1, 6: 편명2, 7: 출발공항2, 8: 도착공항2
@@ -230,6 +233,8 @@ export async function POST(request: NextRequest) {
           // 오류발생가능성_등급이 '낮음' 또는 '매우낮음'이면 스킵 (높음/매우높음만 처리)
           const riskGradeNormalized = riskLevelGrade?.replace(/\s+/g, '');
           if (riskGradeNormalized && ['낮음', '매우낮음'].includes(riskGradeNormalized)) {
+            await trx(`ROLLBACK TO SAVEPOINT row_${i}`);
+            skippedCount++;
             continue;
           }
 
@@ -304,6 +309,7 @@ export async function POST(request: NextRequest) {
           // 필수 필드 검증
           if (!rowData.airline_code || !rowData.callsign_pair || !rowData.my_callsign || !rowData.other_callsign) {
             errors.push(`행 ${i + 2}: 필수 필드 누락`);
+            await trx(`ROLLBACK TO SAVEPOINT row_${i}`);
             continue;
           }
 
@@ -311,6 +317,7 @@ export async function POST(request: NextRequest) {
           const airlineId = airlineIdMap.get(rowData.airline_code);
           if (!airlineId) {
             errors.push(`행 ${i + 2}: 항공사 코드(${rowData.airline_code})를 찾을 수 없습니다.`);
+            await trx(`ROLLBACK TO SAVEPOINT row_${i}`);
             continue;
           }
 
@@ -432,6 +439,7 @@ export async function POST(request: NextRequest) {
               // (관리자의 호출부호 업로드에서는 callsigns만 생성)
             } catch (txError) {
               errors.push(`행 ${i + 2}: Callsign 또는 Actions 생성 실패 - ${txError instanceof Error ? txError.message : String(txError)}`);
+              await trx(`ROLLBACK TO SAVEPOINT row_${i}`);
               continue;
             }
           }
@@ -484,17 +492,19 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          const { date: normalizedDate } = buildStorageTimestamp(
+          const { date: normalizedDate, timestamp: normalizedTimestamp } = buildStorageTimestamp(
             occurredDate,
             occurredTime
           );
 
-          // occurred_time은 TIME 컬럼이므로 HH:MM 형식으로 전달
-          const occurredTimeForDb = occurredTime; // "HH:MM" 형식
+          // occurred_time은 TIMESTAMP 컬럼이므로 전체 타임스탬프 형식으로 전달
+          const occurredTimeForDb = normalizedTimestamp; // "YYYY-MM-DD HH:MM" 형식
 
           // Step 3: callsign_occurrences 테이블에 발생 이력 저장
           // 같은 callsign+날짜+시간 조합이면 스킵 (UNIQUE constraint)
           try {
+            // Nested SAVEPOINT: callsign은 유지하고 occurrence 실패만 롤백
+            await trx(`SAVEPOINT occurrence_${i}`);
             await trx(
               `INSERT INTO callsign_occurrences
                 (callsign_id, occurred_date, occurred_time, error_type, sub_error, file_upload_id,
@@ -519,7 +529,8 @@ export async function POST(request: NextRequest) {
               ]
             );
           } catch (occurrenceError) {
-            // 발생 이력 저장 실패해도 호출부호는 이미 저장되었으므로 진행
+            // 발생 이력 저장 실패: occurrence SAVEPOINT만 롤백 (callsign은 유지)
+            await trx(`ROLLBACK TO SAVEPOINT occurrence_${i}`);
             logger.warn('발생 이력 저장 실패', 'admin/upload-callsigns', {
               callsignId,
               date: normalizedDate,
@@ -543,6 +554,8 @@ export async function POST(request: NextRequest) {
           }
         } catch (rowError) {
           errors.push(`행 ${i + 2}: ${rowError instanceof Error ? rowError.message : String(rowError)}`);
+          // PostgreSQL 트랜잭션 내 에러 복구: ROLLBACK TO SAVEPOINT 필수
+          await trx(`ROLLBACK TO SAVEPOINT row_${i}`);
         }
       }
 

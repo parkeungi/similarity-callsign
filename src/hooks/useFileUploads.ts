@@ -168,3 +168,46 @@ export function useForceDeleteFileUpload() {
     },
   });
 }
+
+/**
+ * 전체 데이터 강제삭제 mutation (모든 callsigns, occurrences, actions, file_uploads 삭제)
+ */
+export function useForceDeleteAllData() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (adminPassword: string) => {
+      if (!adminPassword) {
+        throw new Error('관리자 비밀번호가 필요합니다.');
+      }
+
+      const response = await apiFetch('/api/admin/callsigns/force-delete-all', {
+        method: 'DELETE',
+        body: JSON.stringify({ adminPassword }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 400) {
+          throw new Error(errorData.error || '비밀번호가 맞지 않습니다.');
+        }
+        if (response.status === 401) {
+          throw new Error('인증이 필요합니다.');
+        }
+        if (response.status === 403) {
+          throw new Error('관리자 권한이 필요합니다.');
+        }
+        throw new Error(errorData.error || '전체 데이터 삭제 실패');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      // 캐시 무효화: 모든 관련 쿼리 무효화
+      queryClient.invalidateQueries({ queryKey: ['file-uploads'] });
+      queryClient.invalidateQueries({ queryKey: ['callsigns'] });
+      queryClient.invalidateQueries({ queryKey: ['actions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin'] });
+    },
+  });
+}

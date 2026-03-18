@@ -162,12 +162,22 @@ export function ActionModal({
               </label>
               <input
                 type="text"
-                value={
-                  initialData?.callsign_pair ||
-                  callsigns.find((cs) => String(cs.id) === callsignId)
-                    ?.callsign_pair ||
-                  ''
-                }
+                value={(() => {
+                  // initialData에서 callsign_pair가 있으면 해당 callsign 찾기
+                  const cs = callsigns.find((c) => String(c.id) === callsignId);
+                  if (!cs) return initialData?.callsign_pair || '';
+
+                  // 같은 항공사면 전체 표시, 다른 항공사면 내 호출부호만 표시
+                  const myCode = cs.airline_code || cs.my_callsign?.substring(0, 3) || '';
+                  const otherCode = cs.other_airline_code || cs.other_callsign?.substring(0, 3) || '';
+                  const isSameAirline = myCode === otherCode;
+
+                  if (isSameAirline) {
+                    return cs.callsign_pair || `${cs.my_callsign} | ${cs.other_callsign}`;
+                  } else {
+                    return cs.my_callsign || '';
+                  }
+                })()}
                 disabled
                 readOnly
                 className="w-full px-3.5 py-2.5 rounded-none border border-slate-700 bg-slate-800/50 text-slate-500 text-sm font-semibold cursor-not-allowed focus:outline-none"

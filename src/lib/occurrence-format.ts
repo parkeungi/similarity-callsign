@@ -49,8 +49,9 @@ export function buildStorageTimestamp(
   const today = new Date().toISOString().split('T')[0];
   const normalizedDate = deriveOccurrenceDate(occurredDate, occurredTime) ?? today;
   const normalizedTime = deriveOccurrenceTime(occurredTime);
+  // PostgreSQL TIMESTAMP 호환: 초를 추가 (HH:MM → HH:MM:SS)
   return {
     date: normalizedDate,
-    timestamp: `${normalizedDate} ${normalizedTime}`,
+    timestamp: `${normalizedDate} ${normalizedTime}:00`,
   };
 }

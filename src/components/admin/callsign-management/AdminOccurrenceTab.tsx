@@ -21,7 +21,7 @@ interface OccurrenceIncident extends Incident {
   reasonType?: string | null;
 }
 
-type SortOrder = 'priority' | 'risk' | 'count' | 'latest' | 'ai_score';
+type SortOrder = 'ai_score' | 'risk' | 'count';
 type ActionStatusFilter = 'all' | 'in_progress' | 'completed';
 
 export function AdminOccurrenceTab() {
@@ -37,7 +37,7 @@ export function AdminOccurrenceTab() {
   const [endDate, setEndDate] = useState<string>(() => {
     return new Date().toISOString().split('T')[0];
   });
-  const [sortOrder, setSortOrder] = useState<SortOrder>('priority');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('ai_score');
   const [actionStatusFilter, setActionStatusFilter] = useState<ActionStatusFilter>('all');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [showAiRecommend, setShowAiRecommend] = useState<boolean>(false);
@@ -173,31 +173,20 @@ export function AdminOccurrenceTab() {
         return (b.count || 0) - (a.count || 0);
       }
 
-      // 다른 정렬 모드에서는 완료 상태 우선
-      const aCompleted = a.actionStatus === 'completed' ? 0 : 1;
-      const bCompleted = b.actionStatus === 'completed' ? 0 : 1;
+      // 다른 정렬 모드에서는 완료 상태를 뒤로
+      const aCompleted = a.actionStatus === 'completed' ? 1 : 0;
+      const bCompleted = b.actionStatus === 'completed' ? 1 : 0;
       if (aCompleted !== bCompleted) return aCompleted - bCompleted;
 
-      if (sortOrder === 'priority') {
-        const similarityOrder: Record<string, number> = { '매우높음': 2, '높음': 1 };
-        const riskA = RISK_LEVEL_ORDER[a.risk as keyof typeof RISK_LEVEL_ORDER] || 0;
-        const riskB = RISK_LEVEL_ORDER[b.risk as keyof typeof RISK_LEVEL_ORDER] || 0;
-        if (riskB !== riskA) return riskB - riskA;
-        const simA = similarityOrder[a.similarity as string] || 0;
-        const simB = similarityOrder[b.similarity as string] || 0;
-        if (simB !== simA) return simB - simA;
-        return (b.count || 0) - (a.count || 0);
-      } else if (sortOrder === 'risk') {
+      if (sortOrder === 'risk') {
+        // 오류발생가능성순: 위험도 높은 순 → 발생건수 순
         const riskA = RISK_LEVEL_ORDER[a.risk as keyof typeof RISK_LEVEL_ORDER] || 0;
         const riskB = RISK_LEVEL_ORDER[b.risk as keyof typeof RISK_LEVEL_ORDER] || 0;
         if (riskA !== riskB) return riskB - riskA;
         return (b.count || 0) - (a.count || 0);
-      } else if (sortOrder === 'count') {
-        return (b.count || 0) - (a.count || 0);
       } else {
-        const dA = a.lastDate ? new Date(a.lastDate).getTime() : 0;
-        const dB = b.lastDate ? new Date(b.lastDate).getTime() : 0;
-        return dB - dA;
+        // 발생건수순
+        return (b.count || 0) - (a.count || 0);
       }
     });
   }, [filteredByDate, actionStatusFilter, searchKeyword, sortOrder, errorTypeFilter]);
@@ -326,11 +315,9 @@ export function AdminOccurrenceTab() {
               onChange={(e) => { setSortOrder(e.target.value as SortOrder); setPage(1); }}
               className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="priority">우선순위</option>
               <option value="ai_score">AI분석순</option>
-              <option value="risk">위험도</option>
-              <option value="count">발생건수</option>
-              <option value="latest">최근발생</option>
+              <option value="risk">오류발생가능성순</option>
+              <option value="count">발생건수순</option>
             </select>
           </div>
 

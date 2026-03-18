@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
 
--- 국내 항공사 12개 데이터 삽입 (display_order 포함)
+-- 국내 항공사 14개 데이터 삽입 (display_order 포함)
 INSERT INTO airlines (code, name_ko, name_en, display_order) VALUES
 ('KAL', '대한항공', 'KOREAN AIR', 1),
 ('AAR', '아시아나항공', 'ASIANA AIRLINES', 2),
@@ -82,11 +82,13 @@ INSERT INTO airlines (code, name_ko, name_en, display_order) VALUES
 ('TWB', '티웨이항공', 't''way Air', 5),
 ('ABL', '에어부산', 'AIR BUSAN', 6),
 ('ASV', '에어서울', 'AIR SEOUL', 7),
-('EOK', '이스타항공', 'EASTAR JET', 8),
-('FGW', '플라이강원', 'Aero K', 9),
+('EOK', '에어로케이', 'Aero K', 8),
+('FGW', '플라이강원', 'Fly Gangwon', 9),
 ('APZ', '에어프레미아', 'Air Premia', 10),
 ('ESR', '이스타항공', 'EASTAR JET', 11),
 ('ARK', '에어로케이', 'Aero K Airlines', 12),
+('AIH', '에어제타', 'Air Zeta', 13),
+('PTA', '파라타항공', 'Parata Air', 14),
 ('FOREIGN', '외항사', 'Foreign Airlines', 99)
 ON CONFLICT (code) DO NOTHING;
 
@@ -215,15 +217,15 @@ CREATE TABLE IF NOT EXISTS callsigns (
   other_airline_code VARCHAR(10),            -- "AAR", "JJA" 등
 
   -- 관할 섹터 및 공항 정보 (엑셀 추가 필드)
-  sector VARCHAR(20),                        -- 관할섹터명 (EL, GL, JN 등)
-  departure_airport1 VARCHAR(10),            -- 편명1 출발공항 (RKSI 등)
-  arrival_airport1 VARCHAR(10),              -- 편명1 목적공항
-  departure_airport2 VARCHAR(10),            -- 편명2 출발공항
-  arrival_airport2 VARCHAR(10),              -- 편명2 목적공항
+  sector VARCHAR(50),                        -- 관할섹터명 (EL, GL, JN 등)
+  departure_airport1 VARCHAR(50),            -- 편명1 출발공항 (RKSI 등)
+  arrival_airport1 VARCHAR(50),              -- 편명1 목적공항
+  departure_airport2 VARCHAR(50),            -- 편명2 출발공항
+  arrival_airport2 VARCHAR(50),              -- 편명2 목적공항
 
   -- 유사도 분석 정보
-  same_airline_code VARCHAR(10),             -- 항공사코드동일여부 (일치/불일치)
-  same_callsign_length VARCHAR(10),          -- 편명번호길이동일여부 (일치/불일치)
+  same_airline_code VARCHAR(20),             -- 항공사코드동일여부 (일치/불일치)
+  same_callsign_length VARCHAR(20),          -- 편명번호길이동일여부 (일치/불일치)
   same_number_position VARCHAR(20),          -- 편명번호동일숫자위치 (앞/뒤/앞뒤/전체)
   same_number_count INT,                     -- 편명번호동일숫자갯수
   same_number_ratio DECIMAL(5,2),            -- 편명번호동일숫자구성비율(%)
@@ -294,6 +296,12 @@ CREATE TABLE IF NOT EXISTS callsign_occurrences (
   sub_error VARCHAR(30),                          -- "복창오류", "무응답/재호출" 등
   location VARCHAR(100),                          -- 발생 위치 (공역, 공항 등)
   flight_level VARCHAR(20),                       -- 비행 고도
+
+  -- 노선 정보 (발생 건별 출발/도착 공항)
+  departure_a VARCHAR(50),                       -- 편명1 출발공항
+  arrival_a VARCHAR(50),                         -- 편명1 도착공항
+  departure_b VARCHAR(50),                       -- 편명2 출발공항
+  arrival_b VARCHAR(50),                         -- 편명2 도착공항
 
   -- 메타정보
   file_upload_id UUID REFERENCES file_uploads(id) ON DELETE SET NULL,
@@ -452,14 +460,12 @@ CREATE TABLE IF NOT EXISTS action_types (
 CREATE INDEX IF NOT EXISTS idx_action_types_display_order ON action_types(display_order);
 CREATE INDEX IF NOT EXISTS idx_action_types_is_active ON action_types(is_active);
 
--- 기본 조치 유형 6개 시드 데이터
+-- 기본 조치 유형 4개 시드 데이터
 INSERT INTO action_types (name, description, display_order) VALUES
-('편명 변경',    '항공편 편명을 변경하여 유사호출부호 혼동 방지',             1),
-('브리핑 시행',  '조종사 및 관제사 대상 유사호출부호 관련 안전 브리핑 실시', 2),
-('모니터링 강화','해당 호출부호 쌍에 대한 관제 모니터링 강도 강화',          3),
-('절차 개선',    '관련 운항 및 관제 절차를 검토하고 개선',                   4),
-('시스템 개선',  '항공 시스템 또는 소프트웨어 관련 개선 조치 수행',          5),
-('기타',         '위 분류에 해당하지 않는 기타 조치',                        6)
+('편명변경',      '항공편 편명을 변경하여 유사호출부호 혼동 방지',             1),
+('조종사브리핑',  '조종사 대상 유사호출부호 관련 안전 브리핑 실시',           2),
+('스케줄조정',    '운항 스케줄을 조정하여 동시 운항 회피',                    3),
+('기타',          '위 분류에 해당하지 않는 기타 조치',                        4)
 ON CONFLICT (name) DO NOTHING;
 
 -- ================================================================
