@@ -3,94 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { classifyPattern, type OccurrenceTime } from '@/lib/time-pattern';
 
 export const dynamic = 'force-dynamic';
-
-interface OccurrenceTime {
-  date: string;
-  time: string;
-  error_type: string | null;
-}
-
-function classifyPattern(occurrences: OccurrenceTime[]): {
-  pattern_type: 'fixed' | 'roundtrip' | 'scattered';
-  primary_hours: number[];
-  time_concentration: number;
-} {
-  const withTime = occurrences.filter((o) => o.time);
-  if (withTime.length === 0) {
-    return { pattern_type: 'scattered', primary_hours: [], time_concentration: 0 };
-  }
-
-  const hourCounts: Record<number, number> = {};
-  withTime.forEach((occ) => {
-    const hour = parseInt(occ.time.split(':')[0], 10);
-    if (!isNaN(hour)) {
-      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-    }
-  });
-
-  const hours = Object.keys(hourCounts).map(Number).sort((a, b) => a - b);
-  const groups: { hours: number[]; count: number }[] = [];
-
-  for (const h of hours) {
-    const lastGroup = groups[groups.length - 1];
-    if (lastGroup && (h - lastGroup.hours[lastGroup.hours.length - 1] <= 1)) {
-      lastGroup.hours.push(h);
-      lastGroup.count += hourCounts[h];
-    } else {
-      groups.push({ hours: [h], count: hourCounts[h] });
-    }
-  }
-
-  groups.sort((a, b) => b.count - a.count);
-
-  if (groups.length === 0) {
-    return { pattern_type: 'scattered', primary_hours: [], time_concentration: 0 };
-  }
-
-  const topGroup = groups[0];
-  const topConcentration = topGroup.count / withTime.length;
-
-  if (groups.length >= 2) {
-    const secondGroup = groups[1];
-    const twoGroupConcentration = (topGroup.count + secondGroup.count) / withTime.length;
-
-    if (topConcentration >= 0.7) {
-      return {
-        pattern_type: 'fixed',
-        primary_hours: topGroup.hours,
-        time_concentration: Math.round(topConcentration * 100),
-      };
-    } else if (twoGroupConcentration >= 0.7) {
-      const hourDiff = Math.abs(topGroup.hours[0] - secondGroup.hours[0]);
-      if (hourDiff >= 6) {
-        return {
-          pattern_type: 'roundtrip',
-          primary_hours: [...topGroup.hours, ...secondGroup.hours].sort((a, b) => a - b),
-          time_concentration: Math.round(twoGroupConcentration * 100),
-        };
-      }
-      return {
-        pattern_type: 'fixed',
-        primary_hours: [...topGroup.hours, ...secondGroup.hours].sort((a, b) => a - b),
-        time_concentration: Math.round(twoGroupConcentration * 100),
-      };
-    }
-  } else if (topConcentration >= 0.7) {
-    return {
-      pattern_type: 'fixed',
-      primary_hours: topGroup.hours,
-      time_concentration: Math.round(topConcentration * 100),
-    };
-  }
-
-  return {
-    pattern_type: 'scattered',
-    primary_hours: topGroup.hours,
-    time_concentration: Math.round(topConcentration * 100),
-  };
-}
 
 export async function GET(
   request: NextRequest,
@@ -108,6 +23,18 @@ export async function GET(
     }
 
     const { airlineId } = await params;
+
+    // 항공사 소유권 확인 (관리자는 모든 항공사 접근 가능)
+    const tokenAirlineId = payload.airlineId;
+    const isAdmin = payload.role === 'admin';
+    if (!isAdmin) {
+      if (!tokenAirlineId) {
+        return NextResponse.json({ error: '토큰에 항공사 정보가 없습니다.' }, { status: 401 });
+      }
+      if (airlineId !== tokenAirlineId) {
+        return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
+      }
+    }
 
     // 입력값 검증
     const minCountRaw = parseInt(request.nextUrl.searchParams.get('minCount') || '2', 10);
@@ -134,7 +61,7 @@ export async function GET(
 
     // 날짜 조건 빌드
     const conditions: string[] = [];
-    const queryParams: any[] = [minCount, airlineCode, airlineCode];
+    const queryParams: (string | number)[] = [minCount, airlineCode, airlineCode];
     let paramIdx = 4;
 
     if (dateFrom) {
@@ -183,7 +110,23 @@ export async function GET(
     );
 
     // 패턴 분류
-    const items = result.rows.map((row: any) => {
+    interface CallsignRow {
+      callsign_pair: string;
+      my_callsign: string;
+      other_callsign: string;
+      airline_code: string;
+      other_airline_code: string;
+      risk_level: string;
+      similarity: string;
+      sector: string | null;
+      departure_airport1: string | null;
+      arrival_airport1: string | null;
+      departure_airport2: string | null;
+      arrival_airport2: string | null;
+      occ_count: string;
+      occurrences: OccurrenceTime[];
+    }
+    const items = result.rows.map((row: CallsignRow) => {
       const occs: OccurrenceTime[] = row.occurrences || [];
       const { pattern_type, primary_hours, time_concentration } = classifyPattern(occs);
 
@@ -208,12 +151,12 @@ export async function GET(
       };
     });
 
-    const fixedCount = items.filter((i: any) => i.pattern_type === 'fixed').length;
-    const roundtripCount = items.filter((i: any) => i.pattern_type === 'roundtrip').length;
+    const fixedCount = items.filter((i) => i.pattern_type === 'fixed').length;
+    const roundtripCount = items.filter((i) => i.pattern_type === 'roundtrip').length;
 
     const hourlyTotal: Record<number, number> = {};
     for (let h = 0; h < 24; h++) hourlyTotal[h] = 0;
-    items.forEach((item: any) => {
+    items.forEach((item) => {
       item.occurrences.forEach((occ: OccurrenceTime) => {
         if (!occ.time) return;
         const h = parseInt(occ.time.split(':')[0], 10);

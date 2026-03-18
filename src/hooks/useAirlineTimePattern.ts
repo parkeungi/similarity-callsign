@@ -26,13 +26,13 @@ export function useAirlineTimePattern(
       if (dateTo) params.append('dateTo', dateTo);
 
       const response = await apiFetch(`/api/airlines/${airlineId}/time-pattern-stats?${params.toString()}`);
+      const data = await response.json();
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '데이터 조회 실패');
+        throw new Error(data.error || '데이터 조회 실패');
       }
 
-      return response.json();
+      return data;
     },
     enabled: !!accessToken && !!airlineId,
     staleTime: 5 * 60 * 1000,

@@ -122,7 +122,18 @@ export function AirlineTimePatternTab({ airlineId, airlineCode }: AirlineTimePat
     );
   }
 
-  if (error || !stats) {
+  if (error) {
+    return (
+      <div className="bg-white shadow-sm border border-gray-200 p-6">
+        {header}
+        <div className="h-64 flex items-center justify-center">
+          <p className="text-red-500 text-sm">데이터를 불러올 수 없습니다: {error.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!stats || stats.data.length === 0) {
     return (
       <div className="bg-white shadow-sm border border-gray-200 p-6">
         {header}
@@ -135,9 +146,10 @@ export function AirlineTimePatternTab({ airlineId, airlineCode }: AirlineTimePat
 
   const { data: items, summary, hourlyDistribution } = stats;
 
-  const filteredItems = selectedPattern === 'all'
-    ? items
-    : items.filter((i) => i.pattern_type === selectedPattern);
+  const filteredItems = useMemo(
+    () => selectedPattern === 'all' ? items : items.filter((i) => i.pattern_type === selectedPattern),
+    [items, selectedPattern]
+  );
 
   const maxHourCount = Math.max(...hourlyDistribution.map((h) => h.count), 1);
 
