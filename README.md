@@ -177,7 +177,7 @@ npm run start
 ## 🧪 테스트 계정
 
 ### 관리자 (단일 계정)
-- Email: `lsi117@airport.co.kr`
+- Email: `parkeungi21@korea.kr`
 - Password: `1234`
 
 > ⚠️ 프로덕션 환경에서는 반드시 변경하세요!

@@ -97,7 +97,7 @@ ON CONFLICT (code) DO NOTHING;
 
 -- 관리자 계정 (2명)
 INSERT INTO users (email, password_hash, airline_id, status, role, is_default_password, password_change_required)
-SELECT 'lsi117@airport.co.kr', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
+SELECT 'parkeungi21@korea.kr', '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm',
   airlines.id, 'active', 'admin', false, false
 FROM airlines WHERE airlines.code = 'KAL'
 ON CONFLICT (email) DO NOTHING;

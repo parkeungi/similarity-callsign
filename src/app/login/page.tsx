@@ -68,8 +68,8 @@ export default function LoginPage() {
           <div className="pt-4 border-t border-white/10 space-y-3 text-center text-xs text-white/50">
             <p>항공교통본부 관리자 또는 항공사 담당자만 이용 가능합니다</p>
             <p className="text-white/30">
-              문의: <a href="tel:+82-2-2608-7100" className="text-cyan-400 hover:text-cyan-300 transition">
-                +82-2-2608-7100
+              문의: <a href="tel:+82-53-668-0238" className="text-cyan-400 hover:text-cyan-300 transition">
+                053-668-0238
               </a>
             </p>
           </div>

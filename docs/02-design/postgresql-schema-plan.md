@@ -407,7 +407,7 @@ ON CONFLICT (code) DO NOTHING;
 INSERT INTO users (email, password_hash, airline_id, status, role)
 SELECT u.email, u.password_hash, a.id, 'active', u.role
 FROM (VALUES
-  ('lsi117@airport.co.kr',  '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm', 'KAL', 'admin'),
+  ('parkeungi21@korea.kr',  '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm', 'KAL', 'admin'),
   ('parkeungi21@korea.kr',  '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm', 'KAL', 'admin'),
   ('kal@test.com',          '$2b$10$8u0KODIbldb.4gvwdHYPzeDWrlbj9bSjH4CTzUN23kywMi3z/dDUm', 'KAL', 'user'),
   ... (더 많은 계정)

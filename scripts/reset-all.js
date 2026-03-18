@@ -36,8 +36,8 @@ const airlineCodes = [
 
 // 관리자 권한을 부여할 계정 및 통일 비밀번호 설정
 const UNIFIED_PASSWORD = 'Starred3!';
-const ADMIN_EMAILS = new Set(['admin@katc.com', 'lsi117@airport.co.kr']);
-const FORCED_ADMIN_EMAIL = 'lsi117@airport.co.kr';
+const ADMIN_EMAILS = new Set(['admin@katc.com', 'parkeungi21@korea.kr']);
+const FORCED_ADMIN_EMAIL = 'parkeungi21@korea.kr';
 
 // PostgreSQL 연결 설정
 const dbClient = new Client({
