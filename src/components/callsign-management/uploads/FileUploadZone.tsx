@@ -1,7 +1,7 @@
-// 파일 업로드 드래그앤드롭 - xlsx 파일 선택/드롭, POST /api/admin/upload-callsigns 호출, 진행률 표시
+// 파일 업로드 드래그앤드롭 - xlsx 파일 선택/드롭, POST /api/admin/upload-callsigns 호출, 실시간 진행률 폴링
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api/client';
 import { NanoIcon } from '@/components/ui/NanoIcon';
 import { FileSpreadsheet, UploadCloud } from 'lucide-react';
@@ -10,16 +10,26 @@ interface FileUploadZoneProps {
   onUploadComplete: (result: any) => void;
 }
 
+interface UploadProgress {
+  totalRows: number;
+  successCount: number;
+  failedCount: number;
+  status: string;
+}
+
 export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [elapsedSec, setElapsedSec] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 업로드 중 페이지 이탈 경고 (beforeunload)
+  // 업로드 중 페이지 이탈 경고
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isUploading) {
@@ -33,11 +43,42 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
     };
   }, [isUploading]);
 
-  // 컴포넌트 언마운트 시에만 fetch 중단 (isUploading 변경 시 abort 방지)
+  // 컴포넌트 언마운트 시 정리
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (pollingRef.current) clearInterval(pollingRef.current);
     };
+  }, []);
+
+  // 진행 상황 폴링
+  const startPolling = useCallback(() => {
+    pollingRef.current = setInterval(async () => {
+      try {
+        const res = await apiFetch('/api/admin/upload-progress');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status !== 'not_found') {
+            setUploadProgress({
+              totalRows: data.totalRows,
+              successCount: data.successCount,
+              failedCount: data.failedCount,
+              status: data.status,
+            });
+          }
+        }
+      } catch {
+        // 폴링 실패 무시
+      }
+    }, 1500);
+  }, []);
+
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
   }, []);
 
   const handleDrop = (e: React.DragEvent) => {
@@ -49,13 +90,11 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
   };
 
   const handleFileSelect = (file: File) => {
-    // 파일 타입 검증
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
       setError('.xlsx 또는 .xls 파일만 지원합니다.');
       setSelectedFile(null);
       return;
     }
-
     setSelectedFile(file);
     setError(null);
   };
@@ -67,7 +106,8 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
     }
 
     setIsUploading(true);
-    setProgress(0);
+    setElapsedSec(0);
+    setUploadProgress(null);
     setError(null);
 
     const formData = new FormData();
@@ -76,26 +116,32 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    try {
-      // 진행률 시뮬레이션
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => Math.min(prev + Math.random() * 20, 90));
-      }, 200);
+    // 경과 시간 타이머
+    timerRef.current = setInterval(() => {
+      setElapsedSec((prev) => prev + 1);
+    }, 1000);
 
+    // 진행 상황 폴링 시작 (1.5초 후부터)
+    setTimeout(() => startPolling(), 1500);
+
+    try {
       const res = await apiFetch('/api/admin/upload-callsigns', {
         method: 'POST',
         body: formData,
         signal: abortController.signal,
       });
 
-      clearInterval(progressInterval);
-      setProgress(100);
-
       if (!res.ok) {
         throw new Error('업로드 실패');
       }
 
       const data = await res.json();
+      setUploadProgress({
+        totalRows: data.total,
+        successCount: data.inserted + data.updated,
+        failedCount: data.failed,
+        status: 'completed',
+      });
       onUploadComplete(data);
       setSelectedFile(null);
       if (fileInputRef.current) {
@@ -106,14 +152,25 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
         setError('업로드가 중단되었습니다.');
       } else {
         setError(err instanceof Error ? err.message : '업로드 실패');
-        console.error(err);
       }
     } finally {
       abortControllerRef.current = null;
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      stopPolling();
       setIsUploading(false);
-      setTimeout(() => setProgress(0), 1000);
+      setTimeout(() => { setUploadProgress(null); setElapsedSec(0); }, 3000);
     }
   };
+
+  const formatElapsed = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return m > 0 ? `${m}분 ${s}초` : `${s}초`;
+  };
+
+  const progressPct = uploadProgress && uploadProgress.totalRows > 0
+    ? Math.min(Math.round(((uploadProgress.successCount + uploadProgress.failedCount) / uploadProgress.totalRows) * 100), 100)
+    : 0;
 
   return (
     <div className="bg-white rounded-none shadow-sm border border-gray-100 p-8">
@@ -131,7 +188,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
           setIsDragging(true);
         }}
         onDragLeave={() => setIsDragging(false)}
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => !isUploading && fileInputRef.current?.click()}
       >
         <div className="mb-4 flex justify-center">
           <NanoIcon icon={UploadCloud} color="primary" size="lg" />
@@ -159,28 +216,52 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
         {isUploading ? '업로드 중...' : '업로드'}
       </button>
 
-      {/* 진행률 */}
+      {/* 실시간 진행 상황 */}
       {isUploading && (
-        <div className="mt-4">
-          <div className="flex items-center gap-3 mb-2">
-            <svg
-              className="w-4 h-4 text-primary animate-spin"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            <span className="text-sm font-bold text-gray-700">처리 중... {Math.floor(progress)}%</span>
+        <div className="mt-4 bg-gray-50 border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm font-bold text-gray-800">처리 중...</span>
+            </div>
+            <span className="text-xs font-mono text-gray-500">경과: {formatElapsed(elapsedSec)}</span>
           </div>
-          <div className="w-full bg-gray-100 h-1.5 rounded-none overflow-hidden">
-            <div className="h-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
+
+          {/* 진행률 바 */}
+          <div className="w-full bg-gray-200 h-2 overflow-hidden mb-3">
+            <div
+              className="h-full bg-primary transition-all duration-700"
+              style={{ width: uploadProgress ? `${Math.max(progressPct, 5)}%` : '5%' }}
+            />
           </div>
+
+          {/* 처리 건수 실시간 표시 */}
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="bg-white border border-gray-200 p-2">
+              <div className="text-lg font-black text-gray-900">
+                {uploadProgress ? uploadProgress.totalRows.toLocaleString() : '-'}
+              </div>
+              <div className="text-[10px] font-bold text-gray-500 uppercase">전체 행</div>
+            </div>
+            <div className="bg-white border border-blue-200 p-2">
+              <div className="text-lg font-black text-blue-600">
+                {uploadProgress ? uploadProgress.successCount.toLocaleString() : '-'}
+              </div>
+              <div className="text-[10px] font-bold text-gray-500 uppercase">처리 완료</div>
+            </div>
+            <div className="bg-white border border-red-200 p-2">
+              <div className="text-lg font-black text-red-600">
+                {uploadProgress ? uploadProgress.failedCount.toLocaleString() : '-'}
+              </div>
+              <div className="text-[10px] font-bold text-gray-500 uppercase">실패</div>
+            </div>
+          </div>
+
+          {uploadProgress && uploadProgress.totalRows > 0 && (
+            <div className="mt-2 text-right text-xs font-bold text-gray-500">
+              {progressPct}% ({(uploadProgress.successCount + uploadProgress.failedCount).toLocaleString()} / {uploadProgress.totalRows.toLocaleString()})
+            </div>
+          )}
         </div>
       )}
 
@@ -192,12 +273,12 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
       )}
 
       <div className="mt-8 pt-6 border-t border-gray-100">
-        <h4 className="text-sm font-black text-gray-700 mb-3">📋 Excel 형식 안내</h4>
+        <h4 className="text-sm font-black text-gray-700 mb-3">Excel 형식 안내</h4>
         <ul className="text-xs text-gray-500 space-y-2 text-left">
-          <li>• 국내 항공사 데이터만 자동으로 필터링됩니다.</li>
-          <li>• 편명1 또는 편명2에서 국내 항공사 코드를 추출합니다.</li>
-          <li>• 유사도 및 오류발생가능성 정보가 자동 매핑됩니다.</li>
-          <li>• 중복된 유사호출부호 쌍은 자동 업데이트됩니다.</li>
+          <li>- 국내 항공사 데이터만 자동으로 필터링됩니다.</li>
+          <li>- 편명1 또는 편명2에서 국내 항공사 코드를 추출합니다.</li>
+          <li>- 유사도 및 오류발생가능성 정보가 자동 매핑됩니다.</li>
+          <li>- 중복된 유사호출부호 쌍은 자동 업데이트됩니다.</li>
           <li className="pt-2 border-t border-dashed border-gray-200">
             <strong>필수 컬럼:</strong> 편명1, 편명2 (나머지는 선택사항)
           </li>

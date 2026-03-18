@@ -141,7 +141,11 @@ export async function POST(request: NextRequest) {
 
       let insertedCount = 0;
       let updatedCount = 0;
+      let skippedCount = 0;
       const errors: string[] = [];
+
+      // 10행마다 file_uploads에 진행 상황 기록 (프론트엔드 폴링용)
+      const PROGRESS_INTERVAL = 10;
 
       // 트랜잭션으로 전체 행 처리 (원자성 보장)
       await transaction(async (trx) => {
@@ -151,7 +155,10 @@ export async function POST(request: NextRequest) {
         const row = rows[i];
         
         // 빈 행 스킵 (편명1이 있어야 유효한 행)
-        if (!row || row.length === 0 || !row[3]) continue;
+        if (!row || row.length === 0 || !row[3]) {
+          skippedCount++;
+          continue;
+        }
 
         try {
           // 엑셀 컬럼 매핑 (2026년3월 포맷 — 순서 컬럼 없음)
@@ -526,6 +533,15 @@ export async function POST(request: NextRequest) {
             insertedCount++;
           } else {
             updatedCount++;
+          }
+
+          // 진행 상황 DB 기록 (프론트엔드 폴링용)
+          const processedSoFar = insertedCount + updatedCount + errors.length;
+          if (processedSoFar % PROGRESS_INTERVAL === 0) {
+            await query(
+              `UPDATE file_uploads SET total_rows = $1, success_count = $2, failed_count = $3 WHERE id = $4`,
+              [rows.length, insertedCount + updatedCount, errors.length, uploadId]
+            );
           }
         } catch (rowError) {
           errors.push(`행 ${i + 2}: ${rowError instanceof Error ? rowError.message : String(rowError)}`);

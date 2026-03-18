@@ -14,7 +14,13 @@
       "Bash(xargs grep:*)",
       "Bash(node scripts/compare-query.mjs)",
       "Bash(node scripts/compare-query-4.mjs)",
-      "Bash(node scripts/run-migration-009.mjs)"
+      "Bash(node scripts/run-migration-009.mjs)",
+      "Bash(printf \"protocol=https\\\\nhost=github.com\\\\n\")",
+      "Bash(git credential-manager:*)",
+      "Bash(printf \"protocol=https\\\\nhost=github.com\\\\nusername=soulmatelibrary-ux\\\\n\")",
+      "Bash(PGPASSWORD='Katc0012#$%^' psql \"postgresql://postgres:Katc0012%23%24%25%5E@db.rrcqfuemhgdpmlosertw.supabase.co:5432/postgres\" -c \"SELECT 1 as test;\")",
+      "Bash(node -e \"const crypto = require\\(''crypto''\\); console.log\\(''JWT_SECRET='' + crypto.randomBytes\\(32\\).toString\\(''base64''\\)\\); console.log\\(''REFRESH_TOKEN_SECRET='' + crypto.randomBytes\\(32\\).toString\\(''base64''\\)\\);\")",
+      "Bash(node -e \":*)"
     ]
   }
 }
