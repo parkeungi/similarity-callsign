@@ -280,15 +280,19 @@ export function AiAnalysisTab() {
         body: JSON.stringify({ results, overwrite }),
       });
 
-      const resData: ImportResult = await res.json();
-      setImportResult(resData);
+      const resData = await res.json();
 
-      if (resData.success) {
-        queryClient.invalidateQueries({ queryKey: ['admin', 'ai-analysis', 'pending'] });
-        queryClient.invalidateQueries({ queryKey: ['admin', 'database'] });
+      if (!res.ok) {
+        setImportResult({ success: false, error: resData.error || `서버 오류 (${res.status})`, validationErrors: resData.validationErrors });
+      } else {
+        setImportResult(resData);
+        if (resData.success) {
+          queryClient.invalidateQueries({ queryKey: ['admin', 'ai-analysis', 'pending'] });
+          queryClient.invalidateQueries({ queryKey: ['admin', 'database'] });
+        }
       }
-    } catch {
-      setImportResult({ success: false, error: '임포트 실패' });
+    } catch (err) {
+      setImportResult({ success: false, error: `임포트 실패: ${err instanceof Error ? err.message : String(err)}` });
     } finally {
       setIsImporting(false);
     }
