@@ -225,6 +225,13 @@ export function buildAnalysisPrompt(pairs: ProcessedPair[]): AnalysisPromptData 
 
       outputFormat: {
         description: '아래 형식으로 정확히 출력하세요. JSON만 출력하고 다른 텍스트는 포함하지 마세요.',
+        fileDownload: {
+          instruction: [
+            '⚠️ 중요: 결과를 반드시 다운로드 가능한 JSON 파일로 제공하세요.',
+            '텍스트나 코드 블록이 아닌, 사용자가 직접 다운로드할 수 있는 .json 파일 형태로 응답해야 합니다.',
+            '파일명 형식: ai_analysis_result_YYYYMMDD.json (예: ai_analysis_result_20260318.json)',
+          ],
+        },
         example: {
           results: [
             {
