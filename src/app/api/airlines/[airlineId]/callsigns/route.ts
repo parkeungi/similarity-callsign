@@ -123,7 +123,7 @@ export async function GET(
          c.my_action_status, c.other_action_status,
          c.callsign_pair,
          c.error_type, c.sub_error, c.risk_level, c.similarity,
-         c.departure_airport1, c.arrival_airport1,
+         c.departure_airport1, c.arrival_airport1, c.departure_airport2, c.arrival_airport2,
          c.file_upload_id, c.uploaded_at, c.status, c.created_at, c.updated_at,
          COALESCE(c.occurrence_count, 0) AS occurrence_count,
          c.first_occurred_at,
@@ -150,30 +150,43 @@ export async function GET(
       queryParams
     );
 
+    // 국내 항공사 코드 Set (CLAUDE.md 기준)
+    const domesticAirlines = new Set(['KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR', 'ARK']);
+
     // 각 호출부호에 대한 조치 상태 조회
     const callsignIds = callsignsResult.rows.map((cs: any) => cs.id);
-    const actionStatusMap: { [key: string]: any } = {};
+    // 내 조치와 상대 조치를 분리해서 저장
+    const myActionMap: { [key: string]: any } = {};
+    const otherActionMap: { [key: string]: any } = {};
     const occurrencesMap: { [key: string]: any[] } = {};
     const errorTypeSummaryMap: { [key: string]: any[] } = {};
 
     if (callsignIds.length > 0) {
       const inPlaceholders = callsignIds.map((_: any, i: number) => `$${i + 1}`).join(',');
 
-      // 조치 상태 조회 (취소되지 않은 조치만)
+      // 조치 상태 조회 (양쪽 항공사 모두 조회 - 재발생 판단을 위해)
       const actionsResult = await query(
-        `SELECT id, callsign_id, status, action_type, description, completed_at
-         FROM actions
-         WHERE callsign_id IN (${inPlaceholders})
-           AND airline_id = $${callsignIds.length + 1}
-           AND COALESCE(is_cancelled, false) = false
-         ORDER BY registered_at DESC`,
-        [...callsignIds, requestedAirlineId]
+        `SELECT a.id, a.callsign_id, a.airline_id, a.status, a.action_type, a.description, a.completed_at,
+                al.code as action_airline_code
+         FROM actions a
+         JOIN airlines al ON al.id = a.airline_id
+         WHERE a.callsign_id IN (${inPlaceholders})
+           AND COALESCE(a.is_cancelled, false) = false
+         ORDER BY a.registered_at DESC`,
+        [...callsignIds]
       );
 
-      // 각 호출부호별 최신 조치 상태 저장 (중복 제거)
+      // 각 호출부호별 내 조치 / 상대 조치 분리 저장
       for (const action of actionsResult.rows) {
-        if (!actionStatusMap[action.callsign_id]) {
-          actionStatusMap[action.callsign_id] = action;
+        const isMyAction = action.airline_id === requestedAirlineId;
+        if (isMyAction) {
+          if (!myActionMap[action.callsign_id]) {
+            myActionMap[action.callsign_id] = action;
+          }
+        } else {
+          if (!otherActionMap[action.callsign_id]) {
+            otherActionMap[action.callsign_id] = action;
+          }
         }
       }
 
@@ -234,16 +247,65 @@ export async function GET(
 
     return NextResponse.json({
       data: callsignsResult.rows.map((callsign: any) => {
-        const latestAction = actionStatusMap[callsign.id];
+        const myAction = myActionMap[callsign.id];
+        const otherAction = otherActionMap[callsign.id];
         const occurrences = occurrencesMap[callsign.id] || [];
         const errorTypeSummary = errorTypeSummaryMap[callsign.id] || [];
 
         // 로그인 항공사 기준으로 my/other 정렬
-        // DB의 airline_code가 로그인 항공사가 아닌 경우 swap
+        // DB에는 쌍 정규화 순서(A/B)로 저장되므로, 로그인 항공사 관점으로 재정렬
         const needSwap = callsign.airline_code !== airlineCode;
         const myCs = needSwap ? callsign.other_callsign : callsign.my_callsign;
         const otherCs = needSwap ? callsign.my_callsign : callsign.other_callsign;
         const otherCode = needSwap ? callsign.airline_code : callsign.other_airline_code;
+        // 출도착 공항도 callsign 관점에 맞게 스왑
+        const myDep = needSwap ? callsign.departure_airport2 : callsign.departure_airport1;
+        const myArr = needSwap ? callsign.arrival_airport2 : callsign.arrival_airport1;
+        const otherDep = needSwap ? callsign.departure_airport1 : callsign.departure_airport2;
+        const otherArr = needSwap ? callsign.arrival_airport1 : callsign.arrival_airport2;
+
+        // 재발생 판단 로직 (국내↔국내 vs 외항사 케이스 구분)
+        const calculateReDetected = (): boolean => {
+          const lastOccurred = callsign.last_occurred_at ? new Date(callsign.last_occurred_at).getTime() : 0;
+          if (lastOccurred === 0) return false;
+
+          const myAirlineIsDomestic = domesticAirlines.has(airlineCode);
+          const otherAirlineIsDomestic = domesticAirlines.has(otherCode || '');
+          const isDomesticVsDomestic = myAirlineIsDomestic && otherAirlineIsDomestic;
+
+          // 같은 항공사끼리인 경우 (KAL↔KAL)
+          const isSameAirline = airlineCode === otherCode;
+
+          if (isSameAirline) {
+            // 같은 항공사: 내 조치 완료만으로 판단
+            const myCompletedAt = myAction?.completed_at ? new Date(myAction.completed_at).getTime() : 0;
+            return myCompletedAt > 0 && lastOccurred > myCompletedAt;
+          }
+
+          if (isDomesticVsDomestic) {
+            // 국내↔국내: 양쪽 모두 조치 완료되어야 "조치 완료"로 간주
+            const myCompleted = myAction?.status === 'completed';
+            const otherCompleted = otherAction?.status === 'completed';
+
+            if (!myCompleted || !otherCompleted) {
+              // 아직 양쪽 모두 완료되지 않음 → 재발생 아님 (진행 중)
+              return false;
+            }
+
+            // 양쪽 완료 시점 중 더 늦은 시점 이후에 발생해야 재발생
+            const myCompletedAt = myAction?.completed_at ? new Date(myAction.completed_at).getTime() : 0;
+            const otherCompletedAt = otherAction?.completed_at ? new Date(otherAction.completed_at).getTime() : 0;
+            const lastCompletedAt = Math.max(myCompletedAt, otherCompletedAt);
+
+            return lastCompletedAt > 0 && lastOccurred > lastCompletedAt;
+          } else {
+            // 국내↔외항사: 국내 항공사 조치 완료만으로 판단
+            const myCompletedAt = myAction?.completed_at ? new Date(myAction.completed_at).getTime() : 0;
+            return myCompletedAt > 0 && lastOccurred > myCompletedAt;
+          }
+        };
+
+        const reDetectedValue = calculateReDetected();
 
         return {
           id: callsign.id,
@@ -265,18 +327,23 @@ export async function GET(
           uploaded_at: callsign.uploaded_at,
           created_at: callsign.created_at,
           updated_at: callsign.updated_at,
-          // 방공 정보
-          departure_airport1: callsign.departure_airport1,
-          arrival_airport1: callsign.arrival_airport1,
+          // 출도착 공항 (로그인 항공사 관점)
+          departure_airport1: myDep,
+          arrival_airport1: myArr,
+          departure_airport2: otherDep,
+          arrival_airport2: otherArr,
           // 발생 이력 상세 정보
           occurrences,
           errorTypeSummary,
-          // 조치 상태 추가
-          action_id: latestAction?.id || null,
-          action_status: latestAction?.status || 'no_action',
-          action_type: latestAction?.action_type || null,
-          action_description: latestAction?.description || null,
-          action_completed_at: latestAction?.completed_at || null,
+          // 조치 상태 추가 (내 조치 기준)
+          action_id: myAction?.id || null,
+          action_status: myAction?.status || 'no_action',
+          action_type: myAction?.action_type || null,
+          action_description: myAction?.description || null,
+          action_completed_at: myAction?.completed_at || null,
+          // 상대 항공사 조치 상태 추가 (국내↔국내 재발생 판단용)
+          other_action_status: otherAction?.status || 'no_action',
+          other_action_completed_at: otherAction?.completed_at || null,
           // camelCase 별칭
           airlineId: callsign.airline_id,
           airlineCode: airlineCode,
@@ -294,13 +361,18 @@ export async function GET(
           uploadedAt: callsign.uploaded_at,
           createdAt: callsign.created_at,
           updatedAt: callsign.updated_at,
-          departureAirport: callsign.departure_airport1,
-          arrivalAirport: callsign.arrival_airport1,
-          actionId: latestAction?.id || null,
-          actionStatus: latestAction?.status || 'no_action',
-          actionType: latestAction?.action_type || null,
-          actionDescription: latestAction?.description || null,
-          actionCompletedAt: latestAction?.completed_at || null,
+          departureAirport: myDep,
+          arrivalAirport: myArr,
+          actionId: myAction?.id || null,
+          actionStatus: myAction?.status || 'no_action',
+          actionType: myAction?.action_type || null,
+          actionDescription: myAction?.description || null,
+          actionCompletedAt: myAction?.completed_at || null,
+          otherActionStatus: otherAction?.status || 'no_action',
+          otherActionCompletedAt: otherAction?.completed_at || null,
+          // 재발생 여부
+          re_detected: reDetectedValue,
+          reDetected: reDetectedValue,
           // AI 분석 데이터
           ai_score: callsign.ai_score ?? null,
           ai_reason: callsign.ai_reason ?? null,

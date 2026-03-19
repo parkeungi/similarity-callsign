@@ -395,45 +395,51 @@ export function AirlineOccurrenceTab({
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center gap-2">
                     {(() => {
-                      const myCallsign = incident.mine || '';
-                      const otherCallsign = incident.other || '';
-                      const myCode = myCallsign.substring(0, 3);
-                      const otherCode = otherCallsign.substring(0, 3);
-                      const isSameAirline = myCode === otherCode;
+                      const rawMine = incident.mine || '';
+                      const rawOther = incident.other || '';
+                      const minePrefix = rawMine.replace(/[0-9]/g, '');
+                      const otherPrefix = rawOther.replace(/[0-9]/g, '');
+                      // 로그인 항공사 호출부호를 앞에 표시
+                      const needSwap = minePrefix !== airlineCode && otherPrefix === airlineCode;
+                      const first = needSwap ? rawOther : rawMine;
+                      const second = needSwap ? rawMine : rawOther;
+                      const firstCode = needSwap ? otherPrefix : minePrefix;
+                      const secondCode = needSwap ? minePrefix : otherPrefix;
+                      const isSameAirline = firstCode === secondCode;
+                      const secondColor = isSameAirline ? 'text-blue-600' : 'text-orange-500';
 
-                      // 같은 항공사면 둘 다 표시, 다른 항공사면 내 호출부호만 표시
-                      if (isSameAirline) {
-                        return (
-                          <>
-                            <span className="font-mono font-black text-base text-blue-600">
-                              {myCallsign}
-                            </span>
-                            <span className="text-gray-400 text-sm">↔</span>
-                            <span className="font-mono font-black text-base text-blue-600">
-                              {otherCallsign}
-                            </span>
-                          </>
-                        );
-                      } else {
-                        return (
+                      return (
+                        <>
                           <span className="font-mono font-black text-base text-blue-600">
-                            {myCallsign}
+                            {first}
                           </span>
-                        );
-                      }
+                          <span className="text-gray-400 text-sm">↔</span>
+                          <span className={`font-mono font-black text-base ${secondColor}`}>
+                            {second}
+                          </span>
+                        </>
+                      );
                     })()}
                   </div>
-                  {/* 조치등록/수정 버튼 */}
-                  <button
-                    onClick={() => onOpenActionModal(incident)}
-                    className={`px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
-                      incident.actionStatus === 'completed'
-                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 hover:shadow-sm'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                  >
-                    {incident.actionStatus === 'completed' ? '✓ 조치완료' : '조치등록'}
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {/* 재검출 배지 */}
+                    {(incident as any).reDetected && (
+                      <span className="px-2 py-1 text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200 rounded animate-pulse">
+                        ↻ 재검출
+                      </span>
+                    )}
+                    {/* 조치등록/수정 버튼 */}
+                    <button
+                      onClick={() => onOpenActionModal(incident)}
+                      className={`px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
+                        incident.actionStatus === 'completed'
+                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 hover:shadow-sm'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {incident.actionStatus === 'completed' ? '✓ 조치완료' : '조치등록'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* 정보 테이블 */}

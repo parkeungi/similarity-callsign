@@ -297,11 +297,11 @@ CREATE TABLE IF NOT EXISTS callsign_occurrences (
   location VARCHAR(100),                          -- 발생 위치 (공역, 공항 등)
   flight_level VARCHAR(20),                       -- 비행 고도
 
-  -- 노선 정보 (발생 건별 출발/도착 공항)
-  departure_a VARCHAR(50),                       -- 편명1 출발공항
-  arrival_a VARCHAR(50),                         -- 편명1 도착공항
-  departure_b VARCHAR(50),                       -- 편명2 출발공항
-  arrival_b VARCHAR(50),                         -- 편명2 도착공항
+  -- 노선 정보 (발생 건별 출발/도착 공항, 쌍 정규화 순서 A/B)
+  departure_a VARCHAR(50),                       -- callsign_a 출발공항
+  arrival_a VARCHAR(50),                         -- callsign_a 도착공항
+  departure_b VARCHAR(50),                       -- callsign_b 출발공항
+  arrival_b VARCHAR(50),                         -- callsign_b 도착공항
 
   -- 메타정보
   file_upload_id UUID REFERENCES file_uploads(id) ON DELETE SET NULL,

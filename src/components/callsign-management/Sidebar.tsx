@@ -2,6 +2,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { FileUploadZone } from './uploads/FileUploadZone';
 import { UploadResult } from './uploads/UploadResult';
 import { UploadHistory } from './uploads/UploadHistory';
@@ -19,6 +20,7 @@ interface UploadResultData {
 }
 
 export function Sidebar() {
+  const queryClient = useQueryClient();
   const [uploadResult, setUploadResult] = useState<UploadResultData | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<'upload' | 'history' | 'ai'>('upload');
 
@@ -45,6 +47,12 @@ export function Sidebar() {
     setUploadResult(result);
     // 업로드 완료 후 서버 이력 재조회
     refetchFileUploads();
+    // 모든 관련 쿼리 캐시 무효화 → 항공사 대시보드 발생현황 즉시 반영
+    queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
+    queryClient.invalidateQueries({ queryKey: ['callsigns-with-actions'], exact: false });
+    queryClient.invalidateQueries({ queryKey: ['callsigns'], exact: false });
+    queryClient.invalidateQueries({ queryKey: ['callsigns-stats'], exact: false });
+    queryClient.invalidateQueries({ queryKey: ['airline-action-stats'], exact: false });
   };
 
   return (

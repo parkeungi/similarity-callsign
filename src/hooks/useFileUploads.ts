@@ -117,8 +117,13 @@ export function useDeleteFileUpload() {
       return response.json();
     },
     onSuccess: () => {
-      // 캐시 무효화: file-uploads 쿼리 모두 무효화
+      // 캐시 무효화: file-uploads와 관련된 모든 쿼리 무효화
       queryClient.invalidateQueries({ queryKey: ['file-uploads'] });
+      queryClient.invalidateQueries({ queryKey: ['callsigns'] });
+      queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['callsigns-with-actions'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['callsigns-stats'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['airline-action-stats'], exact: false });
     },
   });
 }
@@ -164,6 +169,10 @@ export function useForceDeleteFileUpload() {
       // (강제삭제는 callsigns과 actions도 삭제하므로 관련 캐시도 함께 무효화)
       queryClient.invalidateQueries({ queryKey: ['file-uploads'] });
       queryClient.invalidateQueries({ queryKey: ['callsigns'] });
+      queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['callsigns-with-actions'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['callsigns-stats'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['airline-action-stats'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['admin', 'stats'] });
     },
   });
@@ -206,7 +215,12 @@ export function useForceDeleteAllData() {
       // 캐시 무효화: 모든 관련 쿼리 무효화
       queryClient.invalidateQueries({ queryKey: ['file-uploads'] });
       queryClient.invalidateQueries({ queryKey: ['callsigns'] });
+      queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['callsigns-with-actions'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['callsigns-stats'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['airline-action-stats'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['actions'] });
+      queryClient.invalidateQueries({ queryKey: ['airline-actions'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['admin'] });
     },
   });

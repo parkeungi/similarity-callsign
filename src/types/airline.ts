@@ -4,7 +4,7 @@
  */
 
 // 탭 타입
-export type AirlineTabType = 'statistics' | 'announcements' | 'occurrence' | 'action-history' | 'time-pattern';
+export type AirlineTabType = 'statistics' | 'announcements' | 'occurrence' | 'action-history';
 
 // 오류 유형
 export type ErrorType = '관제사 오류' | '조종사 오류' | '오류 미발생';

@@ -1,7 +1,7 @@
 // 항공사 통계 탭 - recharts 기반 차트 4종(위험도 PieChart·월별 BarChart·오류유형 분포·조치현황 AreaChart), incidents 데이터 가공
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     BarChart,
     Bar,
@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 import { Incident, DateRangeType, RISK_LEVEL_ORDER } from '@/types/airline';
 import { ActionStatisticsResponse } from '@/types/action';
+import { AirlineTimePatternTab } from './AirlineTimePatternTab';
 
 interface AirlineStatisticsTabProps {
     statsStartDate: string;
@@ -29,7 +30,11 @@ interface AirlineStatisticsTabProps {
     actionStatsLoading: boolean;
     actionStats: ActionStatisticsResponse | undefined;
     incidents: Incident[];
+    airlineId: string | undefined;
+    airlineCode: string;
 }
+
+type StatsSubTab = 'overview' | 'timePattern';
 
 const COLORS = {
     blue: '#2563eb',    // blue-600
@@ -53,7 +58,10 @@ export function AirlineStatisticsTab({
     actionStatsLoading,
     actionStats,
     incidents,
+    airlineId,
+    airlineCode,
 }: AirlineStatisticsTabProps) {
+    const [statsSubTab, setStatsSubTab] = useState<StatsSubTab>('overview');
 
     // ==========================================
     // Derived Statistics Calculations
@@ -229,6 +237,41 @@ export function AirlineStatisticsTab({
 
     return (
         <div className="flex flex-col gap-6 animate-fade-in pb-12">
+            {/* 서브탭 선택 */}
+            <div className="flex gap-1 border-b border-gray-200">
+                <button
+                    onClick={() => setStatsSubTab('overview')}
+                    className={`px-5 py-2.5 text-sm font-bold transition-colors -mb-px ${
+                        statsSubTab === 'overview'
+                            ? 'text-indigo-600 border-b-2 border-indigo-600'
+                            : 'text-gray-500 hover:text-gray-800'
+                    }`}
+                >
+                    기본 통계
+                </button>
+                <button
+                    onClick={() => setStatsSubTab('timePattern')}
+                    className={`px-5 py-2.5 text-sm font-bold transition-colors -mb-px ${
+                        statsSubTab === 'timePattern'
+                            ? 'text-indigo-600 border-b-2 border-indigo-600'
+                            : 'text-gray-500 hover:text-gray-800'
+                    }`}
+                >
+                    시간대별 패턴
+                </button>
+            </div>
+
+            {/* 시간대별 패턴 탭 */}
+            {statsSubTab === 'timePattern' && (
+                <AirlineTimePatternTab
+                    airlineId={airlineId}
+                    airlineCode={airlineCode}
+                />
+            )}
+
+            {/* 기본 통계 탭 */}
+            {statsSubTab === 'overview' && (
+            <>
             {/* Date Filter Bar */}
             <div className="bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/60 p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 transition-all">
                 <div className="flex items-center gap-4 w-full md:w-auto">
@@ -519,6 +562,8 @@ export function AirlineStatisticsTab({
                     </div>
                 </>
 
+            )}
+            </>
             )}
         </div>
     );

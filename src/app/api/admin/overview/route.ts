@@ -84,7 +84,12 @@ export async function GET(request: NextRequest) {
         -- 항공사2 조치 완료일
         (SELECT completed_at FROM actions
          WHERE callsign_id = c.id AND airline_id = a2.id AND status = 'completed' AND COALESCE(is_cancelled, false) = false
-         ORDER BY registered_at DESC LIMIT 1) as airline2_completed_at
+         ORDER BY registered_at DESC LIMIT 1) as airline2_completed_at,
+
+        -- 재검출 판단용: 전체 조치 중 가장 최근 완료일
+        (SELECT MAX(completed_at) FROM actions
+         WHERE callsign_id = c.id AND status = 'completed' AND COALESCE(is_cancelled, false) = false
+        ) as latest_completed_at
 
       FROM callsigns c
       LEFT JOIN airlines a1 ON c.airline_id = a1.id
@@ -130,6 +135,11 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // 재검출 판단: 조치완료 후 새로운 발생이 있는 경우
+      const latestCompletedAt = row.latest_completed_at ? new Date(row.latest_completed_at).getTime() : 0;
+      const lastOccurredAt = row.last_occurred_at ? new Date(row.last_occurred_at).getTime() : 0;
+      const re_detected = latestCompletedAt > 0 && lastOccurredAt > latestCompletedAt;
+
       return {
         id: row.id,
         registration_date: row.registration_date ? row.registration_date.split(' ')[0] : null,
@@ -155,7 +165,10 @@ export async function GET(request: NextRequest) {
 
         // 최종 조치 현황
         action_status,
-        completion_date
+        completion_date,
+
+        // 재검출 (조치완료 후 새 발생)
+        re_detected,
       };
     });
 
@@ -165,7 +178,8 @@ export async function GET(request: NextRequest) {
         total: data.length,
         completed: data.filter((item: any) => item.action_status === '완료').length,
         partially_completed: data.filter((item: any) => item.action_status === '부분완료').length,
-        in_progress: data.filter((item: any) => item.action_status === '진행중').length
+        in_progress: data.filter((item: any) => item.action_status === '진행중').length,
+        re_detected: data.filter((item: any) => item.re_detected).length,
       }
     });
   } catch (error) {

@@ -107,6 +107,7 @@ export function OverviewTab() {
   // 상태별 필터링
   const statusFilteredRows = useMemo(() => {
     if (selectedStatusFilter === 'all') return rows;
+    if (selectedStatusFilter === 're_detected') return rows.filter((r: any) => r.re_detected);
     return rows.filter(r => r.final_status === selectedStatusFilter);
   }, [rows, selectedStatusFilter]);
 
@@ -132,6 +133,7 @@ export function OverviewTab() {
     complete: number;
     partial: number;
     in_progress: number;
+    re_detected: number;
   } | null>(null);
 
   useEffect(() => {
@@ -236,11 +238,14 @@ export function OverviewTab() {
   const statusCounts = useMemo(() => {
     // summary가 있으면 API 계산값 사용하고 캐시에 저장
     if (summary) {
+      // 재검출 건수: 전체 데이터에서 re_detected=true인 항목 카운트
+      const allRows = callsignsQuery.data?.data ?? [];
       const counts = {
         all: summary.total,
         complete: summary.completed,
         partial: summary.partial ?? 0,
         in_progress: summary.in_progress,
+        re_detected: allRows.filter((r: any) => r.re_detected).length,
       };
       cachedStatusCountsRef.current = counts;
       return counts;
@@ -252,6 +257,7 @@ export function OverviewTab() {
       complete: 0,
       partial: 0,
       in_progress: 0,
+      re_detected: 0,
     };
   }, [summary]);
 
@@ -407,7 +413,7 @@ export function OverviewTab() {
       </div>
 
       {/* 상태별 카드 (클릭 가능) - 라벨 없음 */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
         {/* 발생건수 */}
         <button
           onClick={() => {
@@ -466,6 +472,21 @@ export function OverviewTab() {
         >
           <div className="text-4xl font-bold text-gray-600">{statusCounts.in_progress}</div>
           <div className="text-sm font-semibold text-gray-600 mt-2">진행중 {statusCounts.in_progress}건</div>
+        </button>
+
+        {/* 재검출 */}
+        <button
+          onClick={() => {
+            setSelectedStatusFilter('re_detected');
+            setPage(1);
+          }}
+          className={`rounded-lg p-6 transition-all cursor-pointer text-center ${selectedStatusFilter === 're_detected'
+              ? 'border-2 border-rose-600 bg-rose-50'
+              : 'border-2 border-rose-300 bg-rose-50 hover:border-rose-500'
+            }`}
+        >
+          <div className="text-4xl font-bold text-rose-600">{statusCounts.re_detected}</div>
+          <div className="text-sm font-semibold text-rose-600 mt-2">재검출 {statusCounts.re_detected}건</div>
         </button>
       </div>
 
@@ -753,7 +774,7 @@ export function OverviewTab() {
                       })()}
                     </td>
 
-                    {/* 전체 완료 여부 - 3가지 상태 */}
+                    {/* 전체 완료 여부 - 3가지 상태 + 재검출 */}
                     <td className="px-3 py-2.5">
                       <div className="flex flex-col gap-1.5 justify-center">
                         {callsign.final_status === 'complete' ? (
@@ -776,6 +797,12 @@ export function OverviewTab() {
                         ) : (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-[8px] text-[10px] font-bold border bg-slate-50 text-slate-600 border-slate-100 whitespace-nowrap w-fit">
                             ○ 진행중
+                          </span>
+                        )}
+                        {/* 재검출 배지: 조치완료 후 새로 발생한 경우 */}
+                        {(callsign as any).re_detected && (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-[8px] text-[10px] font-bold border bg-rose-50 text-rose-600 border-rose-200 whitespace-nowrap w-fit animate-pulse">
+                            ↻ 재검출
                           </span>
                         )}
                       </div>

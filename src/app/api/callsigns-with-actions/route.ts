@@ -194,7 +194,9 @@ export async function GET(request: NextRequest) {
               -- 오류유형별 발생건수 (LATERAL JOIN)
               ec.error_type_counts,
               -- 발생이력 날짜+시간 목록 (LATERAL JOIN)
-              od.occurrence_dates
+              od.occurrence_dates,
+              -- 재검출 판단용: 전체 조치 중 가장 최근 완료일
+              lc.latest_completed_at
        FROM callsigns c
        -- 자사 최신 조치 1건 (airline_code 기준)
        LEFT JOIN LATERAL (
@@ -236,6 +238,12 @@ export async function GET(request: NextRequest) {
            LIMIT 30
          ) _occ
        ) od ON true
+       -- 재검출 판단용: 가장 최근 조치완료일
+       LEFT JOIN LATERAL (
+         SELECT MAX(a.completed_at) as latest_completed_at
+         FROM actions a
+         WHERE a.callsign_id = c.id AND a.status = 'completed' AND COALESCE(a.is_cancelled, false) = false
+       ) lc ON true
        ${conditions}
        ORDER BY
          CASE
@@ -406,6 +414,12 @@ export async function GET(request: NextRequest) {
         // 오류유형별 발생건수 (동적)
         error_type_counts: callsign.error_type_counts || {},
         occurrence_dates: callsign.occurrence_dates || null,
+        // 재검출 (조치완료 후 새 발생 감지)
+        re_detected: (() => {
+          const completedAt = callsign.latest_completed_at ? new Date(callsign.latest_completed_at).getTime() : 0;
+          const lastOccurred = callsign.last_occurred_at ? new Date(callsign.last_occurred_at).getTime() : 0;
+          return completedAt > 0 && lastOccurred > completedAt;
+        })(),
       })),
       pagination: {
         page,

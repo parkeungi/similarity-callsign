@@ -145,9 +145,11 @@ export async function POST(request: NextRequest) {
 
       // 항공사 목록을 한 번만 조회 (성능 최적화)
       const allAirlinesResult = await query("SELECT id, code FROM airlines");
-      const domesticAirlines = allAirlinesResult.rows
-        .filter((a: { code: string }) => a.code !== 'FOREIGN')
-        .map((a: { code: string }) => a.code);
+      const domesticAirlines = new Set(
+        allAirlinesResult.rows
+          .filter((a: { code: string }) => a.code !== 'FOREIGN')
+          .map((a: { code: string }) => a.code)
+      );
       const airlineIdMap = new Map<string, string>(
         allAirlinesResult.rows.map((a: { id: string; code: string }) => [a.code, a.id])
       );
@@ -158,6 +160,13 @@ export async function POST(request: NextRequest) {
       let skippedCount = 0;
 
       // 헬퍼 함수들
+      // 호출부호 쌍 정규화: "KAL121 | KAL112"와 "KAL112 | KAL121"을 동일 쌍으로 처리
+      // swapped=true면 a/b가 뒤바뀌었으므로 연결 데이터(출도착 등)도 스왑 필요
+      const normalizePair = (a: string, b: string): { sortedA: string; sortedB: string; swapped: boolean } => {
+        if (a <= b) return { sortedA: a, sortedB: b, swapped: false };
+        return { sortedA: b, sortedB: a, swapped: true };
+      };
+
       const toInt = (v: any): number | null => {
         if (v === undefined || v === null || v === '') return null;
         const n = Number(v);
@@ -230,8 +239,8 @@ export async function POST(request: NextRequest) {
           const airlineCode2 = callsign2.replace(/[0-9]/g, '').trim();
 
           // 국내 항공사 여부 확인
-          const isCallsign1Domestic = domesticAirlines.includes(airlineCode1);
-          const isCallsign2Domestic = domesticAirlines.includes(airlineCode2);
+          const isCallsign1Domestic = domesticAirlines.has(airlineCode1);
+          const isCallsign2Domestic = domesticAirlines.has(airlineCode2);
 
           // 오류발생가능성_등급이 '낮음' 또는 '매우낮음'이면 스킵
           const riskGradeNormalized = riskLevelGrade?.replace(/\s+/g, '');
@@ -274,9 +283,23 @@ export async function POST(request: NextRequest) {
             otherArrivalAirport = arrivalAirport1;
           }
 
+          // 호출부호 쌍 정규화 (순서 무관하게 동일 쌍으로 처리)
+          // swapped이면 callsign 순서가 바뀌었으므로 연결 데이터도 스왑
+          const { sortedA, sortedB, swapped } = normalizePair(myCallsign, otherCallsign);
+          const callsignPair = `${sortedA} | ${sortedB}`;
+
+          // 정규화에 따라 callsign·출도착·항공사코드를 쌍 순서(A/B)로 정렬
+          const callsignA = sortedA;
+          const callsignB = sortedB;
+          const depA = swapped ? otherDepartureAirport : myDepartureAirport;
+          const arrA = swapped ? otherArrivalAirport : myArrivalAirport;
+          const depB = swapped ? myDepartureAirport : otherDepartureAirport;
+          const arrB = swapped ? myArrivalAirport : otherArrivalAirport;
+          // swapped이면 정규화 후 "other"는 원래의 "my" 쪽
+          const otherCode = swapped ? myAirlineCode : otherAirlineCode;
+
           // 필수 필드 검증
-          const callsignPair = `${myCallsign} | ${otherCallsign}`;
-          if (!myAirlineCode || !callsignPair || !myCallsign || !otherCallsign) {
+          if (!myAirlineCode || !callsignPair || !callsignA || !callsignB) {
             errors.push(`행 ${i + 2}: 필수 필드 누락`);
             continue;
           }
@@ -319,14 +342,14 @@ export async function POST(request: NextRequest) {
             airline_code: myAirlineCode,
             airline_id: airlineId,
             callsign_pair: callsignPair,
-            my_callsign: myCallsign,
-            other_callsign: otherCallsign,
-            other_airline_code: otherAirlineCode || undefined,
+            my_callsign: callsignA,
+            other_callsign: callsignB,
+            other_airline_code: otherCode || undefined,
             sector,
-            departure_airport1: myDepartureAirport,
-            arrival_airport1: myArrivalAirport,
-            departure_airport2: otherDepartureAirport,
-            arrival_airport2: otherArrivalAirport,
+            departure_airport1: depA,
+            arrival_airport1: arrA,
+            departure_airport2: depB,
+            arrival_airport2: arrB,
             same_airline_code: sameAirlineCode,
             same_callsign_length: sameCallsignLength,
             same_number_position: sameNumberPosition,
@@ -356,6 +379,7 @@ export async function POST(request: NextRequest) {
       // ========== STEP 2: 기존 레코드 일괄 조회 ==========
       const uniquePairs = [...new Set(parsedRows.map(r => `${r.airline_code}::${r.callsign_pair}`))];
       const existingMap = new Map<string, string>(); // "airline_code::callsign_pair" -> id
+      const completedSet = new Set<string>(); // 조치완료된 쌍 키
 
       // 청크로 나누어 조회 (PostgreSQL IN 절 제한 방지)
       const CHUNK_SIZE = 500;
@@ -372,26 +396,42 @@ export async function POST(request: NextRequest) {
         });
 
         const existingResult = await query(
-          `SELECT id, airline_code, callsign_pair FROM callsigns
+          `SELECT id, airline_code, callsign_pair, status FROM callsigns
            WHERE (airline_code, callsign_pair) IN (${conditions})`,
           params
         );
 
         for (const row of existingResult.rows) {
-          existingMap.set(`${row.airline_code}::${row.callsign_pair}`, row.id);
+          const key = `${row.airline_code}::${row.callsign_pair}`;
+          existingMap.set(key, row.id);
+          if (row.status === 'completed') {
+            completedSet.add(key);
+          }
         }
       }
 
-      // ========== STEP 3: INSERT/UPDATE 분류 ==========
+      // ========== STEP 3: INSERT/UPDATE 분류 (배치 내 중복 제거) ==========
       const toInsert: ParsedRow[] = [];
-      const toUpdate: (ParsedRow & { id: string })[] = [];
+      const toUpdateInProgress: (ParsedRow & { id: string })[] = [];  // 미완료 → 분석정보+상태 갱신
+      const toUpdateCompleted: (ParsedRow & { id: string })[] = [];   // 조치완료 → 분석정보만 갱신, 상태 보존
+      const insertKeySet = new Set<string>(); // 배치 내 중복 방지
+      const updateKeySet = new Set<string>(); // UPDATE 중복 방지 (같은 쌍은 첫 행만 사용)
 
       for (const row of parsedRows) {
         const key = `${row.airline_code}::${row.callsign_pair}`;
         const existingId = existingMap.get(key);
         if (existingId) {
-          toUpdate.push({ ...row, id: existingId });
-        } else {
+          if (!updateKeySet.has(key)) {
+            updateKeySet.add(key);
+            if (completedSet.has(key)) {
+              toUpdateCompleted.push({ ...row, id: existingId });
+            } else {
+              toUpdateInProgress.push({ ...row, id: existingId });
+            }
+          }
+          // 중복 행은 스킵 (occurrence는 별도 처리됨)
+        } else if (!insertKeySet.has(key)) {
+          insertKeySet.add(key);
           toInsert.push(row);
         }
       }
@@ -454,29 +494,27 @@ export async function POST(request: NextRequest) {
                  error_type, sub_error, risk_level, occurrence_count, file_upload_id, uploaded_at, status,
                  my_action_status, other_action_status)
                VALUES ${placeholders.join(', ')}
-               RETURNING id, callsign_pair`,
+               ON CONFLICT (airline_code, callsign_pair) DO UPDATE SET
+                 updated_at = CURRENT_TIMESTAMP
+               RETURNING id, callsign_pair, airline_code`,
               values
             );
 
             // 새로 삽입된 ID를 existingMap에 추가 (occurrence INSERT용)
             for (const row of insertResult.rows) {
-              const originalRow = batch.find(b => b.callsign_pair === row.callsign_pair);
-              if (originalRow) {
-                existingMap.set(`${originalRow.airline_code}::${originalRow.callsign_pair}`, row.id);
-              }
+              existingMap.set(`${row.airline_code}::${row.callsign_pair}`, row.id);
             }
 
             insertedCount += batch.length;
           }
         }
 
-        // 4-2. Batch UPDATE for existing callsigns
-        if (toUpdate.length > 0) {
+        // 4-2a. Batch UPDATE: 미완료 쌍 → 분석정보 + 상태 리셋
+        const updateBatch = async (rows: (ParsedRow & { id: string })[], resetStatus: boolean) => {
           const UPDATE_BATCH_SIZE = 100;
-          for (let i = 0; i < toUpdate.length; i += UPDATE_BATCH_SIZE) {
-            const batch = toUpdate.slice(i, i + UPDATE_BATCH_SIZE);
+          for (let i = 0; i < rows.length; i += UPDATE_BATCH_SIZE) {
+            const batch = rows.slice(i, i + UPDATE_BATCH_SIZE);
 
-            // PostgreSQL의 UPDATE FROM VALUES 패턴 사용
             const values: any[] = [];
             const placeholders: string[] = [];
             let paramIdx = 1;
@@ -508,6 +546,11 @@ export async function POST(request: NextRequest) {
               paramIdx += 20;
             }
 
+            // 미완료 쌍: status만 in_progress로 유지 (action_status는 보존)
+            const statusClause = resetStatus
+              ? `status = 'in_progress',`
+              : '';
+
             await trx(
               `UPDATE callsigns AS c SET
                 sector = v.sector,
@@ -529,10 +572,8 @@ export async function POST(request: NextRequest) {
                 sub_error = v.sub_error,
                 risk_level = v.risk_level,
                 file_upload_id = v.file_upload_id,
-                updated_at = CURRENT_TIMESTAMP,
-                status = 'in_progress',
-                my_action_status = 'no_action',
-                other_action_status = 'no_action'
+                ${statusClause}
+                updated_at = CURRENT_TIMESTAMP
               FROM (VALUES ${placeholders.join(', ')}) AS v(id, sector, departure_airport1, arrival_airport1, departure_airport2, arrival_airport2, same_airline_code, same_callsign_length, same_number_position, same_number_count, same_number_ratio, similarity, max_concurrent_traffic, coexistence_minutes, error_probability, atc_recommendation, error_type, sub_error, risk_level, file_upload_id)
               WHERE c.id = v.id`,
               values
@@ -540,6 +581,16 @@ export async function POST(request: NextRequest) {
 
             updatedCount += batch.length;
           }
+        };
+
+        // 미완료 쌍: 분석정보 + 상태 리셋
+        if (toUpdateInProgress.length > 0) {
+          await updateBatch(toUpdateInProgress, true);
+        }
+
+        // 조치완료 쌍: 분석정보만 갱신, 상태/조치 보존 (재검출)
+        if (toUpdateCompleted.length > 0) {
+          await updateBatch(toUpdateCompleted, false);
         }
 
         // 4-3. Batch INSERT for occurrences
@@ -635,6 +686,8 @@ export async function POST(request: NextRequest) {
         [rows.length, insertedCount + updatedCount, errors.length, errors.join('\n'), uploadId]
       );
 
+      const reDetectedCount = toUpdateCompleted.length;
+
       return NextResponse.json({
         success: true,
         total: rows.length,
@@ -642,6 +695,7 @@ export async function POST(request: NextRequest) {
         updated: updatedCount,
         skipped: skippedCount,
         failed: errors.length,
+        reDetected: reDetectedCount,
         errors: errors.slice(0, 10),
       });
     } catch (parseError) {

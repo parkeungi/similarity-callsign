@@ -15,7 +15,6 @@ import { useDateRangeFilter, formatDateInput, toInputDate } from '@/hooks/useDat
 import { useAirlineModal } from '@/hooks/useAirlineModal';
 import { ActionModal } from '@/components/actions/ActionModal';
 import { AirlineStatisticsTab } from '@/components/airline/AirlineStatisticsTab';
-import { AirlineTimePatternTab } from '@/components/airline/AirlineTimePatternTab';
 import { AnnouncementsTab, AirlineOccurrenceTab, AirlineActionHistoryTab, AirlineCallsignListTab } from '@/components/airline/tabs';
 import { AnnouncementPopup } from '@/components/airline/AnnouncementPopup';
 import { NanoIcon } from '@/components/ui/NanoIcon';
@@ -24,7 +23,6 @@ import {
   ClipboardList,
   TrendingUp,
   Megaphone,
-  Clock,
   type LucideIcon
 } from 'lucide-react';
 import {
@@ -189,6 +187,8 @@ export default function AirlinePage() {
       aiScore: cs.ai_score ?? cs.aiScore ?? null,
       aiReason: cs.ai_reason ?? cs.aiReason ?? null,
       reasonType: cs.reason_type ?? cs.reasonType ?? null,
+      // 재검출 (조치완료 후 재발생)
+      reDetected: cs.re_detected ?? cs.reDetected ?? false,
     }));
   }, [callsignsData]);
 
@@ -297,7 +297,6 @@ export default function AirlinePage() {
   const navItems: Array<{ id: AirlineTabType; label: string; icon: LucideIcon; color: 'primary' | 'info' | 'success' | 'orange' }> = [
     { id: 'occurrence', label: '발생현황', icon: BarChart3, color: 'primary' },
     { id: 'action-history', label: '조치이력', icon: ClipboardList, color: 'info' },
-    { id: 'time-pattern', label: '시간대별 패턴', icon: Clock, color: 'info' },
     { id: 'statistics', label: '통계', icon: TrendingUp, color: 'success' },
     { id: 'announcements', label: '공지사항', icon: Megaphone, color: 'orange' },
   ];
@@ -388,13 +387,6 @@ export default function AirlinePage() {
               />
             )}
 
-            {activeTab === 'time-pattern' && (
-              <AirlineTimePatternTab
-                airlineId={airlineId}
-                airlineCode={airlineCode}
-              />
-            )}
-
             {activeTab === 'statistics' && (
               <AirlineStatisticsTab
                 statsStartDate={statsDateFilter.startDate}
@@ -406,6 +398,8 @@ export default function AirlinePage() {
                 actionStatsLoading={actionStatsLoading}
                 actionStats={actionStats}
                 incidents={incidents}
+                airlineId={airlineId}
+                airlineCode={airlineCode}
               />
             )}
 

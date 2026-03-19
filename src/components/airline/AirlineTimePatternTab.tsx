@@ -64,6 +64,21 @@ export function AirlineTimePatternTab({ airlineId, airlineCode }: AirlineTimePat
   const [selectedPattern, setSelectedPattern] = useState<'all' | 'fixed' | 'roundtrip' | 'scattered'>('all');
   const [expandedPair, setExpandedPair] = useState<string | null>(null);
 
+  // hooks는 모든 조건부 return 위에 배치 (React hooks 규칙)
+  const items = stats?.data ?? [];
+  const summary = stats?.summary ?? { total: 0, fixed: 0, roundtrip: 0, scattered: 0, structuralRate: 0 };
+  const hourlyDistribution = stats?.hourlyDistribution ?? [];
+
+  const filteredItems = useMemo(
+    () => selectedPattern === 'all' ? items : items.filter((i) => i.pattern_type === selectedPattern),
+    [items, selectedPattern]
+  );
+
+  const maxHourCount = useMemo(
+    () => Math.max(...hourlyDistribution.map((h) => h.count), 1),
+    [hourlyDistribution]
+  );
+
   const handleQuickRange = (range: QuickRange) => {
     setQuickRange(range);
     setCustomFrom('');
@@ -133,7 +148,7 @@ export function AirlineTimePatternTab({ airlineId, airlineCode }: AirlineTimePat
     );
   }
 
-  if (!stats || stats.data.length === 0) {
+  if (!stats || items.length === 0) {
     return (
       <div className="bg-white shadow-sm border border-gray-200 p-6">
         {header}
@@ -143,15 +158,6 @@ export function AirlineTimePatternTab({ airlineId, airlineCode }: AirlineTimePat
       </div>
     );
   }
-
-  const { data: items, summary, hourlyDistribution } = stats;
-
-  const filteredItems = useMemo(
-    () => selectedPattern === 'all' ? items : items.filter((i) => i.pattern_type === selectedPattern),
-    [items, selectedPattern]
-  );
-
-  const maxHourCount = Math.max(...hourlyDistribution.map((h) => h.count), 1);
 
   return (
     <div className="space-y-6">
