@@ -593,10 +593,20 @@ export async function POST(request: NextRequest) {
           await updateBatch(toUpdateCompleted, false);
         }
 
-        // 4-3. Batch INSERT for occurrences
+        // 4-3. Batch INSERT for occurrences (배치 내 중복 제거)
+        const occSeenKeys = new Set<string>();
+        const dedupedOccRows = parsedRows.filter(row => {
+          const callsignId = existingMap.get(`${row.airline_code}::${row.callsign_pair}`);
+          if (!callsignId) return false;
+          const occKey = `${callsignId}::${row.occurred_date}::${row.occurred_time}`;
+          if (occSeenKeys.has(occKey)) return false;
+          occSeenKeys.add(occKey);
+          return true;
+        });
+
         const OCCURRENCE_BATCH_SIZE = 200;
-        for (let i = 0; i < parsedRows.length; i += OCCURRENCE_BATCH_SIZE) {
-          const batch = parsedRows.slice(i, i + OCCURRENCE_BATCH_SIZE);
+        for (let i = 0; i < dedupedOccRows.length; i += OCCURRENCE_BATCH_SIZE) {
+          const batch = dedupedOccRows.slice(i, i + OCCURRENCE_BATCH_SIZE);
 
           const values: any[] = [];
           const placeholders: string[] = [];
