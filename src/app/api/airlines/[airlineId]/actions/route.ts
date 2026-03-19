@@ -111,7 +111,7 @@ export async function GET(
 
     const actionSql = `
       SELECT
-        a.id, a.airline_id, a.callsign_id, a.action_type, a.description,
+        a.id::text, a.airline_id, a.callsign_id, a.action_type, a.description,
         a.manager_name, a.manager_email, a.planned_due_date,
         a.status,
         a.result_detail, a.completed_at,
@@ -178,7 +178,7 @@ export async function GET(
 
       const virtualSql = `
         SELECT
-          ('virtual-' || cs.id) as id,
+          ('virtual-' || cs.id::text)::text as id,
           cs.airline_id,
           cs.id as callsign_id,
           '조치 등록 필요' as action_type,
@@ -189,7 +189,7 @@ export async function GET(
           'in_progress' as status,
           NULL as result_detail,
           NULL as completed_at,
-          '' as registered_by,
+          NULL::text as registered_by,
           cs.created_at as registered_at,
           cs.updated_at as updated_at,
           NULL as reviewed_by,
