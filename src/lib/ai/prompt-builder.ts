@@ -225,12 +225,30 @@ export function buildAnalysisPrompt(pairs: ProcessedPair[]): AnalysisPromptData 
 
       outputFormat: {
         description: '아래 형식으로 정확히 출력하세요. JSON만 출력하고 다른 텍스트는 포함하지 마세요.',
-        fileDownload: {
+        responseMethod: {
           instruction: [
-            '⚠️ 중요: 결과를 반드시 다운로드 가능한 JSON 파일로 제공하세요.',
-            '텍스트나 코드 블록이 아닌, 사용자가 직접 다운로드할 수 있는 .json 파일 형태로 응답해야 합니다.',
-            '파일명 형식: ai_analysis_result_YYYYMMDD.json (예: ai_analysis_result_20260318.json)',
+            '⚠️ 최우선 규칙: 분석 결과를 채팅창에서 바로 다운로드할 수 있는 JSON 파일 1개로 제공하세요.',
+            '',
+            '=== 반드시 지켜야 할 것 ===',
+            '1. 모든 쌍의 결과를 하나의 JSON 파일에 담아 제공하세요.',
+            '2. 파일명: ai_analysis_result_YYYYMMDD.json',
+            '3. JSON 파일만 제공하고, 요약·설명·코드블록은 불필요합니다.',
+            '',
+            '=== 절대 하지 말 것 ===',
+            '❌ 아티팩트(Artifact)로 만들지 마세요 - 반드시 채팅 응답에 직접 파일 첨부',
+            '❌ 배치로 나눠서 처리하지 마세요 - 한 번에 전부 처리',
+            '❌ "나머지는 다음에" 같은 분할 응답 금지',
+            '❌ 코드 블록(```json)으로 출력 금지 - 다운로드 가능한 파일로만 제공',
+            '',
+            '=== JSON 크기 최적화 ===',
+            '- ai_reason은 정확히 3문장, 80~150자 이내로 간결하게 작성',
+            '- 불필요한 공백·줄바꿈·들여쓰기 최소화',
+            '- results 배열 외에 summary, metadata 등 부가 정보 불포함',
           ],
+        },
+        jsonStructure: {
+          description: '출력 JSON은 반드시 이 구조만 사용하세요. 다른 키를 추가하지 마세요.',
+          format: '{ "results": [ { "callsign_pair": "...", "ai_score": 숫자, "reason_type": "...", "ai_reason": "..." }, ... ] }',
         },
         example: {
           results: [
