@@ -89,7 +89,11 @@ export interface ProcessedPair {
  * 미분석 + 재분석 필요 콜사인 쌍을 조회하여 가공된 데이터 반환
  */
 export async function fetchPendingPairs(): Promise<ProcessedPair[]> {
-  // 신규 미분석 pair 조회
+  // 국내항공사 코드를 airlines 테이블에서 조회
+  const airlinesResult = await query(`SELECT icao_code FROM airlines WHERE icao_code IS NOT NULL`);
+  const domesticCodes = airlinesResult.rows.map((r: { icao_code: string }) => r.icao_code);
+
+  // 신규 미분석 pair 조회 (국내항공사만)
   const newResult = await query(`
     SELECT
       'new' AS category,
@@ -99,12 +103,13 @@ export async function fetchPendingPairs(): Promise<ProcessedPair[]> {
     LEFT JOIN callsign_ai_analysis ai
       ON ai.callsign_pair = c.callsign_pair
     WHERE ai.id IS NULL
+      AND c.airline_code = ANY($1)
     GROUP BY c.callsign_pair
     ORDER BY SUM(c.occurrence_count) DESC, c.callsign_pair
     LIMIT 500
-  `);
+  `, [domesticCodes]);
 
-  // 데이터변경 (재분석 필요) pair 조회
+  // 데이터변경 (재분석 필요) pair 조회 (국내항공사만)
   const staleResult = await query(`
     SELECT
       'stale' AS category,
@@ -114,10 +119,11 @@ export async function fetchPendingPairs(): Promise<ProcessedPair[]> {
     INNER JOIN callsign_ai_analysis ai
       ON ai.callsign_pair = c.callsign_pair
     WHERE ai.needs_reanalysis = TRUE
+      AND c.airline_code = ANY($1)
     GROUP BY c.callsign_pair, ai.ai_score
     ORDER BY ai.ai_score DESC, c.callsign_pair
     LIMIT 500
-  `);
+  `, [domesticCodes]);
 
   const allRows: PendingRow[] = [...newResult.rows, ...staleResult.rows];
 

@@ -1,8 +1,9 @@
 // AI 분석 결과 검증 및 DB 저장 (수동 임포트, 자동 분석 공유)
 import { query, transaction } from '@/lib/db';
 
-// "AAR123 | KAL456" 형식: ICAO코드(2~4자) + 편명번호(1~5자리) | 동일 패턴
-const CALLSIGN_PAIR_PATTERN = /^[A-Z]{2,4}\d{1,5}[A-Z]?\s*\|\s*[A-Z]{2,4}\d{1,5}[A-Z]?$/;
+// "AAR123 | KAL456" 형식: ICAO코드(2~6자) + 편명번호(1~5자리) | 동일 패턴
+// ICAO 항공사 코드는 일반적으로 3글자이지만, 일부 항공사는 더 긴 호출부호(4~6글자)를 사용할 수 있음
+const CALLSIGN_PAIR_PATTERN = /^[A-Z]{2,6}\d{1,5}[A-Z]?\s*\|\s*[A-Z]{2,6}\d{1,5}[A-Z]?$/;
 
 const VALID_REASON_TYPES = new Set([
   'SAME_NUMBER',
@@ -52,7 +53,7 @@ export function validateResults(results: AiAnalysisResult[]): {
     }
 
     if (!CALLSIGN_PAIR_PATTERN.test(item.callsign_pair.trim())) {
-      errors.push(`[${idx}] callsign_pair 형식이 올바르지 않습니다: "${item.callsign_pair}" (예: "KAL852 | AAR123")`);
+      errors.push(`[${idx}] callsign_pair 형식이 올바르지 않습니다: "${item.callsign_pair}" (예: "KAL852 | AAR123" 또는 "PROFN31 | PROFN71")`);
       continue;
     }
 

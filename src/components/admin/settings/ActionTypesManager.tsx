@@ -98,7 +98,7 @@ export function ActionTypesManager() {
         {!isAdding && (
           <button
             onClick={() => { setIsAdding(true); setAddError(''); }}
-            className="flex items-center gap-2 px-4 py-2 bg-navy text-white text-sm font-bold rounded-none shadow hover:bg-navy/90 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-navy text-white text-sm font-bold rounded-none shadow hover:bg-navy/90 transition-colors whitespace-nowrap shrink-0"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -168,7 +168,7 @@ export function ActionTypesManager() {
                     <th className="text-left px-4 py-2.5 font-bold text-gray-600 w-8">#</th>
                     <th className="text-left px-4 py-2.5 font-bold text-gray-600">이름</th>
                     <th className="text-left px-4 py-2.5 font-bold text-gray-600">설명</th>
-                    <th className="text-right px-4 py-2.5 font-bold text-gray-600 w-32">관리</th>
+                    <th className="text-right px-4 py-2.5 font-bold text-gray-600 w-40">관리</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -228,17 +228,17 @@ export function ActionTypesManager() {
                           <td className="px-4 py-3 font-semibold text-gray-800">{item.name}</td>
                           <td className="px-4 py-3 text-gray-500">{item.description || '-'}</td>
                           <td className="px-4 py-3 text-right">
-                            <div className="flex gap-1 justify-end">
+                            <div className="flex gap-1 justify-end flex-nowrap">
                               <button
                                 onClick={() => startEdit(item)}
-                                className="px-2.5 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
+                                className="px-2.5 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-50 whitespace-nowrap"
                               >
                                 수정
                               </button>
                               <button
                                 onClick={() => handleDeactivate(item.id, item.name)}
                                 disabled={deactivateMutation.isPending}
-                                className="px-2.5 py-1 text-xs border border-rose-200 text-rose-600 rounded hover:bg-rose-50 disabled:opacity-50"
+                                className="px-2.5 py-1 text-xs border border-rose-200 text-rose-600 rounded hover:bg-rose-50 disabled:opacity-50 whitespace-nowrap"
                               >
                                 비활성화
                               </button>

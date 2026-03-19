@@ -11,10 +11,11 @@
  * 삭제 순서 (원자성 보장):
  * 1. action_history 전체 삭제
  * 2. actions 전체 삭제
- * 3. callsign_occurrences 전체 삭제
- * 4. callsigns 전체 삭제
- * 5. file_uploads 전체 삭제
- * 6. 감사 로그 기록
+ * 3. callsign_ai_analysis 전체 삭제
+ * 4. callsign_occurrences 전체 삭제
+ * 5. callsigns 전체 삭제
+ * 6. file_uploads 전체 삭제
+ * 7. 감사 로그 기록
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -85,7 +86,8 @@ export async function DELETE(request: NextRequest) {
         (SELECT COUNT(*) FROM callsigns) as callsigns_count,
         (SELECT COUNT(*) FROM callsign_occurrences) as occurrences_count,
         (SELECT COUNT(*) FROM actions) as actions_count,
-        (SELECT COUNT(*) FROM file_uploads) as uploads_count
+        (SELECT COUNT(*) FROM file_uploads) as uploads_count,
+        (SELECT COUNT(*) FROM callsign_ai_analysis) as ai_analysis_count
     `);
     const stats = statsResult.rows[0];
 
@@ -93,6 +95,7 @@ export async function DELETE(request: NextRequest) {
     let deletedStats = {
       actionHistory: 0,
       actions: 0,
+      aiAnalysis: 0,
       occurrences: 0,
       callsigns: 0,
       fileUploads: 0,
@@ -108,15 +111,19 @@ export async function DELETE(request: NextRequest) {
         const actionsDeleteResult = await txQuery(`DELETE FROM actions`);
         deletedStats.actions = actionsDeleteResult.rowCount || 0;
 
-        // Step 3: callsign_occurrences 전체 삭제
+        // Step 3: callsign_ai_analysis 전체 삭제
+        const aiAnalysisDeleteResult = await txQuery(`DELETE FROM callsign_ai_analysis`);
+        deletedStats.aiAnalysis = aiAnalysisDeleteResult.rowCount || 0;
+
+        // Step 4: callsign_occurrences 전체 삭제
         const occurrencesDeleteResult = await txQuery(`DELETE FROM callsign_occurrences`);
         deletedStats.occurrences = occurrencesDeleteResult.rowCount || 0;
 
-        // Step 4: callsigns 전체 삭제
+        // Step 5: callsigns 전체 삭제
         const callsignsDeleteResult = await txQuery(`DELETE FROM callsigns`);
         deletedStats.callsigns = callsignsDeleteResult.rowCount || 0;
 
-        // Step 5: file_uploads 전체 삭제
+        // Step 6: file_uploads 전체 삭제
         const uploadsDeleteResult = await txQuery(`DELETE FROM file_uploads`);
         deletedStats.fileUploads = uploadsDeleteResult.rowCount || 0;
       });
