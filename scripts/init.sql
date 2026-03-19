@@ -475,7 +475,7 @@ ON CONFLICT (name) DO NOTHING;
 CREATE TABLE IF NOT EXISTS callsign_ai_analysis (
   id SERIAL PRIMARY KEY,
   callsign_pair TEXT NOT NULL UNIQUE,
-  ai_score INT NOT NULL CHECK (ai_score BETWEEN 1 AND 100),
+  ai_score NUMERIC(5,1) NOT NULL CHECK (ai_score BETWEEN 1 AND 100),
   ai_reason TEXT NOT NULL,
   reason_type TEXT NOT NULL DEFAULT 'LOW_RISK',
   analyzed_at TIMESTAMPTZ DEFAULT NOW(),
