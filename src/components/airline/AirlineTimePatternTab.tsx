@@ -184,7 +184,7 @@ export function AirlineTimePatternTab({ airlineId, airlineCode }: AirlineTimePat
           <div className="text-2xl font-black text-amber-600">{summary.roundtrip}<span className="text-sm font-bold text-amber-400 ml-1">쌍</span></div>
         </button>
         <div className="bg-white border border-gray-200 p-4 shadow-sm">
-          <div className="text-xs text-gray-500 mb-1">구조적 충돌 비율</div>
+          <div className="text-xs text-gray-500 mb-1">패턴 검출 비율</div>
           <div className="text-2xl font-black text-gray-900">{summary.structuralRate}<span className="text-sm font-bold text-gray-500 ml-1">%</span></div>
         </div>
       </div>
