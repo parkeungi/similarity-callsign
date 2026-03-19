@@ -133,13 +133,6 @@ export function AirlineOccurrenceTab({
       } else if (sortOrder === 'count') {
         if ((b.count || 0) !== (a.count || 0)) return (b.count || 0) - (a.count || 0);
         return (RISK_LEVEL_ORDER[b.risk as keyof typeof RISK_LEVEL_ORDER] || 0) - (RISK_LEVEL_ORDER[a.risk as keyof typeof RISK_LEVEL_ORDER] || 0);
-      } else if (sortOrder === 'ai_score') {
-        // AI 점수 높은 순 정렬
-        const scoreA = a.aiScore ?? 0;
-        const scoreB = b.aiScore ?? 0;
-        if (scoreB !== scoreA) return scoreB - scoreA;
-        // 동점 시 발생건수 순
-        return (b.count || 0) - (a.count || 0);
       } else {
         const dateA = a.lastDate ? new Date(a.lastDate).getTime() : 0;
         const dateB = b.lastDate ? new Date(b.lastDate).getTime() : 0;
@@ -395,27 +388,21 @@ export function AirlineOccurrenceTab({
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center gap-2">
                     {(() => {
-                      const rawMine = incident.mine || '';
-                      const rawOther = incident.other || '';
-                      const minePrefix = rawMine.replace(/[0-9]/g, '');
-                      const otherPrefix = rawOther.replace(/[0-9]/g, '');
-                      // 로그인 항공사 호출부호를 앞에 표시
-                      const needSwap = minePrefix !== airlineCode && otherPrefix === airlineCode;
-                      const first = needSwap ? rawOther : rawMine;
-                      const second = needSwap ? rawMine : rawOther;
-                      const firstCode = needSwap ? otherPrefix : minePrefix;
-                      const secondCode = needSwap ? minePrefix : otherPrefix;
-                      const isSameAirline = firstCode === secondCode;
-                      const secondColor = isSameAirline ? 'text-blue-600' : 'text-orange-500';
+                      const myCallsign = incident.mine || '';
+                      const otherCallsign = incident.other || '';
+                      const myCode = myCallsign.replace(/[0-9]/g, '');
+                      const otherCode = otherCallsign.replace(/[0-9]/g, '');
+                      const isSameAirline = myCode === otherCode;
+                      const otherColor = isSameAirline ? 'text-blue-600' : 'text-orange-500';
 
                       return (
                         <>
                           <span className="font-mono font-black text-base text-blue-600">
-                            {first}
+                            {myCallsign}
                           </span>
                           <span className="text-gray-400 text-sm">↔</span>
-                          <span className={`font-mono font-black text-base ${secondColor}`}>
-                            {second}
+                          <span className={`font-mono font-black text-base ${otherColor}`}>
+                            {otherCallsign}
                           </span>
                         </>
                       );

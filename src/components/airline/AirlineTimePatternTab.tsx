@@ -65,9 +65,9 @@ export function AirlineTimePatternTab({ airlineId, airlineCode }: AirlineTimePat
   const [expandedPair, setExpandedPair] = useState<string | null>(null);
 
   // hooks는 모든 조건부 return 위에 배치 (React hooks 규칙)
-  const items = stats?.data ?? [];
+  const items = useMemo(() => stats?.data ?? [], [stats?.data]);
   const summary = stats?.summary ?? { total: 0, fixed: 0, roundtrip: 0, scattered: 0, structuralRate: 0 };
-  const hourlyDistribution = stats?.hourlyDistribution ?? [];
+  const hourlyDistribution = useMemo(() => stats?.hourlyDistribution ?? [], [stats?.hourlyDistribution]);
 
   const filteredItems = useMemo(
     () => selectedPattern === 'all' ? items : items.filter((i) => i.pattern_type === selectedPattern),

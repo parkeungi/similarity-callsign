@@ -253,11 +253,13 @@ export async function GET(
         const errorTypeSummary = errorTypeSummaryMap[callsign.id] || [];
 
         // 로그인 항공사 기준으로 my/other 정렬
-        // DB에는 쌍 정규화 순서(A/B)로 저장되므로, 로그인 항공사 관점으로 재정렬
-        const needSwap = callsign.airline_code !== airlineCode;
+        // DB에는 쌍 정규화(알파벳순)로 저장되므로, 호출부호 prefix로 로그인 항공사 관점 재정렬
+        const myCallsignPrefix = (callsign.my_callsign || '').replace(/[0-9]/g, '');
+        const otherCallsignPrefix = (callsign.other_callsign || '').replace(/[0-9]/g, '');
+        const needSwap = myCallsignPrefix !== airlineCode && otherCallsignPrefix === airlineCode;
         const myCs = needSwap ? callsign.other_callsign : callsign.my_callsign;
         const otherCs = needSwap ? callsign.my_callsign : callsign.other_callsign;
-        const otherCode = needSwap ? callsign.airline_code : callsign.other_airline_code;
+        const otherCode = needSwap ? myCallsignPrefix : otherCallsignPrefix;
         // 출도착 공항도 callsign 관점에 맞게 스왑
         const myDep = needSwap ? callsign.departure_airport2 : callsign.departure_airport1;
         const myArr = needSwap ? callsign.arrival_airport2 : callsign.arrival_airport1;
