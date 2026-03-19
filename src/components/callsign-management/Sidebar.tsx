@@ -47,12 +47,13 @@ export function Sidebar() {
     setUploadResult(result);
     // 업로드 완료 후 서버 이력 재조회
     refetchFileUploads();
-    // 모든 관련 쿼리 캐시 무효화 → 항공사 대시보드 발생현황 즉시 반영
+    // 모든 관련 쿼리 캐시 무효화 → 발생현황·조치현황 즉시 반영
     queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
     queryClient.invalidateQueries({ queryKey: ['callsigns-with-actions'], exact: false });
     queryClient.invalidateQueries({ queryKey: ['callsigns'], exact: false });
     queryClient.invalidateQueries({ queryKey: ['callsigns-stats'], exact: false });
     queryClient.invalidateQueries({ queryKey: ['airline-action-stats'], exact: false });
+    queryClient.invalidateQueries({ queryKey: ['admin-all-occurrences-v2'], exact: false });
   };
 
   return (
