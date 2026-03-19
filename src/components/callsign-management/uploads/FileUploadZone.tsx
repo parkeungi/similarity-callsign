@@ -132,7 +132,9 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
       });
 
       if (!res.ok) {
-        throw new Error('업로드 실패');
+        const errData = await res.json().catch(() => null);
+        const errMsg = errData?.error || `업로드 실패 (${res.status})`;
+        throw new Error(errMsg);
       }
 
       const data = await res.json();

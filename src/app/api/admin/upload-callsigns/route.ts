@@ -494,8 +494,7 @@ export async function POST(request: NextRequest) {
                  error_type, sub_error, risk_level, occurrence_count, file_upload_id, uploaded_at, status,
                  my_action_status, other_action_status)
                VALUES ${placeholders.join(', ')}
-               ON CONFLICT (airline_code, callsign_pair) DO UPDATE SET
-                 updated_at = CURRENT_TIMESTAMP
+               ON CONFLICT (airline_code, callsign_pair) DO NOTHING
                RETURNING id, callsign_pair, airline_code`,
               values
             );
@@ -505,7 +504,27 @@ export async function POST(request: NextRequest) {
               existingMap.set(`${row.airline_code}::${row.callsign_pair}`, row.id);
             }
 
-            insertedCount += batch.length;
+            // DO NOTHING으로 스킵된 행의 ID를 별도 조회 (occurrence INSERT에 필요)
+            const batchKeys = batch.map(r => `${r.airline_code}::${r.callsign_pair}`);
+            const missingKeys = batchKeys.filter(k => !existingMap.has(k));
+            if (missingKeys.length > 0) {
+              const missingPairs = missingKeys.map(k => {
+                const [code, ...pairParts] = k.split('::');
+                return { code, pair: pairParts.join('::') };
+              });
+              const missingConditions = missingPairs.map((_, idx) => `($${idx * 2 + 1}, $${idx * 2 + 2})`).join(', ');
+              const missingParams = missingPairs.flatMap(p => [p.code, p.pair]);
+              const missingResult = await trx(
+                `SELECT id, airline_code, callsign_pair FROM callsigns
+                 WHERE (airline_code, callsign_pair) IN (${missingConditions})`,
+                missingParams
+              );
+              for (const row of missingResult.rows) {
+                existingMap.set(`${row.airline_code}::${row.callsign_pair}`, row.id);
+              }
+            }
+
+            insertedCount += insertResult.rowCount || 0;
           }
         }
 
@@ -638,11 +657,7 @@ export async function POST(request: NextRequest) {
                 (callsign_id, occurred_date, occurred_time, error_type, sub_error, file_upload_id,
                  departure_a, arrival_a, departure_b, arrival_b)
                VALUES ${placeholders.join(', ')}
-               ON CONFLICT (callsign_id, occurred_date, occurred_time) DO UPDATE SET
-                 departure_a = COALESCE(EXCLUDED.departure_a, callsign_occurrences.departure_a),
-                 arrival_a = COALESCE(EXCLUDED.arrival_a, callsign_occurrences.arrival_a),
-                 departure_b = COALESCE(EXCLUDED.departure_b, callsign_occurrences.departure_b),
-                 arrival_b = COALESCE(EXCLUDED.arrival_b, callsign_occurrences.arrival_b)`,
+               ON CONFLICT (callsign_id, occurred_date, occurred_time) DO NOTHING`,
               values
             );
           }
@@ -722,8 +737,9 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     logger.error('Excel 업로드 오류', error, 'admin/upload-callsigns');
+    const errorMessage = error instanceof Error ? error.message : 'Excel 업로드 중 오류가 발생했습니다.';
     return NextResponse.json(
-      { error: 'Excel 업로드 중 오류가 발생했습니다.' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
