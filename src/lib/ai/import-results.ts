@@ -2,7 +2,7 @@
 import { query, transaction } from '@/lib/db';
 
 // "AAR123 | KAL456" 형식: ICAO코드(2~4자) + 편명번호(1~5자리) | 동일 패턴
-const CALLSIGN_PAIR_PATTERN = /^[A-Z]{2,4}\d{1,5}\s*\|\s*[A-Z]{2,4}\d{1,5}$/;
+const CALLSIGN_PAIR_PATTERN = /^[A-Z]{2,4}\d{1,5}[A-Z]?\s*\|\s*[A-Z]{2,4}\d{1,5}[A-Z]?$/;
 
 const VALID_REASON_TYPES = new Set([
   'SAME_NUMBER',
