@@ -12,6 +12,7 @@ const VALID_REASON_TYPES = new Set([
   'DIGIT_OVERLAP',
   'PHONETIC_DIGIT',
   'LOW_RISK',
+  'OTHER',
 ]);
 
 export interface AiAnalysisResult {
@@ -55,8 +56,8 @@ export function validateResults(results: AiAnalysisResult[]): {
       continue;
     }
 
-    if (typeof item.ai_score !== 'number' || !Number.isInteger(item.ai_score) || item.ai_score < 1 || item.ai_score > 100) {
-      errors.push(`[${idx}] ai_score는 1~100 사이 정수여야 합니다. (${item.callsign_pair})`);
+    if (typeof item.ai_score !== 'number' || isNaN(item.ai_score) || item.ai_score < 1 || item.ai_score > 100) {
+      errors.push(`[${idx}] ai_score는 1~100 사이 숫자여야 합니다. (${item.callsign_pair})`);
       continue;
     }
 
