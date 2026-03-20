@@ -20,7 +20,13 @@
       "Bash(printf \"protocol=https\\\\nhost=github.com\\\\nusername=soulmatelibrary-ux\\\\n\")",
       "Bash(PGPASSWORD='Katc0012#$%^' psql \"postgresql://postgres:Katc0012%23%24%25%5E@db.rrcqfuemhgdpmlosertw.supabase.co:5432/postgres\" -c \"SELECT 1 as test;\")",
       "Bash(node -e \"const crypto = require\\(''crypto''\\); console.log\\(''JWT_SECRET='' + crypto.randomBytes\\(32\\).toString\\(''base64''\\)\\); console.log\\(''REFRESH_TOKEN_SECRET='' + crypto.randomBytes\\(32\\).toString\\(''base64''\\)\\);\")",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(''''Total results:'''', len\\(d.get\\(''''results'''',[]\\)\\)\\)\")",
+      "Bash(node -e \"const d=require\\(''./ai_analysis_result_20260319.json''\\); console.log\\(''Total results:'', d.results?.length ?? ''no results key''\\); console.log\\(''Keys:'', Object.keys\\(d\\)\\);\")",
+      "Bash(node -e \"const d=require\\(''./ai_analysis_result_20260319.json''\\); const int=d.results.filter\\(r=>Number.isInteger\\(r.ai_score\\)\\).length; const dec=d.results.filter\\(r=>!Number.isInteger\\(r.ai_score\\)\\).length; console.log\\(''정수:'', int, ''소수:'', dec, ''총:'', d.results.length\\);\")",
+      "Bash(node -e \"const d=require\\(''./ai_analysis_result_20260319.json''\\); let intC=0,decC=0; d.results.forEach\\(r=>{if\\(Number.isInteger\\(r.ai_score\\)\\)intC++;else decC++;}\\); console.log\\(''정수:'',intC,''소수:'',decC,''총:'',d.results.length\\);\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

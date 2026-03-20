@@ -86,46 +86,75 @@ export interface ProcessedPair {
 }
 
 /**
- * 미분석 + 재분석 필요 콜사인 쌍을 조회하여 가공된 데이터 반환
+ * 미분석 + 재분석 필요 콜사인 쌍의 총 건수만 조회 (배치 계산용)
  */
-export async function fetchPendingPairs(): Promise<ProcessedPair[]> {
+export async function fetchPendingPairsCount(): Promise<{ total: number; newCount: number; staleCount: number }> {
+  const airlinesResult = await query(`SELECT icao_code FROM airlines WHERE icao_code IS NOT NULL`);
+  const domesticCodes = airlinesResult.rows.map((r: { icao_code: string }) => r.icao_code);
+
+  const newCountResult = await query(`
+    SELECT COUNT(DISTINCT c.callsign_pair) AS cnt
+    FROM callsigns c
+    LEFT JOIN callsign_ai_analysis ai ON ai.callsign_pair = c.callsign_pair
+    WHERE ai.id IS NULL AND c.airline_code = ANY($1)
+  `, [domesticCodes]);
+
+  const staleCountResult = await query(`
+    SELECT COUNT(DISTINCT c.callsign_pair) AS cnt
+    FROM callsigns c
+    INNER JOIN callsign_ai_analysis ai ON ai.callsign_pair = c.callsign_pair
+    WHERE ai.needs_reanalysis = TRUE AND c.airline_code = ANY($1)
+  `, [domesticCodes]);
+
+  const newCount = parseInt(newCountResult.rows[0]?.cnt || '0', 10);
+  const staleCount = parseInt(staleCountResult.rows[0]?.cnt || '0', 10);
+
+  return { total: newCount + staleCount, newCount, staleCount };
+}
+
+/**
+ * 미분석 + 재분석 필요 콜사인 쌍을 조회하여 가공된 데이터 반환
+ * @param limit 조회 건수 제한 (기본: 500)
+ * @param offset 건너뛸 건수 (기본: 0)
+ */
+export async function fetchPendingPairs(limit: number = 500, offset: number = 0): Promise<ProcessedPair[]> {
   // 국내항공사 코드를 airlines 테이블에서 조회
   const airlinesResult = await query(`SELECT icao_code FROM airlines WHERE icao_code IS NOT NULL`);
   const domesticCodes = airlinesResult.rows.map((r: { icao_code: string }) => r.icao_code);
 
-  // 신규 미분석 pair 조회 (국내항공사만)
-  const newResult = await query(`
-    SELECT
-      'new' AS category,
-      NULL::int AS previous_score,
-      ${COMMON_SELECT}
-    FROM callsigns c
-    LEFT JOIN callsign_ai_analysis ai
-      ON ai.callsign_pair = c.callsign_pair
-    WHERE ai.id IS NULL
-      AND c.airline_code = ANY($1)
-    GROUP BY c.callsign_pair
-    ORDER BY SUM(c.occurrence_count) DESC, c.callsign_pair
-    LIMIT 500
-  `, [domesticCodes]);
+  // 신규 + 데이터변경을 합친 후 LIMIT/OFFSET 적용
+  // UNION ALL로 합쳐서 일관된 순서로 페이징
+  const combinedResult = await query(`
+    SELECT * FROM (
+      SELECT
+        'new' AS category,
+        NULL::int AS previous_score,
+        ${COMMON_SELECT}
+      FROM callsigns c
+      LEFT JOIN callsign_ai_analysis ai
+        ON ai.callsign_pair = c.callsign_pair
+      WHERE ai.id IS NULL
+        AND c.airline_code = ANY($1)
+      GROUP BY c.callsign_pair
 
-  // 데이터변경 (재분석 필요) pair 조회 (국내항공사만)
-  const staleResult = await query(`
-    SELECT
-      'stale' AS category,
-      ai.ai_score AS previous_score,
-      ${COMMON_SELECT}
-    FROM callsigns c
-    INNER JOIN callsign_ai_analysis ai
-      ON ai.callsign_pair = c.callsign_pair
-    WHERE ai.needs_reanalysis = TRUE
-      AND c.airline_code = ANY($1)
-    GROUP BY c.callsign_pair, ai.ai_score
-    ORDER BY ai.ai_score DESC, c.callsign_pair
-    LIMIT 500
-  `, [domesticCodes]);
+      UNION ALL
 
-  const allRows: PendingRow[] = [...newResult.rows, ...staleResult.rows];
+      SELECT
+        'stale' AS category,
+        ai.ai_score AS previous_score,
+        ${COMMON_SELECT}
+      FROM callsigns c
+      INNER JOIN callsign_ai_analysis ai
+        ON ai.callsign_pair = c.callsign_pair
+      WHERE ai.needs_reanalysis = TRUE
+        AND c.airline_code = ANY($1)
+      GROUP BY c.callsign_pair, ai.ai_score
+    ) combined
+    ORDER BY category ASC, pair
+    LIMIT $2 OFFSET $3
+  `, [domesticCodes, limit, offset]);
+
+  const allRows: PendingRow[] = combinedResult.rows;
 
   // 각 쌍별 오류 발생 횟수 집계
   const pairList = allRows.map(r => r.pair);

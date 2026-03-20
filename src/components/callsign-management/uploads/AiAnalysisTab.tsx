@@ -1,9 +1,12 @@
-// AI 분석 탭 - 자동 분석(API) + 수동 분석(JSON 다운로드/임포트) 통합 UI
+// AI 분석 탭 - 자동 분석(API 배치 처리) + 수동 분석(JSON 다운로드/임포트) 통합 UI
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api/client';
+
+/** 배치 크기 상수 (서버와 동일) */
+const BATCH_SIZE = 100;
 
 interface PendingPair {
   pair: string;
@@ -56,22 +59,35 @@ interface AiConfig {
   };
 }
 
-interface AutoAnalysisResult {
+interface BatchResult {
+  batchIndex: number;
   success: boolean;
-  provider?: string;
-  model?: string;
-  tokenUsage?: { input: number; output: number };
-  summary?: {
-    total: number;
-    valid: number;
-    inserted: number;
-    updated: number;
-    skipped: number;
-    errors: number;
-  };
+  pairsInBatch: number;
+  inserted: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+  tokenInput: number;
+  tokenOutput: number;
+  errorMessage?: string;
   validationErrors?: string[];
-  error?: string;
-  message?: string;
+}
+
+interface BatchProgress {
+  status: 'idle' | 'running' | 'completed' | 'cancelled';
+  currentBatch: number;
+  totalBatches: number;
+  processedPairs: number;
+  totalPairs: number;
+  batchResults: BatchResult[];
+  startedAt: number | null;
+}
+
+function formatTime(seconds: number): string {
+  if (seconds < 60) return `${seconds}초`;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}분 ${secs}초`;
 }
 
 export function AiAnalysisTab() {
@@ -80,9 +96,18 @@ export function AiAnalysisTab() {
 
   // 자동 분석 상태
   const [selectedProvider, setSelectedProvider] = useState<'anthropic' | 'openai'>('anthropic');
-  const [isAutoAnalyzing, setIsAutoAnalyzing] = useState(false);
-  const [autoResult, setAutoResult] = useState<AutoAnalysisResult | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+
+  // 배치 진행 상태
+  const [batchProgress, setBatchProgress] = useState<BatchProgress>({
+    status: 'idle',
+    currentBatch: 0,
+    totalBatches: 0,
+    processedPairs: 0,
+    totalPairs: 0,
+    batchResults: [],
+    startedAt: null,
+  });
 
   // 임포트 관련 상태
   const [importJson, setImportJson] = useState('');
@@ -94,6 +119,8 @@ export function AiAnalysisTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const validateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const isAutoAnalyzing = batchProgress.status === 'running';
 
   // 언마운트 시 진행 중인 요청 및 타이머 정리
   useEffect(() => {
@@ -125,7 +152,7 @@ export function AiAnalysisTab() {
     staleTime: 60000,
   });
 
-  // 분석 중 경과시간 타이머 (완료 후에도 값 유지, 새 분석 시작 시 리셋)
+  // 분석 중 경과시간 타이머
   useEffect(() => {
     if (!isAutoAnalyzing) return;
     const interval = setInterval(() => {
@@ -147,42 +174,184 @@ export function AiAnalysisTab() {
 
   const hasAnyProvider = configData?.providers.anthropic.configured || configData?.providers.openai.configured;
 
-  // 자동 분석 실행
+  // 예상 남은 시간 계산
+  const estimateRemainingSeconds = useCallback((): number | null => {
+    if (!isAutoAnalyzing || batchProgress.currentBatch === 0 || !batchProgress.startedAt) return null;
+    const elapsed = (Date.now() - batchProgress.startedAt) / 1000;
+    const avgPerBatch = elapsed / batchProgress.currentBatch;
+    const remainingBatches = batchProgress.totalBatches - batchProgress.currentBatch;
+    return Math.ceil(avgPerBatch * remainingBatches);
+  }, [isAutoAnalyzing, batchProgress]);
+
+  // 배치 순차 호출 실행
   const handleAutoAnalysis = async () => {
     const controller = new AbortController();
     abortControllerRef.current = controller;
     setElapsedTime(0);
-    setIsAutoAnalyzing(true);
-    setAutoResult(null);
-    try {
-      const res = await apiFetch('/api/admin/ai-analysis/auto', {
-        method: 'POST',
-        body: JSON.stringify({ provider: selectedProvider, overwrite: true }),
-        signal: controller.signal,
-      });
-      const resData: AutoAnalysisResult = await res.json();
-      setAutoResult(resData);
 
-      if (resData.success) {
-        queryClient.invalidateQueries({ queryKey: ['admin', 'ai-analysis', 'pending'] });
-        queryClient.invalidateQueries({ queryKey: ['admin', 'database'] });
-      }
+    // 1) 미분석 건수 조회
+    let totalPairs: number;
+    try {
+      const countRes = await apiFetch('/api/admin/ai-analysis/pending-count', { signal: controller.signal });
+      if (!countRes.ok) throw new Error('건수 조회 실패');
+      const countData = await countRes.json();
+      totalPairs = countData.totalPairs;
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        setAutoResult({ success: false, error: '분석이 취소되었습니다.' });
-      } else {
-        setAutoResult({ success: false, error: 'AI 분석 요청 실패' });
-      }
-    } finally {
-      abortControllerRef.current = null;
-      setIsAutoAnalyzing(false);
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      setBatchProgress(prev => ({ ...prev, status: 'completed' }));
+      return;
     }
+
+    if (totalPairs === 0) {
+      setBatchProgress({
+        status: 'completed',
+        currentBatch: 0,
+        totalBatches: 0,
+        processedPairs: 0,
+        totalPairs: 0,
+        batchResults: [],
+        startedAt: null,
+      });
+      return;
+    }
+
+    const totalBatches = Math.ceil(totalPairs / BATCH_SIZE);
+
+    setBatchProgress({
+      status: 'running',
+      currentBatch: 0,
+      totalBatches,
+      processedPairs: 0,
+      totalPairs,
+      batchResults: [],
+      startedAt: Date.now(),
+    });
+
+    // 2) 배치별 순차 호출
+    const allResults: BatchResult[] = [];
+    let totalProcessed = 0;
+
+    for (let i = 0; i < totalBatches; i++) {
+      // 취소 확인
+      if (controller.signal.aborted) {
+        setBatchProgress(prev => ({ ...prev, status: 'cancelled' }));
+        break;
+      }
+
+      // 배치 간 1초 딜레이 (첫 배치 제외)
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      // 배치 시작 UI 업데이트
+      setBatchProgress(prev => ({
+        ...prev,
+        currentBatch: i + 1,
+      }));
+
+      try {
+        const res = await apiFetch('/api/admin/ai-analysis/auto', {
+          method: 'POST',
+          body: JSON.stringify({
+            provider: selectedProvider,
+            overwrite: true,
+            batchSize: BATCH_SIZE,
+            batchOffset: i * BATCH_SIZE,
+          }),
+          signal: controller.signal,
+        });
+
+        const resData = await res.json();
+
+        const batchResult: BatchResult = {
+          batchIndex: i,
+          success: res.ok && resData.success,
+          pairsInBatch: resData.pairsInBatch ?? 0,
+          inserted: resData.summary?.inserted ?? 0,
+          updated: resData.summary?.updated ?? 0,
+          skipped: resData.summary?.skipped ?? 0,
+          errors: resData.summary?.errors ?? 0,
+          tokenInput: resData.tokenUsage?.input ?? 0,
+          tokenOutput: resData.tokenUsage?.output ?? 0,
+          errorMessage: resData.error,
+          validationErrors: resData.validationErrors,
+        };
+
+        allResults.push(batchResult);
+        totalProcessed += batchResult.pairsInBatch;
+
+        setBatchProgress(prev => ({
+          ...prev,
+          processedPairs: totalProcessed,
+          batchResults: [...allResults],
+        }));
+
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          setBatchProgress(prev => ({ ...prev, status: 'cancelled' }));
+          break;
+        }
+
+        const batchResult: BatchResult = {
+          batchIndex: i,
+          success: false,
+          pairsInBatch: 0,
+          inserted: 0,
+          updated: 0,
+          skipped: 0,
+          errors: 0,
+          tokenInput: 0,
+          tokenOutput: 0,
+          errorMessage: err instanceof Error ? err.message : 'API 요청 실패',
+        };
+
+        allResults.push(batchResult);
+
+        setBatchProgress(prev => ({
+          ...prev,
+          batchResults: [...allResults],
+        }));
+
+        // 배치 실패해도 다음 배치 계속 진행
+      }
+    }
+
+    // 3) 완료
+    if (!controller.signal.aborted) {
+      setBatchProgress(prev => ({ ...prev, status: 'completed' }));
+    }
+
+    abortControllerRef.current = null;
+
+    // 캐시 갱신
+    queryClient.invalidateQueries({ queryKey: ['admin', 'ai-analysis', 'pending'] });
+    queryClient.invalidateQueries({ queryKey: ['admin', 'database'] });
   };
 
   // 자동 분석 취소
   const handleCancelAnalysis = () => {
     abortControllerRef.current?.abort();
   };
+
+  // 배치 결과 요약 계산
+  const batchSummary = batchProgress.batchResults.reduce(
+    (acc, r) => ({
+      successBatches: acc.successBatches + (r.success ? 1 : 0),
+      failedBatches: acc.failedBatches + (r.success ? 0 : 1),
+      inserted: acc.inserted + r.inserted,
+      updated: acc.updated + r.updated,
+      skipped: acc.skipped + r.skipped,
+      errors: acc.errors + r.errors,
+      tokenInput: acc.tokenInput + r.tokenInput,
+      tokenOutput: acc.tokenOutput + r.tokenOutput,
+    }),
+    { successBatches: 0, failedBatches: 0, inserted: 0, updated: 0, skipped: 0, errors: 0, tokenInput: 0, tokenOutput: 0 }
+  );
+
+  // 진행률 계산
+  const progressPercent = batchProgress.totalBatches > 0
+    ? Math.round((batchProgress.currentBatch / batchProgress.totalBatches) * 100)
+    : 0;
 
   // 분석요청 파일 다운로드
   const handleExport = async () => {
@@ -200,7 +369,7 @@ export function AiAnalysisTab() {
       a.download = match?.[1] ?? 'ai_analysis_request.json';
       a.click();
       URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch {
       alert('분석요청 파일 다운로드에 실패했습니다.');
     } finally {
       setIsExporting(false);
@@ -310,10 +479,26 @@ export function AiAnalysisTab() {
     }
   };
 
+  // 배치 진행 초기화
+  const resetBatchProgress = () => {
+    setBatchProgress({
+      status: 'idle',
+      currentBatch: 0,
+      totalBatches: 0,
+      processedPairs: 0,
+      totalPairs: 0,
+      batchResults: [],
+      startedAt: null,
+    });
+    setElapsedTime(0);
+  };
+
   const pendingCount = data?.totalCount ?? 0;
   const newCount = data?.newCount ?? 0;
   const staleCount = data?.staleCount ?? 0;
   const pairs = data?.pairs ?? [];
+
+  const estimatedRemaining = estimateRemainingSeconds();
 
   return (
     <div className="space-y-6">
@@ -358,7 +543,12 @@ export function AiAnalysisTab() {
               {hasAnyProvider ? (
                 <>
                   <p className="text-sm text-gray-600 mt-1">
-                    AI API를 직접 호출하여 분석 결과를 자동으로 저장합니다. (약 30~120초 소요)
+                    AI API를 직접 호출하여 {BATCH_SIZE}건씩 배치로 분석합니다.
+                    {pendingCount > BATCH_SIZE && (
+                      <span className="text-violet-600 font-medium">
+                        {' '}(총 {Math.ceil(pendingCount / BATCH_SIZE)}개 배치)
+                      </span>
+                    )}
                   </p>
                   <div className="flex items-center gap-3 mt-3">
                     <select
@@ -389,84 +579,171 @@ export function AiAnalysisTab() {
                     </button>
                   </div>
 
-                  {/* 분석 진행 중 */}
+                  {/* 배치 진행 상황 */}
                   {isAutoAnalyzing && (
-                    <div className="mt-4 flex items-center gap-3 text-sm text-violet-700">
-                      <div className="w-5 h-5 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin" />
-                      <span>AI가 {pendingCount}건의 콜사인 쌍을 분석하고 있습니다...</span>
+                    <div className="mt-4 space-y-3">
+                      {/* 진행률 바 */}
+                      <div>
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-violet-700 font-medium">
+                            배치 {batchProgress.currentBatch}/{batchProgress.totalBatches} 처리 중...
+                            ({batchProgress.processedPairs}/{batchProgress.totalPairs}건)
+                          </span>
+                          <span className="text-violet-600 font-bold">{progressPercent}%</span>
+                        </div>
+                        <div className="w-full bg-violet-100 rounded-full h-2.5">
+                          <div
+                            className="bg-violet-600 h-2.5 rounded-full transition-all duration-500"
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* 예상 남은 시간 + 취소 버튼 */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-sm text-violet-700">
+                          <div className="w-4 h-4 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin" />
+                          {estimatedRemaining !== null && (
+                            <span>예상 남은 시간: 약 {formatTime(estimatedRemaining)}</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={handleCancelAnalysis}
+                          className="px-3 py-1 text-xs font-bold text-red-600 border border-red-300 rounded hover:bg-red-50 transition-colors"
+                        >
+                          취소
+                        </button>
+                      </div>
+
+                      {/* 실시간 배치 결과 */}
+                      {batchProgress.batchResults.length > 0 && (
+                        <div className="text-xs text-gray-600 space-y-1 max-h-24 overflow-y-auto">
+                          {batchProgress.batchResults.map((r) => (
+                            <div key={r.batchIndex} className={`flex items-center gap-2 ${r.success ? '' : 'text-red-600'}`}>
+                              <span>{r.success ? '●' : '●'}</span>
+                              <span>
+                                배치 {r.batchIndex + 1}: {r.success
+                                  ? `${r.inserted}건 저장, ${r.updated}건 업데이트`
+                                  : `실패 - ${r.errorMessage || '알 수 없는 오류'}`
+                                }
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 배치 완료 결과 */}
+                  {!isAutoAnalyzing && batchProgress.status === 'completed' && batchProgress.batchResults.length > 0 && (
+                    <div className={`mt-4 rounded-lg p-4 ${
+                      batchSummary.failedBatches === 0
+                        ? 'bg-green-50 border border-green-200'
+                        : 'bg-amber-50 border border-amber-200'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        {batchSummary.failedBatches === 0 ? (
+                          <>
+                            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="font-bold text-green-800">
+                              자동 분석 완료 ({elapsedTime}초, {batchProgress.totalBatches}개 배치)
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                            <span className="font-bold text-amber-800">
+                              부분 완료: {batchSummary.successBatches}/{batchProgress.totalBatches} 배치 성공, {batchSummary.failedBatches} 배치 실패 ({elapsedTime}초)
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">신규 저장:</span>
+                          <span className="font-bold text-green-600">{batchSummary.inserted}건</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">업데이트:</span>
+                          <span className="font-bold text-blue-600">{batchSummary.updated}건</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">스킵:</span>
+                          <span className="font-bold text-gray-500">{batchSummary.skipped}건</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">오류:</span>
+                          <span className="font-bold text-red-600">{batchSummary.errors}건</span>
+                        </div>
+                      </div>
+
+                      {(batchSummary.tokenInput > 0 || batchSummary.tokenOutput > 0) && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          총 토큰: 입력 {batchSummary.tokenInput.toLocaleString()} / 출력 {batchSummary.tokenOutput.toLocaleString()}
+                        </p>
+                      )}
+
+                      {/* 배치별 상세 결과 토글 */}
+                      <details className="mt-3">
+                        <summary className="text-xs text-gray-600 cursor-pointer hover:text-gray-800 font-medium">
+                          배치별 상세 결과 보기 ({batchProgress.batchResults.length}개 배치)
+                        </summary>
+                        <div className="mt-2 space-y-1 text-xs max-h-40 overflow-y-auto">
+                          {batchProgress.batchResults.map((r) => (
+                            <div key={r.batchIndex} className={`p-2 rounded ${r.success ? 'bg-white' : 'bg-red-50'}`}>
+                              <span className={`font-bold ${r.success ? 'text-green-700' : 'text-red-700'}`}>
+                                배치 {r.batchIndex + 1}
+                              </span>
+                              {r.success ? (
+                                <span className="text-gray-600 ml-2">
+                                  {r.pairsInBatch}건 처리 (저장: {r.inserted}, 업데이트: {r.updated}, 오류: {r.errors})
+                                </span>
+                              ) : (
+                                <span className="text-red-600 ml-2">
+                                  실패: {r.errorMessage || '알 수 없는 오류'}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+
                       <button
-                        onClick={handleCancelAnalysis}
-                        className="ml-auto px-3 py-1 text-xs font-bold text-red-600 border border-red-300 rounded hover:bg-red-50 transition-colors"
+                        onClick={resetBatchProgress}
+                        className="mt-3 text-xs text-gray-500 hover:text-gray-700 underline"
                       >
-                        취소
+                        결과 닫기
                       </button>
                     </div>
                   )}
 
-                  {/* 자동 분석 결과 */}
-                  {autoResult && !isAutoAnalyzing && (
-                    <div className={`mt-4 rounded-lg p-4 ${autoResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                      {autoResult.success ? (
-                        <>
-                          <div className="flex items-center gap-2 mb-2">
-                            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="font-bold text-green-800">자동 분석 완료 ({elapsedTime}초)</span>
-                          </div>
-                          {autoResult.summary && (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">신규 저장:</span>
-                                <span className="font-bold text-green-600">{autoResult.summary.inserted}건</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">업데이트:</span>
-                                <span className="font-bold text-blue-600">{autoResult.summary.updated}건</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">스킵:</span>
-                                <span className="font-bold text-gray-500">{autoResult.summary.skipped}건</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">오류:</span>
-                                <span className="font-bold text-red-600">{autoResult.summary.errors}건</span>
-                              </div>
-                            </div>
-                          )}
-                          {autoResult.tokenUsage && (
-                            <p className="text-xs text-gray-500 mt-2">
-                              토큰: 입력 {autoResult.tokenUsage.input.toLocaleString()} / 출력 {autoResult.tokenUsage.output.toLocaleString()}
-                              {autoResult.provider && autoResult.model && ` (${autoResult.provider}:${autoResult.model})`}
-                            </p>
-                          )}
-                          {autoResult.validationErrors && autoResult.validationErrors.length > 0 && (
-                            <details className="mt-2">
-                              <summary className="text-xs text-amber-600 cursor-pointer hover:text-amber-700 font-medium">
-                                검증 오류 {autoResult.validationErrors.length}건 보기
-                              </summary>
-                              <ul className="mt-1 text-xs text-amber-700 space-y-0.5 pl-3">
-                                {autoResult.validationErrors.map((err, idx) => (
-                                  <li key={idx}>• {err}</li>
-                                ))}
-                              </ul>
-                            </details>
-                          )}
-                          {autoResult.message && (
-                            <p className="text-sm text-green-700 mt-1">{autoResult.message}</p>
-                          )}
-                        </>
-                      ) : (
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="font-bold text-red-800">분석 실패</span>
-                          </div>
-                          <p className="text-sm text-red-700">{autoResult.error}</p>
-                        </div>
+                  {/* 취소된 경우 */}
+                  {!isAutoAnalyzing && batchProgress.status === 'cancelled' && (
+                    <div className="mt-4 rounded-lg p-4 bg-gray-50 border border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="font-bold text-gray-700">분석이 취소되었습니다</span>
+                      </div>
+                      {batchProgress.batchResults.length > 0 && (
+                        <p className="text-sm text-gray-600">
+                          {batchSummary.successBatches}개 배치가 이미 완료되었습니다
+                          (저장: {batchSummary.inserted}건, 업데이트: {batchSummary.updated}건).
+                          나머지 배치는 취소되었습니다.
+                        </p>
                       )}
+                      <button
+                        onClick={resetBatchProgress}
+                        className="mt-2 text-xs text-gray-500 hover:text-gray-700 underline"
+                      >
+                        결과 닫기
+                      </button>
                     </div>
                   )}
                 </>
@@ -732,7 +1009,9 @@ export function AiAnalysisTab() {
           <div>
             <h5 className="text-sm font-bold text-violet-700 mb-2">자동 분석 (API 키 설정 시)</h5>
             <p className="text-sm text-gray-600">
-              &quot;자동 분석 시작&quot; 버튼을 클릭하면 AI API를 호출하여 분석 결과가 자동으로 DB에 저장됩니다.
+              &quot;자동 분석 시작&quot; 버튼을 클릭하면 AI API를 {BATCH_SIZE}건씩 배치로 호출하여
+              분석 결과가 자동으로 DB에 저장됩니다. 각 배치는 독립적으로 처리되어
+              일부 실패해도 나머지 배치는 계속 진행됩니다.
             </p>
           </div>
           <div>

@@ -55,7 +55,7 @@ export function AirlineOccurrenceTab({
   const { isLoading: isExporting, onExport } = exportConfig;
   const [sortOrder, setSortOrder] = useState<SortOrder>('priority');
   const [actionStatusFilter, setActionStatusFilter] = useState<ActionStatusFilter>('in_progress');
-  const [showAiRecommend, setShowAiRecommend] = useState<boolean>(false);
+  const [showAiRecommend, setShowAiRecommend] = useState<boolean>(true);
   const [reasonTypeFilter, setReasonTypeFilter] = useState<string>('all');
 
   // 날짜 필터링된 incidents
@@ -141,21 +141,24 @@ export function AirlineOccurrenceTab({
     });
   }, [filteredByDate, errorTypeFilter, incidentsSearchInput, sortOrder, actionStatusFilter, reasonTypeFilter]);
 
-  // 통계 계산 - error_type GROUP BY (동적, 하드코딩 없음)
+  // 통계 계산 - 호출부호 쌍 기준 오류유형 집계
   const stats = useMemo(() => {
     const total = filteredByDate.length;
     const errorTypeCounts: Record<string, number> = {};
 
     filteredByDate.forEach((incident) => {
+      // 쌍별 대표 오류유형: occurrence 중 오류가 있으면 해당 유형, 없으면 '오류미발생'
+      const types = new Set<string>();
       (incident.occurrences || []).forEach((occ) => {
-        const t = (occ.errorType?.trim()) || '오류미발생';
+        types.add((occ.errorType?.trim()) || '오류미발생');
+      });
+      if (types.size === 0) types.add('오류미발생');
+      types.forEach((t) => {
         errorTypeCounts[t] = (errorTypeCounts[t] || 0) + 1;
       });
     });
 
-    const totalOccurrences = Object.values(errorTypeCounts).reduce((a, b) => a + b, 0);
-
-    return { total, errorTypeCounts, totalOccurrences };
+    return { total, errorTypeCounts };
   }, [filteredByDate]);
 
   // reason_type 통계 (AI 분석 유형별 건수)
@@ -290,16 +293,16 @@ export function AirlineOccurrenceTab({
               className={`flex-1 px-5 py-3 text-left transition-all hover:bg-gray-50 ${errorTypeFilter === 'all' ? 'bg-gray-50' : ''}`}
               style={{ borderLeft: '3px solid #64748b' }}
             >
-              <div className="text-xs text-gray-500 mb-1">발생건수</div>
+              <div className="text-xs text-gray-500 mb-1">전체</div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black text-gray-900">{stats.totalOccurrences}</span>
+                <span className="text-2xl font-black text-gray-900">{stats.total}</span>
                 <span className="text-sm font-bold italic text-gray-500">건</span>
               </div>
             </button>
             {Object.entries(stats.errorTypeCounts)
               .sort((a, b) => b[1] - a[1])
               .map(([type, count]) => {
-                const pct = stats.totalOccurrences > 0 ? Math.round((count / stats.totalOccurrences) * 100) : 0;
+                const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
                 const isActive = errorTypeFilter === type;
                 const borderColor = getErrorTypeColor(type).hex;
                 return (

@@ -40,7 +40,7 @@ export function AdminOccurrenceTab() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('ai_score');
   const [actionStatusFilter, setActionStatusFilter] = useState<ActionStatusFilter>('all');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
-  const [showAiRecommend, setShowAiRecommend] = useState<boolean>(false);
+  const [showAiRecommend, setShowAiRecommend] = useState<boolean>(true);
   const [errorTypeFilter, setErrorTypeFilter] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const limit = 10;
@@ -109,19 +109,21 @@ export function AdminOccurrenceTab() {
     });
   }, [rawIncidents, startDate, endDate]);
 
-  // 통계 계산 - error_type GROUP BY (동적, 하드코딩 없음)
+  // 통계 계산 - 호출부호 쌍 기준 오류유형 집계
   const stats = useMemo(() => {
     const total = filteredByDate.length;
     const errorTypeCounts: Record<string, number> = {};
 
     filteredByDate.forEach((incident) => {
+      const types = new Set<string>();
       (incident.occurrences || []).forEach((occ: any) => {
-        const t = (occ.errorType?.trim()) || '오류미발생';
+        types.add((occ.errorType?.trim()) || '오류미발생');
+      });
+      if (types.size === 0) types.add('오류미발생');
+      types.forEach((t) => {
         errorTypeCounts[t] = (errorTypeCounts[t] || 0) + 1;
       });
     });
-
-    const totalOcc = Object.values(errorTypeCounts).reduce((a, b) => a + b, 0);
 
     return {
       total,
@@ -129,7 +131,6 @@ export function AdminOccurrenceTab() {
       inProgress: filteredByDate.filter(i => i.actionStatus === 'in_progress').length,
       noAction: filteredByDate.filter(i => !i.actionStatus || i.actionStatus === 'no_action').length,
       errorTypeCounts,
-      totalOcc,
     };
   }, [filteredByDate]);
 
@@ -364,8 +365,8 @@ export function AdminOccurrenceTab() {
       {/* 통계 카드 */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
         <div className="flex items-baseline gap-3 mb-4">
-          <span className="text-xs font-medium text-gray-500">발생건수</span>
-          <span className="text-4xl font-black text-gray-900">{stats.totalOcc}</span>
+          <span className="text-xs font-medium text-gray-500">전체</span>
+          <span className="text-4xl font-black text-gray-900">{stats.total}</span>
           <span className="text-sm font-medium text-gray-500">건</span>
         </div>
         {Object.keys(stats.errorTypeCounts).length === 0 ? (
@@ -379,7 +380,7 @@ export function AdminOccurrenceTab() {
               .sort((a, b) => b[1] - a[1])
               .map(([type, count]) => {
                 const palette = getErrorTypeColor(type);
-                const pct = stats.totalOcc > 0 ? Math.round((count / stats.totalOcc) * 100) : 0;
+                const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
                 const isSelected = errorTypeFilter === type;
                 return (
                   <div

@@ -180,10 +180,8 @@ export function AirlineStatisticsTab({
             .filter(item => item.count > 0);
     }, [visibleIncidents]);
 
-    // 발생건수는 incidents 배열에서 각 incident의 count의 합계로 계산
+    // 호출부호 쌍 수
     const totalOccurrences = useMemo(() => {
-        const sum = visibleIncidents.reduce((acc, inc) => acc + Number(inc.count || 0), 0);
-        if (sum > 0) return sum;
         return visibleIncidents.length;
     }, [visibleIncidents]);
 
@@ -339,7 +337,7 @@ export function AirlineStatisticsTab({
                                 </svg>
                             </div>
                             <div className="relative z-10 flex flex-col h-full justify-between gap-4">
-                                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total Incidents<br /><span className="text-xs font-medium text-slate-400">총 발생 건수</span></h3>
+                                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total Pairs<br /><span className="text-xs font-medium text-slate-400">유사호출부호 쌍</span></h3>
                                 <div className="flex items-baseline gap-2">
                                     <span className="text-4xl font-black text-slate-800 tracking-tight">{totalOccurrences.toLocaleString()}</span>
                                     <span className="text-lg font-bold text-slate-400">건</span>

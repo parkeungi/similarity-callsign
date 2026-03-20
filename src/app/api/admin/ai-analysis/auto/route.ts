@@ -1,6 +1,7 @@
 // POST /api/admin/ai-analysis/auto - AI API를 호출하여 자동 분석 실행, 관리자 전용
+// 배치 모드: batchSize + batchOffset 파라미터로 100건씩 분할 처리
 import { NextRequest, NextResponse } from 'next/server';
-import { query, transaction } from '@/lib/db';
+import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';
 import { fetchPendingPairs } from '@/lib/ai/fetch-pending-pairs';
 import { buildAnalysisPrompt } from '@/lib/ai/prompt-builder';
@@ -12,10 +13,15 @@ import { logger } from '@/lib/logger';
 // Vercel Hobby: 최대 60초, Pro: 최대 300초 (플랜에 맞게 조정)
 export const maxDuration = 60;
 
+/** 배치 크기 상수 */
+const BATCH_SIZE = 100;
+
 interface AutoRequest {
   provider?: AiProvider;
   model?: string;
   overwrite?: boolean;
+  batchSize?: number;
+  batchOffset?: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -50,7 +56,6 @@ export async function POST(request: NextRequest) {
     }
     provider = requestedProvider;
   } else {
-    // 기본: anthropic 우선, 없으면 openai
     if (providers.anthropic.configured) {
       provider = 'anthropic';
     } else if (providers.openai.configured) {
@@ -64,59 +69,20 @@ export async function POST(request: NextRequest) {
 
   const model = body.model || providers[provider].defaultModel;
   const overwrite = body.overwrite ?? true;
+  const batchSize = body.batchSize ?? BATCH_SIZE;
+  const batchOffset = body.batchOffset ?? 0;
 
-  // 미분석 쌍 조회
-  const pairs = await fetchPendingPairs();
+  // 해당 배치의 미분석 쌍 조회 (limit/offset)
+  const pairs = await fetchPendingPairs(batchSize, batchOffset);
   if (pairs.length === 0) {
     return NextResponse.json({
       success: true,
-      message: '분석할 미분석 콜사인 쌍이 없습니다.',
+      message: '이 배치에 분석할 미분석 콜사인 쌍이 없습니다.',
+      batchOffset,
+      batchSize,
+      pairsInBatch: 0,
       summary: { total: 0, inserted: 0, updated: 0, skipped: 0, errors: 0 },
     });
-  }
-
-  // 중복 실행 방지 + Job 생성 (advisory lock으로 원자적 처리)
-  let jobId: number | null = null;
-  try {
-    jobId = await transaction(async (txQuery) => {
-      // advisory lock 획득 시도 (트랜잭션 종료 시 자동 해제)
-      const lockResult = await txQuery(`SELECT pg_try_advisory_xact_lock(1001) AS locked`);
-      if (!lockResult.rows[0]?.locked) {
-        return null; // 다른 요청이 lock 점유 중
-      }
-
-      // stale running job 자동 만료 (10분 이상 경과 시 failed 처리)
-      await txQuery(
-        `UPDATE ai_analysis_jobs SET status = 'failed', error_message = '타임아웃으로 자동 만료', completed_at = NOW()
-         WHERE status = 'running' AND started_at < NOW() - INTERVAL '10 minutes'`
-      );
-
-      // running 상태 Job 확인
-      const runningJob = await txQuery(
-        `SELECT id FROM ai_analysis_jobs WHERE status = 'running' LIMIT 1`
-      );
-      if (runningJob.rows.length > 0) {
-        return null; // 이미 진행 중
-      }
-
-      // 새 Job 생성
-      const jobResult = await txQuery(
-        `INSERT INTO ai_analysis_jobs (status, provider, model, total_pairs, started_at, created_by)
-         VALUES ('running', $1, $2, $3, NOW(), $4)
-         RETURNING id`,
-        [provider, model, pairs.length, payload.userId]
-      );
-      return jobResult.rows[0]?.id ?? null;
-    });
-  } catch {
-    // 테이블 미존재 시 무시 (마이그레이션 전)
-  }
-
-  // lock 획득 실패 또는 이미 running job 존재
-  if (jobId === null) {
-    return NextResponse.json({
-      error: '이미 진행 중인 AI 분석 작업이 있습니다. 완료 후 다시 시도하세요.',
-    }, { status: 409 });
   }
 
   try {
@@ -129,31 +95,31 @@ export async function POST(request: NextRequest) {
     // 응답 파싱
     const parsed = parseAiResponse(aiResult.text);
 
-    // DB에 저장
+    // DB에 저장 (배치 단위 커밋)
     const analyzedBy = `${provider}:${aiResult.model}`;
     const summary = await importAiResults(parsed.results, overwrite, analyzedBy);
 
-    // Job 완료 기록
-    if (jobId) {
-      try {
-        await query(
-          `UPDATE ai_analysis_jobs
-           SET status = 'completed', processed_pairs = $1, inserted_count = $2,
-               updated_count = $3, error_count = $4, token_input = $5, token_output = $6,
-               completed_at = NOW()
-           WHERE id = $7`,
-          [summary.valid, summary.inserted, summary.updated, summary.errors,
-           aiResult.inputTokens, aiResult.outputTokens, jobId]
-        );
-      } catch {
-        // 업데이트 실패 무시
-      }
+    // Job 기록 (배치별로는 간이 기록)
+    try {
+      await query(
+        `INSERT INTO ai_analysis_jobs
+         (status, provider, model, total_pairs, processed_pairs, inserted_count, updated_count, error_count,
+          token_input, token_output, started_at, completed_at, created_by)
+         VALUES ('completed', $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10)`,
+        [provider, model, pairs.length, summary.valid, summary.inserted, summary.updated, summary.errors,
+         aiResult.inputTokens, aiResult.outputTokens, payload.userId]
+      );
+    } catch {
+      // Job 기록 실패 무시
     }
 
     return NextResponse.json({
       success: true,
       provider,
       model: aiResult.model,
+      batchOffset,
+      batchSize,
+      pairsInBatch: pairs.length,
       tokenUsage: {
         input: aiResult.inputTokens,
         output: aiResult.outputTokens,
@@ -173,29 +139,29 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const rawMessage = error instanceof Error ? error.message : '알 수 없는 오류';
 
-    // Job 실패 기록 (내부 로그에는 전체 메시지 저장)
-    if (jobId) {
-      try {
-        await query(
-          `UPDATE ai_analysis_jobs
-           SET status = 'failed', error_message = $1, completed_at = NOW()
-           WHERE id = $2`,
-          [rawMessage.substring(0, 1000), jobId]
-        );
-      } catch {
-        // 업데이트 실패 무시
-      }
+    // Job 실패 기록
+    try {
+      await query(
+        `INSERT INTO ai_analysis_jobs
+         (status, provider, model, total_pairs, error_message, started_at, completed_at, created_by)
+         VALUES ('failed', $1, $2, $3, $4, NOW(), NOW(), $5)`,
+        [provider, model, pairs.length, rawMessage.substring(0, 1000), payload.userId]
+      );
+    } catch {
+      // 업데이트 실패 무시
     }
 
-    logger.error('AI 자동 분석 실패', error, 'admin/ai-analysis/auto');
+    logger.error('AI 자동 분석 배치 실패', error, 'admin/ai-analysis/auto');
 
-    // 클라이언트에는 AI 응답 원문을 노출하지 않음
     const safeMessage = rawMessage.includes('AI 응답에서')
       ? 'AI 응답 파싱 실패: JSON 형식이 올바르지 않습니다.'
       : rawMessage.substring(0, 200);
 
     return NextResponse.json({
       error: `AI 분석 실패: ${safeMessage}`,
+      batchOffset,
+      batchSize,
+      pairsInBatch: pairs.length,
     }, { status: 500 });
   }
 }
