@@ -5,8 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, verifyRefreshToken } from '@/lib/jwt';
-import bcrypt from 'bcryptjs';
+import { verifyToken, verifyRefreshToken, hashRefreshToken } from '@/lib/jwt';
 import { query } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -47,21 +46,12 @@ export async function GET(request: NextRequest) {
       }
 
       // DB 해시 검증 (로그아웃된 토큰 무효화)
-      // bcrypt.compare 사용 (bcrypt는 salt가 포함된 해시이므로 직접 비교 불가)
+      const tokenHash = hashRefreshToken(refreshToken);
       const hashCheck = await query(
-        'SELECT id, refresh_token_hash FROM users WHERE id = $1',
-        [payload.userId]
+        'SELECT id FROM users WHERE id = $1 AND refresh_token_hash = $2',
+        [payload.userId, tokenHash]
       );
-
-      if (hashCheck.rows.length === 0 || !hashCheck.rows[0].refresh_token_hash) {
-        return NextResponse.json(
-          { error: '만료된 세션입니다.' },
-          { status: 401 }
-        );
-      }
-
-      const isValidHash = await bcrypt.compare(refreshToken, hashCheck.rows[0].refresh_token_hash);
-      if (!isValidHash) {
+      if (hashCheck.rows.length === 0) {
         return NextResponse.json(
           { error: '만료된 세션입니다.' },
           { status: 401 }

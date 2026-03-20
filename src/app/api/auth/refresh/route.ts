@@ -17,7 +17,6 @@ import {
   generateRefreshToken,
   hashRefreshToken,
 } from '@/lib/jwt';
-import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
 import { COOKIE_OPTIONS } from '@/lib/constants';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
@@ -77,14 +76,8 @@ export async function POST(request: NextRequest) {
     const user = result.rows[0];
 
     // ── 3. DB 해시 검증 (탈취 토큰 차단) ───────────────────────────────────
-    // bcrypt.compare 사용 (bcrypt는 매번 다른 salt 생성하므로 직접 비교 불가)
-    if (!user.refresh_token_hash) {
-      return NextResponse.json({ error: '유효하지 않은 리프레시 토큰입니다.' }, { status: 401 });
-    }
-
-    const isValidHash = await bcrypt.compare(refreshToken, user.refresh_token_hash);
-
-    if (!isValidHash) {
+    const incomingHash = hashRefreshToken(refreshToken);
+    if (!user.refresh_token_hash || user.refresh_token_hash !== incomingHash) {
       // 해시 불일치 = 이미 로그아웃되었거나 탈취된 토큰
       return NextResponse.json({ error: '유효하지 않은 리프레시 토큰입니다.' }, { status: 401 });
     }
@@ -104,7 +97,7 @@ export async function POST(request: NextRequest) {
     });
 
     const newRefreshToken = generateRefreshToken(user.id, user.role);
-    const newHash = await hashRefreshToken(newRefreshToken);
+    const newHash = hashRefreshToken(newRefreshToken);
 
     // DB 해시 업데이트 (이전 refreshToken 즉시 무효화)
     await query(
