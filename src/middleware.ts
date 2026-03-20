@@ -1,4 +1,4 @@
-// Next.js 미들웨어 - refreshToken JWT 서명+만료 검증, 보호 경로 접근 제어
+// Next.js 미들웨어 - refreshToken JWT 서명+만료 검증, 보호 경로 접근 제어, CSP nonce 생성
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
