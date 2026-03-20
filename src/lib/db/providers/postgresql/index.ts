@@ -14,11 +14,11 @@ export class PostgreSQLProvider implements DatabaseProvider {
       throw new Error('[PostgreSQLProvider] DATABASE_URL is not set');
     }
 
-    // SSL 검증 비활성화: 명시적 환경변수 또는 개발 환경에서만 허용
-    // Supabase 프로덕션에서 필요 시 DB_DISABLE_SSL_VERIFY=true 설정
+    // SSL 검증 비활성화: 명시적 환경변수 AND 개발 환경인 경우에만 허용
+    // 프로덕션에서는 항상 SSL 검증 활성화 (보안 강화)
     const shouldDisableSslVerify =
-      process.env.DB_DISABLE_SSL_VERIFY === 'true' ||
-      process.env.NODE_ENV !== 'production';
+      process.env.DB_DISABLE_SSL_VERIFY === 'true' &&
+      process.env.NODE_ENV === 'development';
 
     let normalizedConnectionString = connectionString;
     try {

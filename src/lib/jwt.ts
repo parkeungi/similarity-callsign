@@ -9,7 +9,7 @@
  */
 
 import jwt from 'jsonwebtoken';
-import { createHash } from 'crypto';
+import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
 
 const ISSUER = 'katc1';
@@ -111,9 +111,10 @@ export function verifyRefreshToken(token: string): { userId: string } | null {
 }
 
 /**
- * RefreshToken → SHA-256 해시 (DB 저장용)
- * bcrypt 불필요 — JWT 자체가 서명된 토큰이므로 SHA-256으로 충분
+ * RefreshToken → bcrypt 해시 (DB 저장용)
+ * bcrypt 사용 — DB 유출 시에도 토큰 크랙 방지 (공공기관 보안 강화)
+ * cost=10: 적절한 성능과 보안 균형
  */
-export function hashRefreshToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
+export async function hashRefreshToken(token: string): Promise<string> {
+  return await bcrypt.hash(token, 10);
 }

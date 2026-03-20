@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
     });
 
     const refreshToken = generateRefreshToken(user.id, user.role);
-    const tokenHash = hashRefreshToken(refreshToken);
+    const tokenHash = await hashRefreshToken(refreshToken);
 
     // RefreshToken 해시 DB 저장 (로그아웃/탈취 무효화용)
     await query(
