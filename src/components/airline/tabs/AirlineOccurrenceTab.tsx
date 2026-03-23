@@ -54,8 +54,8 @@ export function AirlineOccurrenceTab({
   const { errorType: errorTypeFilter, onChange: onErrorTypeFilterChange } = filters;
   const { isLoading: isExporting, onExport } = exportConfig;
   const [sortOrder, setSortOrder] = useState<SortOrder>('priority');
-  const [actionStatusFilter, setActionStatusFilter] = useState<ActionStatusFilter>('in_progress');
-  const [showAiRecommend, setShowAiRecommend] = useState<boolean>(true);
+  const [actionStatusFilter, setActionStatusFilter] = useState<ActionStatusFilter>('all');
+  const [showAiRecommend, setShowAiRecommend] = useState<boolean>(false);
   const [reasonTypeFilter, setReasonTypeFilter] = useState<string>('all');
 
   // 날짜 필터링된 incidents

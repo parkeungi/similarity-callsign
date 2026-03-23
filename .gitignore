@@ -42,6 +42,10 @@ yarn-error.log*
 /backups/
 *.dump
 *.sql.backup
+scripts/backup-supabase.js
+
+# Windows artifacts
+nul
 
 # vercel
 .vercel

@@ -97,9 +97,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 파일 확장자 체크
-    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+    const allowedExtensions = ['.xlsx', '.xls', '.csv'];
+    const hasValidExtension = allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+    if (!hasValidExtension) {
       return NextResponse.json(
-        { error: 'Excel 파일(.xlsx, .xls)만 업로드 가능합니다.' },
+        { error: 'Excel(.xlsx, .xls) 또는 CSV(.csv) 파일만 업로드 가능합니다.' },
         { status: 400 }
       );
     }
@@ -123,7 +125,19 @@ export async function POST(request: NextRequest) {
     try {
       // 파일 데이터 읽기
       const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+      let buffer = Buffer.from(arrayBuffer);
+
+      // CSV 파일인 경우 EUC-KR → UTF-8 인코딩 변환
+      const isCSV = file.name.toLowerCase().endsWith('.csv');
+      if (isCSV) {
+        const iconv = await import('iconv-lite');
+        // BOM이 있으면 UTF-8, 없으면 EUC-KR로 판단
+        const isUTF8 = buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF;
+        if (!isUTF8) {
+          const decoded = iconv.decode(buffer, 'euc-kr');
+          buffer = Buffer.from(decoded, 'utf-8');
+        }
+      }
 
       // xlsx 라이브러리 동적 import
       const XLSX = await import('xlsx');
@@ -245,6 +259,19 @@ export async function POST(request: NextRequest) {
           // 오류발생가능성_등급이 '낮음' 또는 '매우낮음'이면 스킵
           const riskGradeNormalized = riskLevelGrade?.replace(/\s+/g, '');
           if (riskGradeNormalized && ['낮음', '매우낮음'].includes(riskGradeNormalized)) {
+            skippedCount++;
+            continue;
+          }
+
+          // 유사도가 '높음' 또는 '매우높음'인 경우만 업로드
+          const similarityNormalized = similarity?.replace(/\s+/g, '');
+          if (!similarityNormalized || !['높음', '매우높음'].includes(similarityNormalized)) {
+            skippedCount++;
+            continue;
+          }
+
+          // 공존시간 3분 미만 스킵
+          if (coexistenceMinutes !== null && coexistenceMinutes < 3) {
             skippedCount++;
             continue;
           }
@@ -539,7 +566,7 @@ export async function POST(request: NextRequest) {
             let paramIdx = 1;
 
             for (const row of batch) {
-              placeholders.push(`($${paramIdx}::uuid, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5}, $${paramIdx + 6}, $${paramIdx + 7}, $${paramIdx + 8}, $${paramIdx + 9}, $${paramIdx + 10}, $${paramIdx + 11}, $${paramIdx + 12}, $${paramIdx + 13}, $${paramIdx + 14}, $${paramIdx + 15}, $${paramIdx + 16}, $${paramIdx + 17}, $${paramIdx + 18}, $${paramIdx + 19}::uuid)`);
+              placeholders.push(`($${paramIdx}::uuid, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5}, $${paramIdx + 6}, $${paramIdx + 7}, $${paramIdx + 8}, $${paramIdx + 9}::int, $${paramIdx + 10}::decimal, $${paramIdx + 11}, $${paramIdx + 12}::int, $${paramIdx + 13}::int, $${paramIdx + 14}::decimal, $${paramIdx + 15}, $${paramIdx + 16}, $${paramIdx + 17}, $${paramIdx + 18}, $${paramIdx + 19}::uuid)`);
               values.push(
                 row.id,
                 row.sector || null,
@@ -698,20 +725,25 @@ export async function POST(request: NextRequest) {
         );
       }); // transaction 끝
 
-      // 업로드 기록 업데이트
-      await query(
-        `UPDATE file_uploads
-         SET status = 'completed',
-             total_rows = $1,
-             success_count = $2,
-             failed_count = $3,
-             error_message = $4,
-             processed_at = CURRENT_TIMESTAMP
-         WHERE id = $5`,
-        [rows.length, insertedCount + updatedCount, errors.length, errors.join('\n'), uploadId]
-      );
-
       const reDetectedCount = toUpdateCompleted.length;
+      const totalProcessed = insertedCount + updatedCount;
+
+      // 처리된 건이 0건이면 이력 삭제 (의미 없는 기록 방지)
+      if (totalProcessed === 0) {
+        await query('DELETE FROM file_uploads WHERE id = $1', [uploadId]);
+      } else {
+        await query(
+          `UPDATE file_uploads
+           SET status = 'completed',
+               total_rows = $1,
+               success_count = $2,
+               failed_count = $3,
+               error_message = $4,
+               processed_at = CURRENT_TIMESTAMP
+           WHERE id = $5`,
+          [rows.length, totalProcessed, errors.length, errors.join('\n'), uploadId]
+        );
+      }
 
       return NextResponse.json({
         success: true,
@@ -724,15 +756,8 @@ export async function POST(request: NextRequest) {
         errors: errors.slice(0, 10),
       });
     } catch (parseError) {
-      // 파싱 실패 시 업로드 기록 업데이트
-      await query(
-        `UPDATE file_uploads
-         SET status = 'failed',
-             error_message = $1
-         WHERE id = $2`,
-        [parseError instanceof Error ? parseError.message : '파일 파싱 오류', uploadId]
-      );
-
+      // 파싱 실패 시 이력 삭제 (처리된 데이터 없으므로)
+      await query('DELETE FROM file_uploads WHERE id = $1', [uploadId]);
       throw parseError;
     }
   } catch (error) {

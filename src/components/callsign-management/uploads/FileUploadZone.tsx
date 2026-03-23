@@ -90,8 +90,9 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
   };
 
   const handleFileSelect = (file: File) => {
-    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-      setError('.xlsx 또는 .xls 파일만 지원합니다.');
+    const allowedExtensions = ['.xlsx', '.xls', '.csv'];
+    if (!allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext))) {
+      setError('.xlsx, .xls, .csv 파일만 지원합니다.');
       setSelectedFile(null);
       return;
     }
@@ -199,12 +200,12 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
           {selectedFile ? selectedFile.name : '파일을 드래그하거나 클릭해서 선택'}
         </div>
         <p className="text-xs text-gray-400">
-          {selectedFile ? `${(selectedFile.size / 1024).toFixed(1)} KB` : '.xlsx, .xls 파일만 지원 (최대 10MB)'}
+          {selectedFile ? `${(selectedFile.size / 1024).toFixed(1)} KB` : '.xlsx, .xls, .csv 파일만 지원 (최대 10MB)'}
         </p>
         <input
           ref={fileInputRef}
           type="file"
-          accept=".xlsx,.xls"
+          accept=".xlsx,.xls,.csv"
           onChange={(e) => e.target.files && handleFileSelect(e.target.files[0])}
           className="hidden"
         />
@@ -281,6 +282,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
           <li>- 편명1 또는 편명2에서 국내 항공사 코드를 추출합니다.</li>
           <li>- 유사도 및 오류발생가능성 정보가 자동 매핑됩니다.</li>
           <li>- 중복된 유사호출부호 쌍은 자동 업데이트됩니다.</li>
+          <li>- 유사도 높음/매우높음, 공존시간 3분 이상만 등록됩니다.</li>
           <li className="pt-2 border-t border-dashed border-gray-200">
             <strong>필수 컬럼:</strong> 편명1, 편명2 (나머지는 선택사항)
           </li>

@@ -89,8 +89,8 @@ export interface ProcessedPair {
  * 미분석 + 재분석 필요 콜사인 쌍의 총 건수만 조회 (배치 계산용)
  */
 export async function fetchPendingPairsCount(): Promise<{ total: number; newCount: number; staleCount: number }> {
-  const airlinesResult = await query(`SELECT icao_code FROM airlines WHERE icao_code IS NOT NULL`);
-  const domesticCodes = airlinesResult.rows.map((r: { icao_code: string }) => r.icao_code);
+  const airlinesResult = await query(`SELECT code FROM airlines WHERE code IS NOT NULL`);
+  const domesticCodes = airlinesResult.rows.map((r: { code: string }) => r.code);
 
   const newCountResult = await query(`
     SELECT COUNT(DISTINCT c.callsign_pair) AS cnt
@@ -119,8 +119,8 @@ export async function fetchPendingPairsCount(): Promise<{ total: number; newCoun
  */
 export async function fetchPendingPairs(limit: number = 500, offset: number = 0): Promise<ProcessedPair[]> {
   // 국내항공사 코드를 airlines 테이블에서 조회
-  const airlinesResult = await query(`SELECT icao_code FROM airlines WHERE icao_code IS NOT NULL`);
-  const domesticCodes = airlinesResult.rows.map((r: { icao_code: string }) => r.icao_code);
+  const airlinesResult = await query(`SELECT code FROM airlines WHERE code IS NOT NULL`);
+  const domesticCodes = airlinesResult.rows.map((r: { code: string }) => r.code);
 
   // 신규 + 데이터변경을 합친 후 LIMIT/OFFSET 적용
   // UNION ALL로 합쳐서 일관된 순서로 페이징

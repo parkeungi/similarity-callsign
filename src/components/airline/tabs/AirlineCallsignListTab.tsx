@@ -402,6 +402,7 @@ export function AirlineCallsignListTab({
                   <col className="w-[60px]" />
                   <col className="w-[100px]" />
                   <col className="w-[130px]" />
+                  <col className="w-[90px]" />
                   <col className="w-[80px]" />
                 </colgroup>
                 <thead>
@@ -429,6 +430,9 @@ export function AirlineCallsignListTab({
                     </th>
                     <th className="px-4 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                       조치유형
+                    </th>
+                    <th className="px-4 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                      처리일자
                     </th>
                     <th className="px-4 py-5 text-left text-[12px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                       상태
@@ -513,6 +517,16 @@ export function AirlineCallsignListTab({
 
                         {/* 조치유형 */}
                         <td className="px-4 py-4 text-gray-600 font-semibold">{callsign.action_type || '-'}</td>
+
+                        {/* 처리일자 */}
+                        <td className="px-4 py-4 text-gray-500 font-medium text-[13px]">
+                          {callsign.action_completed_at
+                            ? new Date(callsign.action_completed_at).toLocaleDateString('ko-KR', {
+                                month: 'long',
+                                day: 'numeric',
+                              })
+                            : '-'}
+                        </td>
 
                         {/* 상태 */}
                         <td className="px-4 py-4">

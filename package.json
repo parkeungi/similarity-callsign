@@ -20,6 +20,7 @@
     "axios": "^1.13.5",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
+    "iconv-lite": "^0.7.2",
     "jose": "^6.2.1",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.294.0",
