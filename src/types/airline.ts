@@ -70,6 +70,12 @@ export interface Incident {
   actionStatus?: 'no_action' | 'pending' | 'in_progress' | 'completed';
   actionType?: string | null;
   actionCompletedAt?: string | null;
+  // 상대 항공사 조치 상태
+  otherActionStatus?: 'no_action' | 'pending' | 'in_progress' | 'completed';
+  otherActionType?: string | null;
+  otherActionDescription?: string | null;
+  otherManagerName?: string | null;
+  otherActionCompletedAt?: string | null;
   // AI 분석 데이터
   aiScore?: number | null;
   aiReason?: string | null;

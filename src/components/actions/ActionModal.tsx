@@ -154,6 +154,50 @@ export function ActionModal({
             </div>
           )}
 
+          {/* 상대 항공사 조치 내역 (읽기 전용) */}
+          {selectedCallsign && (() => {
+            const cs = selectedCallsign as any;
+            const otherStatus = cs.other_action_status || cs.otherActionStatus;
+            const hasOther = otherStatus && otherStatus !== 'no_action';
+            if (!hasOther) return null;
+            const otherType = cs.other_action_type || cs.otherActionType || '-';
+            const otherCompletedAt = cs.other_action_completed_at || cs.otherActionCompletedAt;
+            const otherDesc = cs.other_action_description || cs.otherActionDescription;
+            return (
+              <div className="bg-amber-900/15 p-3.5 rounded-none border border-amber-800/40 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-amber-400">상대 항공사 조치 내역</span>
+                  <span className={`px-2 py-0.5 rounded-none text-[10px] font-bold border ${
+                    otherStatus === 'completed'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                  }`}>
+                    {otherStatus === 'completed' ? '완료' : '진행중'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-slate-500">조치유형: </span>
+                    <span className="text-slate-300 font-semibold">{otherType}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">처리일자: </span>
+                    <span className="text-slate-300 font-semibold">
+                      {otherCompletedAt ? new Date(otherCompletedAt).toLocaleDateString('ko-KR') : '-'}
+                    </span>
+                  </div>
+                </div>
+                {otherDesc && (
+                  <div className="mt-2 pt-2 border-t border-amber-800/30 text-xs">
+                    <span className="text-slate-500">상세: </span>
+                    <span className="text-slate-300">{otherDesc}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           <form id="action-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
             {/* 유사호출부호 */}
             <div>

@@ -166,7 +166,7 @@ export async function GET(
 
       // 조치 상태 조회 (양쪽 항공사 모두 조회 - 재발생 판단을 위해)
       const actionsResult = await query(
-        `SELECT a.id, a.callsign_id, a.airline_id, a.status, a.action_type, a.description, a.completed_at,
+        `SELECT a.id, a.callsign_id, a.airline_id, a.status, a.action_type, a.description, a.manager_name, a.completed_at,
                 al.code as action_airline_code
          FROM actions a
          JOIN airlines al ON al.id = a.airline_id
@@ -345,6 +345,9 @@ export async function GET(
           action_completed_at: myAction?.completed_at || null,
           // 상대 항공사 조치 상태 추가 (국내↔국내 재발생 판단용)
           other_action_status: otherAction?.status || 'no_action',
+          other_action_type: otherAction?.action_type || null,
+          other_action_description: otherAction?.description || null,
+          other_manager_name: otherAction?.manager_name || null,
           other_action_completed_at: otherAction?.completed_at || null,
           // camelCase 별칭
           airlineId: callsign.airline_id,
@@ -371,6 +374,9 @@ export async function GET(
           actionDescription: myAction?.description || null,
           actionCompletedAt: myAction?.completed_at || null,
           otherActionStatus: otherAction?.status || 'no_action',
+          otherActionType: otherAction?.action_type || null,
+          otherActionDescription: otherAction?.description || null,
+          otherManagerName: otherAction?.manager_name || null,
           otherActionCompletedAt: otherAction?.completed_at || null,
           // 재발생 여부
           re_detected: reDetectedValue,

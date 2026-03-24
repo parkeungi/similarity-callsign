@@ -155,6 +155,65 @@ export function ActionDetailModal({
             </div>
           )}
 
+          {/* 상대 항공사 조치 내역 */}
+          {(() => {
+            const otherStatus = (callsign as any).other_action_status || (callsign as any).otherActionStatus;
+            const otherType = (callsign as any).other_action_type || (callsign as any).otherActionType;
+            const otherDesc = (callsign as any).other_action_description || (callsign as any).otherActionDescription;
+            const otherManager = (callsign as any).other_manager_name || (callsign as any).otherManagerName;
+            const otherCompletedAt = (callsign as any).other_action_completed_at || (callsign as any).otherActionCompletedAt;
+            const hasOtherAction = otherStatus && otherStatus !== 'no_action';
+
+            return (
+              <div className="bg-amber-900/15 p-4 rounded-none border border-amber-800/40 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                <h3 className="text-sm font-bold text-amber-400 mb-3.5">상대 항공사 조치 내역</h3>
+                {hasOtherAction ? (
+                  <>
+                    <div className="grid grid-cols-3 gap-4 mb-3">
+                      <div>
+                        <div className="text-[11px] font-medium text-slate-400 mb-1">조치유형</div>
+                        <div className="text-sm font-bold text-slate-100">{otherType || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] font-medium text-slate-400 mb-1">처리일자</div>
+                        <div className="text-sm font-bold text-slate-100">
+                          {otherCompletedAt
+                            ? new Date(otherCompletedAt).toLocaleDateString('ko-KR')
+                            : '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] font-medium text-slate-400 mb-1">상태</div>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-none text-xs font-bold border ${
+                          otherStatus === 'completed'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        }`}>
+                          {otherStatus === 'completed' ? '완료' : '진행중'}
+                        </span>
+                      </div>
+                    </div>
+                    {otherManager && (
+                      <div className="mb-3">
+                        <div className="text-[11px] font-medium text-slate-400 mb-1">담당자</div>
+                        <div className="text-sm text-slate-300">{otherManager}</div>
+                      </div>
+                    )}
+                    {otherDesc && (
+                      <div className="pt-3 border-t border-amber-800/30">
+                        <div className="text-[11px] font-medium text-slate-400 mb-1.5">상세내용</div>
+                        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{otherDesc}</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-500">아직 상대 항공사의 조치가 등록되지 않았습니다.</p>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Error Type Breakdown - 동적 GROUP BY */}
           <div>
             <h3 className="text-sm font-bold text-slate-300 mb-3">오류유형별 집계</h3>

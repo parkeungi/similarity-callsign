@@ -183,6 +183,12 @@ export default function AirlinePage() {
       actionStatus: cs.action_status || cs.actionStatus || 'no_action',
       actionType: cs.action_type || cs.actionType || null,
       actionCompletedAt: cs.action_completed_at || cs.actionCompletedAt || null,
+      // 상대 항공사 조치 상태
+      otherActionStatus: cs.other_action_status || cs.otherActionStatus || 'no_action',
+      otherActionType: cs.other_action_type || cs.otherActionType || null,
+      otherActionDescription: cs.other_action_description || cs.otherActionDescription || null,
+      otherManagerName: cs.other_manager_name || cs.otherManagerName || null,
+      otherActionCompletedAt: cs.other_action_completed_at || cs.otherActionCompletedAt || null,
       // AI 분석 데이터
       aiScore: cs.ai_score ?? cs.aiScore ?? null,
       aiReason: cs.ai_reason ?? cs.aiReason ?? null,

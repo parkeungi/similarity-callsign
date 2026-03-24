@@ -412,6 +412,12 @@ export function AirlineOccurrenceTab({
                     })()}
                   </div>
                   <div className="flex items-center gap-1.5">
+                    {/* 상대 항공사 조치완료 배지 */}
+                    {incident.otherActionStatus === 'completed' && (
+                      <span className="px-2 py-1 text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded">
+                        상대사 조치완료
+                      </span>
+                    )}
                     {/* 재검출 배지 */}
                     {(incident as any).reDetected && (
                       <span className="px-2 py-1 text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200 rounded animate-pulse">
