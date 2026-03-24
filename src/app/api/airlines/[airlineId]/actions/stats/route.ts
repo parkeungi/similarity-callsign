@@ -32,6 +32,11 @@ export async function GET(
       return NextResponse.json({ error: '유효하지 않은 토큰입니다.' }, { status: 401 });
     }
 
+    // 권한 검증: 관리자이거나 해당 항공사 소속 사용자만 접근
+    if (payload.role !== 'admin' && payload.airlineId !== airlineId) {
+      return NextResponse.json({ error: '접근 권한이 없습니다.' }, { status: 403 });
+    }
+
     // 항공사 존재 여부 확인
     const airlineResult = await query('SELECT id FROM airlines WHERE id = $1', [airlineId]);
     if (airlineResult.rows.length === 0) {

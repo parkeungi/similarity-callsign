@@ -251,6 +251,9 @@ CREATE TABLE IF NOT EXISTS callsigns (
   file_upload_id UUID REFERENCES file_uploads(id) ON DELETE SET NULL,
   uploaded_at TIMESTAMP,
 
+  -- 재검출 확인
+  re_detected_acknowledged_at TIMESTAMPTZ,    -- 재검출 확인 시각 (NULL=미확인)
+
   -- 상태 관리
   status VARCHAR(20) NOT NULL DEFAULT 'in_progress'
     CHECK (status IN ('in_progress', 'completed')),
@@ -320,6 +323,18 @@ CREATE INDEX IF NOT EXISTS idx_callsign_occurrences_callsign_id ON callsign_occu
 CREATE INDEX IF NOT EXISTS idx_callsign_occurrences_occurred_date ON callsign_occurrences(occurred_date DESC);
 -- 성능 최적화: LATERAL JOIN 발생이력 조회용
 CREATE INDEX IF NOT EXISTS idx_occurrences_callsign_date_time ON callsign_occurrences(callsign_id, occurred_date DESC, occurred_time DESC NULLS LAST);
+
+-- 2-2. callsign_uploads 중간 테이블 (callsigns ↔ file_uploads 다대다 관계)
+-- 업로드 삭제 시 해당 업로드에서만 추가된 콜사인만 삭제하기 위한 추적 테이블
+CREATE TABLE IF NOT EXISTS callsign_uploads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  callsign_id UUID NOT NULL REFERENCES callsigns(id) ON DELETE CASCADE,
+  file_upload_id UUID NOT NULL REFERENCES file_uploads(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(callsign_id, file_upload_id)
+);
+CREATE INDEX IF NOT EXISTS idx_callsign_uploads_callsign ON callsign_uploads(callsign_id);
+CREATE INDEX IF NOT EXISTS idx_callsign_uploads_upload ON callsign_uploads(file_upload_id);
 
 -- 3. actions 테이블 (조치 이력 관리)
 CREATE TABLE IF NOT EXISTS actions (

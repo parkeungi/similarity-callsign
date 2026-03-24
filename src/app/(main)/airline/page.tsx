@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import * as XLSX from 'xlsx';
 import { parseJsonCookie } from '@/lib/cookies';
 import { ROUTES } from '@/lib/constants';
-import { useAirlineActions, useAirlineActionStats, useAirlineCallsigns } from '@/hooks/useActions';
+import { useAirlineActions, useAirlineActionStats, useAirlineCallsigns, useAcknowledgeReDetection } from '@/hooks/useActions';
 import { useActiveAnnouncements, useAnnouncementHistory } from '@/hooks/useAnnouncements';
 import { useDateRangeFilter, formatDateInput, toInputDate } from '@/hooks/useDateRangeFilter';
 import { useAirlineModal } from '@/hooks/useAirlineModal';
@@ -110,8 +110,12 @@ export default function AirlinePage() {
     search: actionSearch || undefined,
     page: actionPage,
     limit: actionLimit,
+  }, {
+    enabled: activeTab === 'action-history'
   });
 
+
+  const acknowledgeMutation = useAcknowledgeReDetection();
 
   const { data: callsignsData, isLoading: callsignsLoading } = useAirlineCallsigns(airlineId, {
     limit: 1000,
@@ -195,6 +199,7 @@ export default function AirlinePage() {
       reasonType: cs.reason_type ?? cs.reasonType ?? null,
       // 재검출 (조치완료 후 재발생)
       reDetected: cs.re_detected ?? cs.reDetected ?? false,
+      reDetectedAcknowledged: cs.re_detected_acknowledged ?? cs.reDetectedAcknowledged ?? false,
     }));
   }, [callsignsData]);
 
@@ -232,6 +237,7 @@ export default function AirlinePage() {
       return;
     }
 
+    setIsExporting(true);
     try {
       const rows = incidents.map((incident) => ({
         '호출부호 쌍': incident.pair,
@@ -253,8 +259,10 @@ export default function AirlinePage() {
       XLSX.writeFile(workbook, fileName);
     } catch {
       window.alert('엑셀 파일 생성 중 문제가 발생했습니다.');
+    } finally {
+      setIsExporting(false);
     }
-  }, [incidents, airlineCode]);
+  }, [incidents, airlineCode, isExporting]);
 
   const handleOpenActionModal = useCallback((incident: Incident) => {
     if (!airlineId) {
@@ -264,6 +272,13 @@ export default function AirlinePage() {
     }
     modal.openActionModal(incident);
   }, [airlineId, modal]);
+
+  const handleAcknowledge = useCallback((incident: Incident) => {
+    if (!airlineId) return;
+    const callsignId = incident.id;
+    if (!callsignId) return;
+    acknowledgeMutation.mutate({ airlineId, callsignId });
+  }, [airlineId, acknowledgeMutation]);
 
   const handleActionSuccess = useCallback(() => {
     modal.closeModal();
@@ -375,6 +390,7 @@ export default function AirlinePage() {
                   onExport: handleExportIncidents,
                 }}
                 onOpenActionModal={handleOpenActionModal}
+                onAcknowledge={handleAcknowledge}
               />
             )}
 

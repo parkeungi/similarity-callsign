@@ -80,6 +80,9 @@ export interface Incident {
   aiScore?: number | null;
   aiReason?: string | null;
   reasonType?: string | null;
+  // 재검출
+  reDetected?: boolean;
+  reDetectedAcknowledged?: boolean;
 }
 
 /**
@@ -286,6 +289,9 @@ export const AIRLINE_CODE_MAP: AirlineCodeMap = {
   FGW: { n: '플라이강원' },
   ARK: { n: '에어로케이항공' },
   APZ: { n: '에어프레미아' },
+  EOK: { n: '에어로케이' },
+  AIH: { n: '에어제타' },
+  PTA: { n: '파라타항공' },
 };
 
 /**

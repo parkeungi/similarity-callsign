@@ -53,12 +53,12 @@ export default function PreflightSearchPanel() {
 
   const riskBadge = (level: string) => {
     if (level === '매우높음') {
-      return <span className="px-2 py-0.5 text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 uppercase tracking-wider">CRITICAL</span>;
+      return <span className="px-2 py-0.5 text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 tracking-wider">매우높음</span>;
     }
     if (level === '높음') {
-      return <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase tracking-wider">HIGH</span>;
+      return <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 tracking-wider">높음</span>;
     }
-    return <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30 uppercase tracking-wider">LOW</span>;
+    return <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30 tracking-wider">낮음</span>;
   };
 
   // 같은 요일에 발생 이력이 있는 결과만 필터
@@ -177,6 +177,31 @@ export default function PreflightSearchPanel() {
                     )}
                     <span>총 발생: {result.occurrenceCount}회</span>
                   </div>
+
+                  {/* 요일별 발생 횟수 */}
+                  {result.occurrencesByDay && result.occurrenceCount > 0 && (
+                    <div className="flex items-center gap-1">
+                      {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => {
+                        const cnt = result.occurrencesByDay?.[i] || 0;
+                        const isToday = dayOfWeek.startsWith(d);
+                        return (
+                          <div
+                            key={d}
+                            className={`flex flex-col items-center min-w-[24px] px-1 py-0.5 text-[9px] font-bold rounded-sm ${
+                              cnt > 0
+                                ? isToday
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                  : 'bg-white/5 text-white/60'
+                                : 'text-white/15'
+                            }`}
+                          >
+                            <span>{d}</span>
+                            <span className={cnt > 0 ? 'text-[10px]' : ''}>{cnt > 0 ? cnt : '-'}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {/* 발생 시간대 */}
                   <div className="space-y-1.5">

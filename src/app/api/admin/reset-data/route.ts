@@ -67,35 +67,35 @@ export async function POST(request: NextRequest) {
       // FK 순서에 맞춰 삭제 (audit_logs는 제외 - 마지막에 로깅)
       // 1. announcement_views (announcements + users 참조)
       const result1 = await txQuery('DELETE FROM announcement_views');
-      deletedCounts.announcement_views = result1.changes;
+      deletedCounts.announcement_views = result1.rowCount;
 
       // 2. action_history (actions 참조)
       const result2 = await txQuery('DELETE FROM action_history');
-      deletedCounts.action_history = result2.changes;
+      deletedCounts.action_history = result2.rowCount;
 
       // 3. actions (airlines, callsigns, users 참조)
       const result3 = await txQuery('DELETE FROM actions');
-      deletedCounts.actions = result3.changes;
+      deletedCounts.actions = result3.rowCount;
 
       // 4. callsign_occurrences (callsigns 참조)
       const result4 = await txQuery('DELETE FROM callsign_occurrences');
-      deletedCounts.callsign_occurrences = result4.changes;
+      deletedCounts.callsign_occurrences = result4.rowCount;
 
       // 5. callsigns (airlines, file_uploads 참조)
       const result5 = await txQuery('DELETE FROM callsigns');
-      deletedCounts.callsigns = result5.changes;
+      deletedCounts.callsigns = result5.rowCount;
 
       // 6. announcements (users 참조)
       const result6 = await txQuery('DELETE FROM announcements');
-      deletedCounts.announcements = result6.changes;
+      deletedCounts.announcements = result6.rowCount;
 
       // 7. file_uploads (users 참조)
       const result7 = await txQuery('DELETE FROM file_uploads');
-      deletedCounts.file_uploads = result7.changes;
+      deletedCounts.file_uploads = result7.rowCount;
 
       // 8. password_history (users 참조)
       const result8 = await txQuery('DELETE FROM password_history');
-      deletedCounts.password_history = result8.changes;
+      deletedCounts.password_history = result8.rowCount;
 
       // 9. 초기화 이벤트를 audit_logs에 기록 (마지막)
       const auditLogData = JSON.stringify({

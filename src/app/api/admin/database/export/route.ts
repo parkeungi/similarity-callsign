@@ -1,29 +1,12 @@
-// GET /api/admin/database/export - 전체 DB를 JSON으로 내보내기, 모든 테이블 순회 덤프, 관리자 전용
+// POST /api/admin/database/export - 선택한 테이블을 엑셀(XLSX)로 내보내기, 관리자 전용
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';
 import * as XLSX from 'xlsx';
 import { logger } from '@/lib/logger';
+import { ALLOWED_ADMIN_TABLES, MASKED_COLUMNS } from '@/lib/db/admin-tables';
 
-// 허용된 테이블 목록 (화이트리스트 - SQL Injection 방지)
-const ALLOWED_TABLES = new Set([
-  'users',
-  'airlines',
-  'callsigns',
-  'callsign_occurrences',
-  'actions',
-  'action_history',
-  'action_types',
-  'announcements',
-  'announcement_views',
-  'file_uploads',
-  'callsign_ai_analysis',
-  'password_history',
-  'audit_logs',
-]);
-
-// 마스킹할 컬럼
-const MASKED_COLUMNS = new Set(['password', 'password_hash', 'hashed_password', 'refresh_token', 'refresh_token_hash']);
+const MAX_EXPORT_ROWS = 100000;
 
 export async function POST(request: NextRequest) {
   const token = request.headers.get('Authorization')?.substring(7);
@@ -45,7 +28,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 화이트리스트 검증
-  const invalidTables = tables.filter((t) => !ALLOWED_TABLES.has(t));
+  const invalidTables = tables.filter((t) => !ALLOWED_ADMIN_TABLES.has(t));
   if (invalidTables.length > 0) {
     return NextResponse.json(
       { error: `허용되지 않은 테이블: ${invalidTables.join(', ')}` },
@@ -57,7 +40,9 @@ export async function POST(request: NextRequest) {
     const workbook = XLSX.utils.book_new();
 
     for (const tableName of tables) {
-      const result = await query(`SELECT * FROM "${tableName}" ORDER BY 1`);
+      const result = await query(
+        `SELECT * FROM "${tableName}" ORDER BY 1 LIMIT ${MAX_EXPORT_ROWS}`
+      );
 
       const rows = result.rows.map((row: Record<string, unknown>) => {
         const masked = { ...row };
@@ -82,7 +67,6 @@ export async function POST(request: NextRequest) {
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
-    // 감사 로그: 데이터 내보내기
     logger.info('관리자 작업: DB 데이터 내보내기', 'admin/database/export', {
       adminId: payload.userId,
       tables: tables,

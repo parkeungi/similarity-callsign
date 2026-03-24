@@ -112,107 +112,117 @@ export function ActionDetailModal({
             </div>
           </div>
 
-          {/* Action Info (if exists) */}
-          {callsign.action_id && (
+          {/* 조치 정보 + 상대 항공사 조치 내역 (좌우 반반) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 내 조치 정보 */}
             <div className="bg-blue-900/20 p-4 rounded-none border border-blue-800/50 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
               <h3 className="text-sm font-bold text-blue-400 mb-3.5">조치 정보</h3>
-              <div className="grid grid-cols-3 gap-4 mb-3">
-                <div>
-                  <div className="text-[11px] font-medium text-slate-400 mb-1">조치유형</div>
-                  <div className="text-sm font-bold text-slate-100">{callsign.action_type || '-'}</div>
-                </div>
-                <div>
-                  <div className="text-[11px] font-medium text-slate-400 mb-1">처리일자</div>
-                  <div className="text-sm font-bold text-slate-100">
-                    {callsign.action_completed_at
-                      ? new Date(callsign.action_completed_at).toLocaleDateString('ko-KR')
-                      : '-'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[11px] font-medium text-slate-400 mb-1">상태</div>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-none text-xs font-bold border ${
-                    callsign.action_status === 'completed'
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                      : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                  }`}>
-                    {callsign.action_status === 'completed' ? '✓ 완료' : callsign.action_status === 'in_progress' ? '진행중' : '미조치'}
-                  </span>
-                </div>
-              </div>
-              {/* 조치 상세내용 */}
-              <div className="pt-3 border-t border-blue-800/40">
-                <div className="text-[11px] font-medium text-slate-400 mb-1.5">상세내용</div>
-                {callsign.action_description ? (
-                  <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
-                    {callsign.action_description}
-                  </p>
-                ) : (
-                  <p className="text-sm text-slate-500 italic">-</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 상대 항공사 조치 내역 */}
-          {(() => {
-            const otherStatus = (callsign as any).other_action_status || (callsign as any).otherActionStatus;
-            const otherType = (callsign as any).other_action_type || (callsign as any).otherActionType;
-            const otherDesc = (callsign as any).other_action_description || (callsign as any).otherActionDescription;
-            const otherManager = (callsign as any).other_manager_name || (callsign as any).otherManagerName;
-            const otherCompletedAt = (callsign as any).other_action_completed_at || (callsign as any).otherActionCompletedAt;
-            const hasOtherAction = otherStatus && otherStatus !== 'no_action';
-
-            return (
-              <div className="bg-amber-900/15 p-4 rounded-none border border-amber-800/40 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
-                <h3 className="text-sm font-bold text-amber-400 mb-3.5">상대 항공사 조치 내역</h3>
-                {hasOtherAction ? (
-                  <>
-                    <div className="grid grid-cols-3 gap-4 mb-3">
-                      <div>
-                        <div className="text-[11px] font-medium text-slate-400 mb-1">조치유형</div>
-                        <div className="text-sm font-bold text-slate-100">{otherType || '-'}</div>
-                      </div>
-                      <div>
+              {callsign.action_id ? (
+                <>
+                  <div className="space-y-3 mb-3">
+                    <div>
+                      <div className="text-[11px] font-medium text-slate-400 mb-1">조치유형</div>
+                      <div className="text-sm font-bold text-slate-100">{callsign.action_type || '-'}</div>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="flex-1">
                         <div className="text-[11px] font-medium text-slate-400 mb-1">처리일자</div>
                         <div className="text-sm font-bold text-slate-100">
-                          {otherCompletedAt
-                            ? new Date(otherCompletedAt).toLocaleDateString('ko-KR')
+                          {callsign.action_completed_at
+                            ? new Date(callsign.action_completed_at).toLocaleDateString('ko-KR')
                             : '-'}
                         </div>
                       </div>
                       <div>
                         <div className="text-[11px] font-medium text-slate-400 mb-1">상태</div>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-none text-xs font-bold border ${
-                          otherStatus === 'completed'
+                          callsign.action_status === 'completed'
                             ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                            : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                            : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
                         }`}>
-                          {otherStatus === 'completed' ? '완료' : '진행중'}
+                          {callsign.action_status === 'completed' ? '✓ 완료' : callsign.action_status === 'in_progress' ? '진행중' : '미조치'}
                         </span>
                       </div>
                     </div>
-                    {otherManager && (
-                      <div className="mb-3">
-                        <div className="text-[11px] font-medium text-slate-400 mb-1">담당자</div>
-                        <div className="text-sm text-slate-300">{otherManager}</div>
-                      </div>
+                  </div>
+                  <div className="pt-3 border-t border-blue-800/40">
+                    <div className="text-[11px] font-medium text-slate-400 mb-1.5">상세내용</div>
+                    {callsign.action_description ? (
+                      <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+                        {callsign.action_description}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-slate-500 italic">-</p>
                     )}
-                    {otherDesc && (
-                      <div className="pt-3 border-t border-amber-800/30">
-                        <div className="text-[11px] font-medium text-slate-400 mb-1.5">상세내용</div>
-                        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{otherDesc}</p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-slate-500">아직 조치가 등록되지 않았습니다.</p>
+              )}
+            </div>
+
+            {/* 상대 항공사 조치 내역 */}
+            {(() => {
+              const otherStatus = (callsign as any).other_action_status || (callsign as any).otherActionStatus;
+              const otherType = (callsign as any).other_action_type || (callsign as any).otherActionType;
+              const otherDesc = (callsign as any).other_action_description || (callsign as any).otherActionDescription;
+              const otherManager = (callsign as any).other_manager_name || (callsign as any).otherManagerName;
+              const otherCompletedAt = (callsign as any).other_action_completed_at || (callsign as any).otherActionCompletedAt;
+              const hasOtherAction = otherStatus && otherStatus !== 'no_action';
+
+              return (
+                <div className="bg-amber-900/15 p-4 rounded-none border border-amber-800/40 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                  <h3 className="text-sm font-bold text-amber-400 mb-3.5">상대 항공사 조치 내역</h3>
+                  {hasOtherAction ? (
+                    <>
+                      <div className="space-y-3 mb-3">
+                        <div>
+                          <div className="text-[11px] font-medium text-slate-400 mb-1">조치유형</div>
+                          <div className="text-sm font-bold text-slate-100">{otherType || '-'}</div>
+                        </div>
+                        <div className="flex gap-4">
+                          <div className="flex-1">
+                            <div className="text-[11px] font-medium text-slate-400 mb-1">처리일자</div>
+                            <div className="text-sm font-bold text-slate-100">
+                              {otherCompletedAt
+                                ? new Date(otherCompletedAt).toLocaleDateString('ko-KR')
+                                : '-'}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[11px] font-medium text-slate-400 mb-1">상태</div>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-none text-xs font-bold border ${
+                              otherStatus === 'completed'
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                            }`}>
+                              {otherStatus === 'completed' ? '완료' : '진행중'}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm text-slate-500">아직 상대 항공사의 조치가 등록되지 않았습니다.</p>
-                )}
-              </div>
-            );
-          })()}
+                      {otherManager && (
+                        <div className="mb-3">
+                          <div className="text-[11px] font-medium text-slate-400 mb-1">담당자</div>
+                          <div className="text-sm text-slate-300">{otherManager}</div>
+                        </div>
+                      )}
+                      {otherDesc && (
+                        <div className="pt-3 border-t border-amber-800/30">
+                          <div className="text-[11px] font-medium text-slate-400 mb-1.5">상세내용</div>
+                          <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{otherDesc}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-slate-500">아직 상대 항공사의 조치가 등록되지 않았습니다.</p>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Error Type Breakdown - 동적 GROUP BY */}
           <div>

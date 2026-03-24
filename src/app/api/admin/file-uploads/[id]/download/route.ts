@@ -72,8 +72,9 @@ export async function GET(
         co.error_type as occ_error_type,
         co.sub_error as occ_sub_error
       FROM callsigns c
-      LEFT JOIN callsign_occurrences co ON co.callsign_id = c.id
-      WHERE c.file_upload_id = $1
+      LEFT JOIN callsign_uploads cu ON cu.callsign_id = c.id AND cu.file_upload_id = $1
+      LEFT JOIN callsign_occurrences co ON co.callsign_id = c.id AND co.file_upload_id = $1
+      WHERE cu.id IS NOT NULL OR (c.file_upload_id = $1 AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu2 WHERE cu2.callsign_id = c.id))
       ORDER BY c.callsign_pair, co.occurred_date, co.occurred_time`,
       [fileUploadId]
     );

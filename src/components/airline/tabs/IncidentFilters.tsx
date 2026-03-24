@@ -9,7 +9,7 @@ import {
   ExportConfig
 } from '@/types/airline';
 
-type ActionStatusFilter = 'all' | 'no_action' | 'in_progress' | 'completed';
+type ActionStatusFilter = 'all' | 'no_action' | 'in_progress' | 'completed' | 'redetected';
 type SortOrder = 'risk' | 'count' | 'latest' | 'priority' | 'ai_score';
 
 interface IncidentFiltersProps {
@@ -102,6 +102,7 @@ export function IncidentFilters({
             <option value="all">전체</option>
             <option value="in_progress">조치필요</option>
             <option value="completed">조치완료</option>
+            <option value="redetected">재검출(미확인)</option>
           </select>
         )}
 

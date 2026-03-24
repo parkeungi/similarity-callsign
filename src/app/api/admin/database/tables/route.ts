@@ -1,25 +1,9 @@
-// GET /api/admin/database/tables - PostgreSQL 전체 테이블 목록+행수 조회, information_schema 사용, 관리자 전용
+// GET /api/admin/database/tables - PostgreSQL 전체 테이블 목록+행수 조회, 관리자 전용
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';
 import { logger } from '@/lib/logger';
-
-// 허용된 테이블 목록 (화이트리스트)
-const ALLOWED_TABLES = [
-  'users',
-  'airlines',
-  'callsigns',
-  'callsign_occurrences',
-  'actions',
-  'action_history',
-  'action_types',
-  'announcements',
-  'announcement_views',
-  'file_uploads',
-  'callsign_ai_analysis',
-  'password_history',
-  'audit_logs',
-];
+import { ALLOWED_ADMIN_TABLES } from '@/lib/db/admin-tables';
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('Authorization')?.substring(7);
@@ -41,7 +25,7 @@ export async function GET(request: NextRequest) {
     // 허용된 테이블만 필터링하고 row count 조회
     const allowedTables = tablesResult.rows
       .map((r: { table_name: string }) => r.table_name)
-      .filter((name: string) => ALLOWED_TABLES.includes(name));
+      .filter((name: string) => ALLOWED_ADMIN_TABLES.has(name));
 
     const tableInfos = await Promise.all(
       allowedTables.map(async (tableName: string) => {

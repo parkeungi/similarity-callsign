@@ -197,11 +197,9 @@ export async function PATCH(
       const existingData = existingAction.rows[0];
       const callsignId = existingData.callsign_id;
       const airlineId = existingData.airline_id;
-      const airlineCode = existingData.airline_code;
-
-      // 자사/타사 판단 (현재 항공사 코드와 비교)
+      // 조치를 수행한 항공사의 ICAO 코드 조회
       const airlineCheck = await query('SELECT code FROM airlines WHERE id = $1', [airlineId]);
-      const isMy = airlineCheck.rows[0]?.code === airlineCode;
+      const actingAirlineCode = airlineCheck.rows[0]?.code;
 
       // 트랜잭션: action UPDATE + callsigns 상태 동기화
       const result = await transaction(async (trx) => {
@@ -219,10 +217,9 @@ export async function PATCH(
         );
 
         // 2. callsigns 동기화 (중앙화된 함수 사용)
-        // Phase 1: syncCallsignStatus 함수로 my_action_status, other_action_status, status 자동 계산
         await syncCallsignStatus(trx, {
           callsignId,
-          actingAirlineCode: airlineCode,
+          actingAirlineCode,
           newActionStatus: 'in_progress'  // 취소 = in_progress
         });
 
@@ -299,40 +296,32 @@ export async function PATCH(
     // 트랜잭션: action 업데이트 + callsigns 상태 동기화
     const callsignId = existingAction.rows[0].callsign_id;
     const airlineId = existingAction.rows[0].airline_id;
-    const airlineCode = existingAction.rows[0].airline_code;
 
-    // 자사/타사 판단
+    // 조치를 수행한 항공사의 ICAO 코드 조회
     const airlineCheck = await query('SELECT code FROM airlines WHERE id = $1', [airlineId]);
-    const isMy = airlineCheck.rows[0]?.code === airlineCode;
-
-    // 국내 항공사 목록 조회 (국내/외항사 판별용, FOREIGN 제외)
-    const domesticAirlinesResult = await query("SELECT code FROM airlines WHERE code != 'FOREIGN'");
-    const domesticAirlines = new Set<string>(
-      (domesticAirlinesResult.rows || []).map((a: any) => a.code as string)
-    );
+    const actingAirlineCode = airlineCheck.rows[0]?.code;
 
     const result = await transaction(async (trx) => {
       // 1. action 업데이트
       const actionResult = await trx(sql, values);
 
-      if (actionResult.changes > 0) {
+      if (actionResult.rowCount > 0) {
         // 2. 업데이트된 action 조회 (응답용)
         const updated = await trx('SELECT * FROM actions WHERE id = $1', [id]);
         if (updated.rows.length > 0) {
           const newStatus = updated.rows[0].status;
 
           // 3. callsigns 동기화 (중앙화된 함수 사용)
-          // Phase 1: syncCallsignStatus 함수로 my_action_status, other_action_status, status 자동 계산
           await syncCallsignStatus(trx, {
             callsignId,
-            actingAirlineCode: airlineCode,
+            actingAirlineCode,
             newActionStatus: newStatus
           });
         }
         return updated;
       }
 
-      return { rows: [], changes: 0 };
+      return { rows: [] };
     });
 
     if (result.rows.length === 0) {
@@ -424,24 +413,20 @@ export async function DELETE(
 
     const actionData = existingAction.rows[0];
     const airlineId = actionData.airline_id;
-    const airlineCode = actionData.airline_code;
     const callsignId = actionData.callsign_id;
 
-    // 자사/타사 판단
+    // 조치를 수행한 항공사의 ICAO 코드 조회
     const airlineCheck = await query('SELECT code FROM airlines WHERE id = $1', [airlineId]);
-    const isMy = airlineCheck.rows[0]?.code === airlineCode;
+    const actingAirlineCode = airlineCheck.rows[0]?.code;
 
-    // 삭제 (on_delete cascade는 자동으로 action_history도 삭제)
-    // 동시에 callsigns 상태 업데이트
     await transaction(async (trx) => {
       // 1. action 삭제
       await trx('DELETE FROM actions WHERE id = $1', [id]);
 
       // 2. callsigns 동기화 (중앙화된 함수 사용)
-      // Phase 1: syncCallsignStatus 함수로 my_action_status, other_action_status, status 자동 계산
       await syncCallsignStatus(trx, {
         callsignId,
-        actingAirlineCode: airlineCode,
+        actingAirlineCode,
         newActionStatus: 'no_action'  // 삭제 = no_action
       });
     });

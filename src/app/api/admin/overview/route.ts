@@ -89,7 +89,9 @@ export async function GET(request: NextRequest) {
         -- 재검출 판단용: 전체 조치 중 가장 최근 완료일
         (SELECT MAX(completed_at) FROM actions
          WHERE callsign_id = c.id AND status = 'completed' AND COALESCE(is_cancelled, false) = false
-        ) as latest_completed_at
+        ) as latest_completed_at,
+
+        c.re_detected_acknowledged_at
 
       FROM callsigns c
       LEFT JOIN airlines a1 ON c.airline_id = a1.id
@@ -135,10 +137,25 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // 재검출 판단: 조치완료 후 새로운 발생이 있는 경우
-      const latestCompletedAt = row.latest_completed_at ? new Date(row.latest_completed_at).getTime() : 0;
+      // 재검출 판단: 완료 조건 매트릭스에 따라 분기 (airline callsigns API와 동일 로직)
       const lastOccurredAt = row.last_occurred_at ? new Date(row.last_occurred_at).getTime() : 0;
-      const re_detected = latestCompletedAt > 0 && lastOccurredAt > latestCompletedAt;
+      const airline1CompletedAt = row.airline1_completed_at ? new Date(row.airline1_completed_at).getTime() : 0;
+      const airline2CompletedAt = row.airline2_completed_at ? new Date(row.airline2_completed_at).getTime() : 0;
+
+      let re_detected = false;
+      if (lastOccurredAt > 0) {
+        if (isSameAirline || isOtherForeign) {
+          // 같은 항공사 또는 외항사: 한쪽 완료일 이후 발생 여부
+          const completedAt = Math.max(airline1CompletedAt, airline2CompletedAt);
+          re_detected = completedAt > 0 && lastOccurredAt > completedAt;
+        } else if (isBothDomestic) {
+          // 국내↔국내: 양쪽 모두 완료 후 발생 여부
+          if (airline1CompletedAt > 0 && airline2CompletedAt > 0) {
+            const lastCompleted = Math.max(airline1CompletedAt, airline2CompletedAt);
+            re_detected = lastOccurredAt > lastCompleted;
+          }
+        }
+      }
 
       return {
         id: row.id,
@@ -169,6 +186,8 @@ export async function GET(request: NextRequest) {
 
         // 재검출 (조치완료 후 새 발생)
         re_detected,
+        re_detected_acknowledged: re_detected && row.re_detected_acknowledged_at
+          && new Date(row.re_detected_acknowledged_at).getTime() >= lastOccurredAt,
       };
     });
 

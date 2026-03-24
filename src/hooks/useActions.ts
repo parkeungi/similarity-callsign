@@ -83,7 +83,7 @@ export function useAirlineActions(filters?: {
   dateTo?: string;
   page?: number;
   limit?: number;
-}) {
+}, options?: { enabled?: boolean }) {
   const accessToken = useAuthStore((s) => s.accessToken);
   const page = filters?.page || 1;
   const limit = filters?.limit || 20;
@@ -112,7 +112,7 @@ export function useAirlineActions(filters?: {
       const data = (await response.json()) as ActionListResponse;
       return data;
     },
-    enabled: !!accessToken && !!filters?.airlineId,
+    enabled: !!accessToken && !!filters?.airlineId && (options?.enabled ?? true),
     staleTime: 2 * 60 * 1000, // 2분
     gcTime: 10 * 60 * 1000, // 10분
   });
@@ -323,33 +323,21 @@ function transformCallsignRow(row: any): Callsign & {
   return mapped;
 }
 
-// 국내 항공사 코드 목록 (airlines 테이블 기준, FOREIGN 제외)
-const DOMESTIC_AIRLINES = new Set([
-  'KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR', 'ARK',
-]);
-
+/**
+ * 서버가 계산한 status와 양쪽 action_status를 기반으로 최종 표시 상태 결정
+ * - completed: 서버가 completed로 판정 (완료 조건 매트릭스 충족)
+ * - partial: 서버는 아직 in_progress이지만 한쪽은 completed
+ * - in_progress: 양쪽 모두 미완료
+ */
 function calculateFinalStatus(row: any): 'completed' | 'partial' | 'in_progress' {
-  const myStatus = row.my_action_status || 'no_action';
-  const otherStatus = row.other_action_status || 'no_action';
-  const myCompleted = myStatus === 'completed';
-  const otherCompleted = otherStatus === 'completed';
-  const sameAirline = row.other_airline_code && row.other_airline_code === row.airline_code;
-  const otherIsForeign = !row.other_airline_code || !DOMESTIC_AIRLINES.has(row.other_airline_code);
-
-  // 같은 항공사: 한쪽만 완료해도 완료
-  if (!row.other_airline_code || sameAirline) {
-    return myCompleted || otherCompleted ? 'completed' : 'in_progress';
-  }
-
-  // 상대가 외항사: 자사만 완료하면 완료
-  if (otherIsForeign) {
-    return myCompleted ? 'completed' : 'in_progress';
-  }
-
-  // 국내↔국내: 양쪽 모두 완료해야 완료
-  if (myCompleted && otherCompleted) {
+  // 서버가 계산한 최종 상태를 우선 사용
+  if (row.status === 'completed') {
     return 'completed';
   }
+
+  const myCompleted = (row.my_action_status || 'no_action') === 'completed';
+  const otherCompleted = (row.other_action_status || 'no_action') === 'completed';
+
   if (myCompleted || otherCompleted) {
     return 'partial';
   }
@@ -602,5 +590,37 @@ export function useCallsignsWithActions(
     enabled: !!accessToken && (options?.enabled ?? true),
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * 재검출 항목 확인 처리
+ * PATCH /api/airlines/:airlineId/callsigns/:callsignId/acknowledge
+ */
+export function useAcknowledgeReDetection() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ airlineId, callsignId }: { airlineId: string; callsignId: string }) => {
+      const response = await apiFetch(
+        `/api/airlines/${airlineId}/callsigns/${callsignId}/acknowledge`,
+        { method: 'PATCH' }
+      );
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          const error = await response.json();
+          throw new Error(error.error || '재검출 확인 처리 실패');
+        } else {
+          throw new Error('재검출 확인 처리 실패: 서버 오류');
+        }
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['airline-callsigns'], exact: false });
+    },
   });
 }

@@ -196,7 +196,8 @@ export async function GET(request: NextRequest) {
               -- 발생이력 날짜+시간 목록 (LATERAL JOIN)
               od.occurrence_dates,
               -- 재검출 판단용: 전체 조치 중 가장 최근 완료일
-              lc.latest_completed_at
+              lc.latest_completed_at,
+              c.re_detected_acknowledged_at
        FROM callsigns c
        -- 자사 최신 조치 1건 (airline_code 기준)
        LEFT JOIN LATERAL (
@@ -414,11 +415,48 @@ export async function GET(request: NextRequest) {
         // 오류유형별 발생건수 (동적)
         error_type_counts: callsign.error_type_counts || {},
         occurrence_dates: callsign.occurrence_dates || null,
-        // 재검출 (조치완료 후 새 발생 감지)
+        // 재검출 (완료 조건 매트릭스에 따라 분기)
         re_detected: (() => {
-          const completedAt = callsign.latest_completed_at ? new Date(callsign.latest_completed_at).getTime() : 0;
           const lastOccurred = callsign.last_occurred_at ? new Date(callsign.last_occurred_at).getTime() : 0;
-          return completedAt > 0 && lastOccurred > completedAt;
+          if (lastOccurred === 0) return false;
+
+          const myCompletedAt = callsign.action_completed_at ? new Date(callsign.action_completed_at).getTime() : 0;
+          const otherCompletedAt = callsign.other_completed_at ? new Date(callsign.other_completed_at).getTime() : 0;
+          const sameAirline = callsign.airline_code === callsign.other_airline_code;
+          const otherIsForeign = callsign.other_airline_code && !domesticAirlines.has(callsign.other_airline_code);
+
+          if (sameAirline || otherIsForeign) {
+            const completedAt = Math.max(myCompletedAt, otherCompletedAt);
+            return completedAt > 0 && lastOccurred > completedAt;
+          } else {
+            // 국내↔국내: 양쪽 모두 완료 후 발생 여부
+            if (myCompletedAt > 0 && otherCompletedAt > 0) {
+              return lastOccurred > Math.max(myCompletedAt, otherCompletedAt);
+            }
+            return false;
+          }
+        })(),
+        re_detected_acknowledged: (() => {
+          const lastOccurred = callsign.last_occurred_at ? new Date(callsign.last_occurred_at).getTime() : 0;
+          if (lastOccurred === 0) return false;
+
+          const myCompletedAt = callsign.action_completed_at ? new Date(callsign.action_completed_at).getTime() : 0;
+          const otherCompletedAt = callsign.other_completed_at ? new Date(callsign.other_completed_at).getTime() : 0;
+          const sameAirline = callsign.airline_code === callsign.other_airline_code;
+          const otherIsForeign = callsign.other_airline_code && !domesticAirlines.has(callsign.other_airline_code);
+
+          let reDetected = false;
+          if (sameAirline || otherIsForeign) {
+            const completedAt = Math.max(myCompletedAt, otherCompletedAt);
+            reDetected = completedAt > 0 && lastOccurred > completedAt;
+          } else {
+            if (myCompletedAt > 0 && otherCompletedAt > 0) {
+              reDetected = lastOccurred > Math.max(myCompletedAt, otherCompletedAt);
+            }
+          }
+
+          const ackAt = callsign.re_detected_acknowledged_at ? new Date(callsign.re_detected_acknowledged_at).getTime() : 0;
+          return reDetected && ackAt > 0 && ackAt >= lastOccurred;
         })(),
       })),
       pagination: {

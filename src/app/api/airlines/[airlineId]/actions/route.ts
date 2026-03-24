@@ -193,10 +193,10 @@ export async function GET(
           'in_progress' as status,
           NULL as result_detail,
           NULL as completed_at,
-          NULL::text as registered_by,
+          NULL::uuid as registered_by,
           cs.created_at as registered_at,
           cs.updated_at as updated_at,
-          NULL as reviewed_by,
+          NULL::uuid as reviewed_by,
           NULL as reviewed_at,
           NULL as review_comment,
           al.id as airline_id_ref,
@@ -231,7 +231,7 @@ export async function GET(
         LEFT JOIN (
           SELECT DISTINCT callsign_id, airline_id
           FROM actions
-          WHERE status IN ('pending', 'in_progress') AND COALESCE(is_cancelled, false) = false
+          WHERE status IN ('pending', 'in_progress', 'completed') AND COALESCE(is_cancelled, false) = false
         ) active_actions
           ON active_actions.callsign_id = cs.id
           AND active_actions.airline_id = cs.airline_id
@@ -525,48 +525,18 @@ export async function POST(
         [actionType, description || null, managerName || null, plannedDueDate || null, completedTimestamp, actionStatus, nowIso, existingActionId]
       );
 
-      // 2. 국내 항공사 목록 조회 (완료 조건 계산용, FOREIGN 제외)
-      const airlinesResult = await trx("SELECT code FROM airlines WHERE code != $1", ['FOREIGN']);
-      const domesticAirlines = new Set<string>(
-        (airlinesResult.rows || []).map((a: any) => a.code as string)
-      );
-
-      const isMy = callsignData.airline_code === airlineCode;
-      const sameAirline = callsignData.airline_code === callsignData.other_airline_code;
-
-      let myStatus: string;
-      let otherStatus: string;
-
-      if (sameAirline) {
-        // 같은 항공사: 한쪽 조치 시 양쪽 모두 동일 상태로 설정
-        myStatus = actionStatus;
-        otherStatus = actionStatus;
-      } else if (isMy) {
-        myStatus = actionStatus;
-        otherStatus = callsignData.other_action_status || 'no_action';
-      } else {
-        myStatus = callsignData.my_action_status || 'no_action';
-        otherStatus = actionStatus;
-      }
-
-      const otherIsForeignAirline = callsignData.other_airline_code && !domesticAirlines.has(callsignData.other_airline_code);
-      const myCompleted = myStatus === 'completed';
-      const otherCompleted = otherStatus === 'completed';
-
-      let finalStatus: 'in_progress' | 'completed' = 'in_progress';
-      if (sameAirline) {
-        finalStatus = (myCompleted || otherCompleted) ? 'completed' : 'in_progress';
-      } else if (otherIsForeignAirline) {
-        finalStatus = myCompleted ? 'completed' : 'in_progress';
-      } else {
-        finalStatus = (myCompleted && otherCompleted) ? 'completed' : 'in_progress';
-      }
-
-      // 3. callsigns 상태 업데이트
-      await trx(
-        `UPDATE callsigns SET my_action_status = $1, other_action_status = $2, status = $3 WHERE id = $4`,
-        [myStatus, otherStatus, finalStatus, callsignId]
-      );
+      // 2. callsigns 상태 동기화 (중앙 함수 사용)
+      await syncCallsignStatus(trx, {
+        callsignId: callsignId!,
+        actingAirlineCode: airlineCode,
+        newActionStatus: actionStatus as 'no_action' | 'in_progress' | 'completed',
+        callsignData: {
+          airline_code: callsignData.airline_code,
+          other_airline_code: callsignData.other_airline_code,
+          my_action_status: callsignData.my_action_status,
+          other_action_status: callsignData.other_action_status,
+        },
+      });
 
       return true;
     });

@@ -150,8 +150,7 @@ export async function syncCallsignStatus(
     [myStatus, otherStatus, finalStatus, callsignId]
   );
 
-  // 일부 SQLite 드라이버는 변경 사항이 없으면 0을 반환하므로 단순 경고만 출력
-  if (!updateResult.changes) {
+  if (!updateResult.rowCount) {
     logger.warn('No row updated (values already in sync)', 'db/sync-callsign-status', { callsignId });
   }
 

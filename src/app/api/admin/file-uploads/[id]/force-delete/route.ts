@@ -1,19 +1,14 @@
-// DELETE /api/admin/file-uploads/[id]/force-delete - 업로드 파일+연관 callsigns·callsign_occurrences 강제 삭제, 트랜잭션 처리, 관리자 전용
+// DELETE /api/admin/file-uploads/[id]/force-delete - 업로드 파일+연관 데이터 강제 삭제, 트랜잭션 처리, 관리자 전용
 /**
  * DELETE /api/admin/file-uploads/[id]/force-delete
  * 파일 강제삭제 (조치 여부 상관없이 삭제 + 관리자 비밀번호 재검증)
  *
- * 요청:
- * {
- *   adminPassword: string  // 관리자 비밀번호 (재검증용)
- * }
- *
- * 삭제 순서 (원자성 보장):
- * 1. action_history 삭제 (action_id FK)
- * 2. actions 삭제 (callsign_id FK)
- * 3. callsign_occurrences 삭제 (callsign_id FK)
- * 4. callsigns 삭제 (file_upload_id 필터)
- * 5. file_uploads 삭제
+ * 삭제 로직 (callsign_uploads junction 기반):
+ * 1. callsign_uploads에서 해당 업로드의 콜사인 조회
+ * 2. 고아 콜사인 식별 (이 업로드만 연결된 콜사인)
+ * 3. 고아 콜사인: action_history → actions → occurrences → callsigns 삭제
+ * 4. 생존 콜사인: file_upload_id 복원, occurrence_count 재계산
+ * 5. callsign_uploads 링크 삭제, file_uploads 삭제
  * 6. 감사 로그 기록
  */
 
@@ -79,7 +74,7 @@ export async function DELETE(
     if (!isPasswordValid) {
       return NextResponse.json(
         { error: '비밀번호가 맞지 않습니다.' },
-        { status: 400 }  // 401 대신 400 사용 (인증 실패가 아닌 잘못된 요청)
+        { status: 400 }
       );
     }
 
@@ -98,9 +93,15 @@ export async function DELETE(
 
     const file = fileResult.rows[0] as { id: string; file_name: string; total_rows: number };
 
-    // 4. 해당 파일의 모든 callsigns 찾기
+    // 4. 해당 업로드와 연결된 콜사인 조회 (junction 테이블 기반)
+    //    fallback: junction에 없으면 callsigns.file_upload_id로 조회 (마이그레이션 전 데이터 호환)
     const callsignsResult = await query(
-      `SELECT id FROM callsigns WHERE file_upload_id = $1`,
+      `SELECT DISTINCT id FROM (
+        SELECT cu.callsign_id as id FROM callsign_uploads cu WHERE cu.file_upload_id = $1
+        UNION
+        SELECT c.id FROM callsigns c WHERE c.file_upload_id = $1
+          AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu2 WHERE cu2.callsign_id = c.id)
+       ) combined`,
       [fileUploadId]
     );
 
@@ -117,51 +118,108 @@ export async function DELETE(
 
     try {
       await transaction(async (txQuery) => {
-        // Step 1: action_history 삭제 (action_id FK)
         if (callsignIds.length > 0) {
           const placeholders = callsignIds.map((_: string, i: number) => `$${i + 1}`).join(',');
-          const historyDeleteResult = await txQuery(
-            `DELETE FROM action_history WHERE action_id IN (
-              SELECT id FROM actions WHERE callsign_id IN (${placeholders})
-            )`,
-            callsignIds
-          );
-          deletedStats.actionHistory = historyDeleteResult.changes || 0;
-        }
 
-        // Step 2: actions 삭제 (callsign_id FK)
-        if (callsignIds.length > 0) {
-          const placeholders = callsignIds.map((_: string, i: number) => `$${i + 1}`).join(',');
-          const actionsDeleteResult = await txQuery(
-            `DELETE FROM actions WHERE callsign_id IN (${placeholders})`,
-            callsignIds
+          // Step 1: 고아 콜사인 식별 (이 업로드만 연결된 콜사인)
+          const orphanedResult = await txQuery(
+            `SELECT c.id FROM callsigns c
+             WHERE c.id IN (${placeholders})
+               AND NOT EXISTS (
+                 SELECT 1 FROM callsign_uploads cu
+                 WHERE cu.callsign_id = c.id
+                   AND cu.file_upload_id != $${callsignIds.length + 1}
+               )`,
+            [...callsignIds, fileUploadId]
           );
-          deletedStats.actions = actionsDeleteResult.changes || 0;
-        }
+          const orphanedIds = (orphanedResult.rows as { id: string }[]).map(r => r.id);
 
-        // Step 3: callsign_occurrences 삭제 (callsign_id FK)
-        if (callsignIds.length > 0) {
-          const placeholders = callsignIds.map((_: string, i: number) => `$${i + 1}`).join(',');
+          // Step 2: 고아 콜사인의 action_history 삭제
+          if (orphanedIds.length > 0) {
+            const orphanPlaceholders = orphanedIds.map((_: string, i: number) => `$${i + 1}`).join(',');
+            const historyDeleteResult = await txQuery(
+              `DELETE FROM action_history WHERE action_id IN (
+                SELECT id FROM actions WHERE callsign_id IN (${orphanPlaceholders})
+              )`,
+              orphanedIds
+            );
+            deletedStats.actionHistory = historyDeleteResult.rowCount || 0;
+
+            // Step 3: 고아 콜사인의 actions 삭제
+            const actionsDeleteResult = await txQuery(
+              `DELETE FROM actions WHERE callsign_id IN (${orphanPlaceholders})`,
+              orphanedIds
+            );
+            deletedStats.actions = actionsDeleteResult.rowCount || 0;
+          }
+
+          // Step 4: 해당 업로드의 callsign_occurrences 삭제
           const occurrencesDeleteResult = await txQuery(
-            `DELETE FROM callsign_occurrences WHERE callsign_id IN (${placeholders})`,
-            callsignIds
+            `DELETE FROM callsign_occurrences WHERE file_upload_id = $1`,
+            [fileUploadId]
           );
-          deletedStats.occurrences = occurrencesDeleteResult.changes || 0;
+          deletedStats.occurrences = occurrencesDeleteResult.rowCount || 0;
+
+          // Step 5: callsign_uploads 링크 삭제
+          await txQuery(
+            `DELETE FROM callsign_uploads WHERE file_upload_id = $1`,
+            [fileUploadId]
+          );
+
+          // Step 6: 고아 콜사인 삭제
+          if (orphanedIds.length > 0) {
+            const orphanPlaceholders = orphanedIds.map((_: string, i: number) => `$${i + 1}`).join(',');
+            const callsignsDeleteResult = await txQuery(
+              `DELETE FROM callsigns WHERE id IN (${orphanPlaceholders})`,
+              orphanedIds
+            );
+            deletedStats.callsigns = callsignsDeleteResult.rowCount || 0;
+          }
+
+          // Step 7: 생존 콜사인의 file_upload_id 복원 + occurrence_count 재계산
+          const survivorIds = callsignIds.filter(id => !orphanedIds.includes(id));
+          if (survivorIds.length > 0) {
+            const survivorPlaceholders = survivorIds.map((_: string, i: number) => `$${i + 1}`).join(',');
+
+            await txQuery(
+              `UPDATE callsigns c
+               SET file_upload_id = (
+                 SELECT cu.file_upload_id FROM callsign_uploads cu
+                 WHERE cu.callsign_id = c.id
+                 ORDER BY cu.created_at DESC LIMIT 1
+               ),
+               updated_at = CURRENT_TIMESTAMP
+               WHERE c.id IN (${survivorPlaceholders})`,
+              survivorIds
+            );
+
+            await txQuery(
+              `UPDATE callsigns c SET
+                occurrence_count = COALESCE(sub.cnt, 0),
+                first_occurred_at = sub.min_date,
+                last_occurred_at = sub.max_date
+              FROM (
+                SELECT cs.id as callsign_id,
+                       COUNT(co.id) as cnt,
+                       MIN(co.occurred_date) as min_date,
+                       MAX(co.occurred_date) as max_date
+                FROM callsigns cs
+                LEFT JOIN callsign_occurrences co ON co.callsign_id = cs.id
+                WHERE cs.id IN (${survivorPlaceholders})
+                GROUP BY cs.id
+              ) sub
+              WHERE c.id = sub.callsign_id`,
+              survivorIds
+            );
+          }
         }
 
-        // Step 4: callsigns 삭제
-        const callsignsDeleteResult = await txQuery(
-          `DELETE FROM callsigns WHERE file_upload_id = $1`,
-          [fileUploadId]
-        );
-        deletedStats.callsigns = callsignsDeleteResult.changes || 0;
-
-        // Step 5: file_uploads 삭제
+        // Step 8: file_uploads 삭제
         const fileDeleteResult = await txQuery(
           `DELETE FROM file_uploads WHERE id = $1`,
           [fileUploadId]
         );
-        deletedStats.file = fileDeleteResult.changes || 0;
+        deletedStats.file = fileDeleteResult.rowCount || 0;
 
         if (deletedStats.file === 0) {
           throw new Error('파일 삭제에 실패했습니다.');

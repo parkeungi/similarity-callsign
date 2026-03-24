@@ -87,6 +87,27 @@ export async function GET(request: NextRequest) {
       [callsignIds, dowIndex]
     );
 
+    // 2-1. 요일별 발생 횟수 조회 (전체 요일)
+    const dayCountResult = await query(
+      `SELECT
+        co.callsign_id,
+        EXTRACT(DOW FROM co.occurred_date)::int as dow,
+        COUNT(*)::int as cnt
+      FROM callsign_occurrences co
+      WHERE co.callsign_id = ANY($1::uuid[])
+      GROUP BY co.callsign_id, EXTRACT(DOW FROM co.occurred_date)
+      ORDER BY dow`,
+      [callsignIds]
+    );
+
+    // callsign_id별 요일 카운트 맵: { callsignId: { 0: 1, 2: 3, ... } }
+    const dayCountMap = new Map<string, Record<number, number>>();
+    for (const row of dayCountResult.rows) {
+      const key = row.callsign_id as string;
+      if (!dayCountMap.has(key)) dayCountMap.set(key, {});
+      dayCountMap.get(key)![row.dow as number] = row.cnt as number;
+    }
+
     // 3. 발생 이력을 callsign_id별로 그룹핑
     const occurrenceMap = new Map<string, Array<{
       occurredDate: string;
@@ -122,6 +143,9 @@ export async function GET(request: NextRequest) {
       occurrence_count: number;
     }) => {
       const sameDayOccurrences = occurrenceMap.get(c.id) || [];
+      const dayCounts = dayCountMap.get(c.id) || {};
+      // 요일별 발생 횟수: [일, 월, 화, 수, 목, 금, 토]
+      const occurrencesByDay = [0, 1, 2, 3, 4, 5, 6].map(d => dayCounts[d] || 0);
       return {
         callsignPair: c.callsign_pair,
         myCallsign: c.my_callsign,
@@ -133,6 +157,7 @@ export async function GET(request: NextRequest) {
         sector: c.sector || '',
         coexistenceMinutes: c.coexistence_minutes || 0,
         occurrenceCount: c.occurrence_count || 0,
+        occurrencesByDay,
         sameDayOccurrences,
         sameDayCount: sameDayOccurrences.length,
       };

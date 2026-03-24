@@ -32,10 +32,11 @@ interface AirlineOccurrenceTabProps {
   filters: FiltersState;
   exportConfig: ExportConfig;
   onOpenActionModal: (incident: Incident) => void;
+  onAcknowledge?: (incident: Incident) => void;
 }
 
 type SortOrder = 'risk' | 'count' | 'latest' | 'priority' | 'ai_score';
-type ActionStatusFilter = 'all' | 'no_action' | 'in_progress' | 'completed';
+type ActionStatusFilter = 'all' | 'no_action' | 'in_progress' | 'completed' | 'redetected';
 
 export function AirlineOccurrenceTab({
   incidents,
@@ -46,6 +47,7 @@ export function AirlineOccurrenceTab({
   filters,
   exportConfig,
   onOpenActionModal,
+  onAcknowledge,
 }: AirlineOccurrenceTabProps) {
   // Props에서 필요한 값들 추출
   const { startDate, endDate, activeRange, onStartDateChange, onEndDateChange, onApplyQuickRange } = dateFilter;
@@ -78,7 +80,7 @@ export function AirlineOccurrenceTab({
         ? filteredByDate
         : filteredByDate.filter((i) =>
             (i.occurrences || []).some(
-              (occ: any) => (occ.errorType?.trim() || '오류미발생') === errorTypeFilter
+              (occ: any) => (occ.errorType?.replace(/\s+/g, '') || '오류미발생') === errorTypeFilter
             )
           );
 
@@ -88,6 +90,8 @@ export function AirlineOccurrenceTab({
       filtered = filtered.filter((i) => i.actionStatus !== 'completed');
     } else if (actionStatusFilter === 'no_action') {
       filtered = filtered.filter((i) => !i.actionStatus || i.actionStatus === 'no_action');
+    } else if (actionStatusFilter === 'redetected') {
+      filtered = filtered.filter((i) => i.reDetected && !i.reDetectedAcknowledged);
     }
 
     // reason_type 필터
@@ -419,22 +423,41 @@ export function AirlineOccurrenceTab({
                       </span>
                     )}
                     {/* 재검출 배지 */}
-                    {(incident as any).reDetected && (
-                      <span className="px-2 py-1 text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200 rounded animate-pulse">
+                    {incident.reDetected && (
+                      <span className={`px-2 py-1 text-[10px] font-bold border rounded ${
+                        incident.reDetectedAcknowledged
+                          ? 'bg-gray-50 text-gray-500 border-gray-200'
+                          : 'bg-rose-50 text-rose-600 border-rose-200 animate-pulse'
+                      }`}>
                         ↻ 재검출
                       </span>
                     )}
-                    {/* 조치등록/수정 버튼 */}
-                    <button
-                      onClick={() => onOpenActionModal(incident)}
-                      className={`px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
-                        incident.actionStatus === 'completed'
-                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 hover:shadow-sm'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
-                    >
-                      {incident.actionStatus === 'completed' ? '✓ 조치완료' : '조치등록'}
-                    </button>
+                    {/* 재검출 항목: 확인 버튼 / 일반 항목: 조치등록 버튼 */}
+                    {incident.reDetected ? (
+                      incident.reDetectedAcknowledged ? (
+                        <span className="px-2.5 py-1 text-xs font-bold bg-gray-100 text-gray-500 border border-gray-300 rounded">
+                          ✓ 확인완료
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => onAcknowledge?.(incident)}
+                          className="px-2.5 py-1 text-xs font-bold bg-amber-500 text-white hover:bg-amber-600 transition-colors cursor-pointer rounded"
+                        >
+                          확인
+                        </button>
+                      )
+                    ) : (
+                      <button
+                        onClick={() => onOpenActionModal(incident)}
+                        className={`px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
+                          incident.actionStatus === 'completed'
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 hover:shadow-sm'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        {incident.actionStatus === 'completed' ? '✓ 조치완료' : '조치등록'}
+                      </button>
+                    )}
                   </div>
                 </div>
 

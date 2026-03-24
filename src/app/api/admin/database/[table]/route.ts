@@ -1,28 +1,10 @@
-// GET /api/admin/database/[table] - 특정 테이블 데이터 조회, 동적 테이블명(화이트리스트 검증), 페이지네이션, 관리자 전용
+// GET /api/admin/database/[table] - 특정 테이블 데이터 조회 (페이지네이션), 관리자 전용
+// DELETE /api/admin/database/[table] - 특정 테이블 데이터 전체 삭제 (TRUNCATE), 관리자 전용
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyToken } from '@/lib/jwt';
 import { logger } from '@/lib/logger';
-
-// 허용된 테이블 목록 (화이트리스트 - SQL Injection 방지)
-const ALLOWED_TABLES = new Set([
-  'users',
-  'airlines',
-  'callsigns',
-  'callsign_occurrences',
-  'actions',
-  'action_history',
-  'action_types',
-  'announcements',
-  'announcement_views',
-  'file_uploads',
-  'callsign_ai_analysis',
-  'password_history',
-  'audit_logs',
-]);
-
-// 마스킹할 컬럼 (비밀번호 등 민감 정보)
-const MASKED_COLUMNS = new Set(['password', 'password_hash', 'hashed_password', 'refresh_token']);
+import { ALLOWED_ADMIN_TABLES, MASKED_COLUMNS } from '@/lib/db/admin-tables';
 
 export async function GET(
   request: NextRequest,
@@ -35,7 +17,7 @@ export async function GET(
   }
 
   const tableName = params.table;
-  if (!ALLOWED_TABLES.has(tableName)) {
+  if (!ALLOWED_ADMIN_TABLES.has(tableName)) {
     return NextResponse.json({ error: '허용되지 않은 테이블입니다.' }, { status: 400 });
   }
 
@@ -82,5 +64,83 @@ export async function GET(
   } catch (error) {
     logger.error('테이블 데이터 조회 실패', error, 'admin/database/table', { tableName });
     return NextResponse.json({ error: '데이터 조회 실패' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { table: string } }
+) {
+  const token = request.headers.get('Authorization')?.substring(7);
+  const payload = verifyToken(token || '');
+  if (!payload || payload.role !== 'admin') {
+    return NextResponse.json({ error: '관리자 권한이 필요합니다.' }, { status: 403 });
+  }
+
+  const tableName = params.table;
+  if (!ALLOWED_ADMIN_TABLES.has(tableName)) {
+    return NextResponse.json({ error: '허용되지 않은 테이블입니다.' }, { status: 400 });
+  }
+
+  try {
+    // 삭제 전: 대상 테이블 + CASCADE로 영향받는 테이블 행 수 확인
+    const countResult = await query(`SELECT COUNT(*) as count FROM "${tableName}"`);
+    const deletedCount = parseInt(countResult.rows[0]?.count || '0', 10);
+
+    if (deletedCount === 0) {
+      return NextResponse.json({ success: true, deletedCount: 0, cascadeInfo: [], message: '삭제할 데이터가 없습니다.' });
+    }
+
+    // CASCADE 영향 범위 조회 (FK로 참조하는 테이블의 행 수)
+    const cascadeResult = await query(
+      `SELECT
+        tc.table_name as child_table,
+        (SELECT COUNT(*) FROM information_schema.tables t2 WHERE t2.table_name = tc.table_name AND t2.table_schema = 'public') as exists_check
+       FROM information_schema.table_constraints AS tc
+       JOIN information_schema.constraint_column_usage AS ccu
+         ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
+       WHERE tc.constraint_type = 'FOREIGN KEY'
+         AND ccu.table_name = $1
+         AND tc.table_name != $1
+       GROUP BY tc.table_name`,
+      [tableName]
+    );
+
+    const cascadeInfo: { table: string; rowCount: number }[] = [];
+    for (const row of cascadeResult.rows) {
+      try {
+        const childCount = await query(`SELECT COUNT(*) as count FROM "${row.child_table}"`);
+        const cnt = parseInt(childCount.rows[0]?.count || '0', 10);
+        if (cnt > 0) {
+          cascadeInfo.push({ table: row.child_table, rowCount: cnt });
+        }
+      } catch {
+        // 무시
+      }
+    }
+
+    // TRUNCATE RESTART IDENTITY CASCADE (시퀀스도 함께 리셋)
+    await query(`TRUNCATE TABLE "${tableName}" RESTART IDENTITY CASCADE`);
+
+    logger.info('관리자 작업: 테이블 데이터 삭제', 'admin/database/delete', {
+      adminId: payload.userId,
+      tableName,
+      deletedCount,
+      cascadeInfo,
+    });
+
+    const cascadeMsg = cascadeInfo.length > 0
+      ? `\n연쇄 삭제: ${cascadeInfo.map(c => `${c.table}(${c.rowCount}건)`).join(', ')}`
+      : '';
+
+    return NextResponse.json({
+      success: true,
+      deletedCount,
+      cascadeInfo,
+      message: `${tableName} 테이블의 ${deletedCount}건이 삭제되었습니다.${cascadeMsg}`,
+    });
+  } catch (error) {
+    logger.error('테이블 데이터 삭제 실패', error, 'admin/database/delete', { tableName });
+    return NextResponse.json({ error: '데이터 삭제 실패' }, { status: 500 });
   }
 }

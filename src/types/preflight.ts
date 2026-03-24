@@ -16,6 +16,7 @@ export interface PreflightSearchResult {
   sector: string;
   coexistenceMinutes: number;
   occurrenceCount: number;
+  occurrencesByDay: number[];  // [일, 월, 화, 수, 목, 금, 토] 요일별 발생 횟수
   sameDayOccurrences: PreflightOccurrence[];
   sameDayCount: number;
 }

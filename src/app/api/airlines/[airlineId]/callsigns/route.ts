@@ -128,6 +128,7 @@ export async function GET(
          COALESCE(c.occurrence_count, 0) AS occurrence_count,
          c.first_occurred_at,
          c.last_occurred_at,
+         c.re_detected_acknowledged_at,
          -- AI 분석 데이터
          ai.ai_score,
          ai.ai_reason,
@@ -150,8 +151,11 @@ export async function GET(
       queryParams
     );
 
-    // 국내 항공사 코드 Set (CLAUDE.md 기준)
-    const domesticAirlines = new Set(['KAL', 'AAR', 'JJA', 'JNA', 'TWB', 'ABL', 'ASV', 'EOK', 'FGW', 'APZ', 'ESR', 'ARK']);
+    // 국내 항공사 코드 Set (DB 조회, FOREIGN 제외)
+    const domesticAirlinesResult = await query("SELECT code FROM airlines WHERE code != 'FOREIGN'");
+    const domesticAirlines = new Set<string>(
+      (domesticAirlinesResult.rows || []).map((a: any) => a.code as string)
+    );
 
     // 각 호출부호에 대한 조치 상태 조회
     const callsignIds = callsignsResult.rows.map((cs: any) => cs.id);
@@ -245,6 +249,30 @@ export async function GET(
     );
     const total = parseInt(countResult.rows[0].total, 10);
 
+    // needSwap 행들의 자사 acknowledged 타임스탬프 조회
+    // (other_airline_code로 매칭된 행은 상대 항공사의 acknowledged_at이므로, 자사 행의 값이 필요)
+    const myAcknowledgedMap: { [callsignPair: string]: string | null } = {};
+    const swapPairs = callsignsResult.rows
+      .filter((cs: any) => {
+        const myPrefix = (cs.my_callsign || '').replace(/[0-9]/g, '');
+        const otherPrefix = (cs.other_callsign || '').replace(/[0-9]/g, '');
+        return myPrefix !== airlineCode && otherPrefix === airlineCode;
+      })
+      .map((cs: any) => cs.callsign_pair);
+
+    if (swapPairs.length > 0) {
+      const uniqueSwapPairs = [...new Set(swapPairs)];
+      const swapPlaceholders = uniqueSwapPairs.map((_: string, i: number) => `$${i + 2}`).join(',');
+      const swapResult = await query(
+        `SELECT callsign_pair, re_detected_acknowledged_at FROM callsigns
+         WHERE airline_code = $1 AND callsign_pair IN (${swapPlaceholders})`,
+        [airlineCode, ...uniqueSwapPairs]
+      );
+      for (const row of swapResult.rows) {
+        myAcknowledgedMap[row.callsign_pair] = row.re_detected_acknowledged_at;
+      }
+    }
+
     return NextResponse.json({
       data: callsignsResult.rows.map((callsign: any) => {
         const myAction = myActionMap[callsign.id];
@@ -266,9 +294,11 @@ export async function GET(
         const otherDep = needSwap ? callsign.departure_airport1 : callsign.departure_airport2;
         const otherArr = needSwap ? callsign.arrival_airport1 : callsign.arrival_airport2;
 
+        // 최근 발생 시각 (재발생 판단 + 재검출 확인 여부 모두 사용)
+        const lastOccurred = callsign.last_occurred_at ? new Date(callsign.last_occurred_at).getTime() : 0;
+
         // 재발생 판단 로직 (국내↔국내 vs 외항사 케이스 구분)
         const calculateReDetected = (): boolean => {
-          const lastOccurred = callsign.last_occurred_at ? new Date(callsign.last_occurred_at).getTime() : 0;
           if (lastOccurred === 0) return false;
 
           const myAirlineIsDomestic = domesticAirlines.has(airlineCode);
@@ -308,6 +338,16 @@ export async function GET(
         };
 
         const reDetectedValue = calculateReDetected();
+
+        // 재검출 확인 여부: acknowledged_at >= last_occurred_at 이면 확인 완료
+        // needSwap인 경우 자사 행의 acknowledged 타임스탬프 사용 (상대 행의 값이 아닌)
+        const myAcknowledgedAt = needSwap
+          ? (myAcknowledgedMap[callsign.callsign_pair] || null)
+          : callsign.re_detected_acknowledged_at;
+        const acknowledgedAt = myAcknowledgedAt
+          ? new Date(myAcknowledgedAt).getTime()
+          : 0;
+        const reDetectedAcknowledged = reDetectedValue && acknowledgedAt > 0 && acknowledgedAt >= lastOccurred;
 
         return {
           id: callsign.id,
@@ -381,6 +421,9 @@ export async function GET(
           // 재발생 여부
           re_detected: reDetectedValue,
           reDetected: reDetectedValue,
+          // 재검출 확인 여부
+          re_detected_acknowledged: reDetectedAcknowledged,
+          reDetectedAcknowledged: reDetectedAcknowledged,
           // AI 분석 데이터
           ai_score: callsign.ai_score ?? null,
           ai_reason: callsign.ai_reason ?? null,

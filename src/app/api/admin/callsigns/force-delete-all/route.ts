@@ -119,6 +119,9 @@ export async function DELETE(request: NextRequest) {
         const occurrencesDeleteResult = await txQuery(`DELETE FROM callsign_occurrences`);
         deletedStats.occurrences = occurrencesDeleteResult.rowCount || 0;
 
+        // Step 4.5: callsign_uploads 전체 삭제
+        await txQuery(`DELETE FROM callsign_uploads`);
+
         // Step 5: callsigns 전체 삭제
         const callsignsDeleteResult = await txQuery(`DELETE FROM callsigns`);
         deletedStats.callsigns = callsignsDeleteResult.rowCount || 0;

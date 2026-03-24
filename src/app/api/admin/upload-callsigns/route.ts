@@ -552,6 +552,28 @@ export async function POST(request: NextRequest) {
             }
 
             insertedCount += insertResult.rowCount || 0;
+
+            // callsign_uploads junction 테이블에 링크 추가
+            const junctionValues: any[] = [];
+            const junctionPlaceholders: string[] = [];
+            let jIdx = 1;
+            for (const row of batch) {
+              const key = `${row.airline_code}::${row.callsign_pair}`;
+              const callsignId = existingMap.get(key);
+              if (callsignId) {
+                junctionPlaceholders.push(`($${jIdx}::uuid, $${jIdx + 1}::uuid)`);
+                junctionValues.push(callsignId, uploadId);
+                jIdx += 2;
+              }
+            }
+            if (junctionPlaceholders.length > 0) {
+              await trx(
+                `INSERT INTO callsign_uploads (callsign_id, file_upload_id)
+                 VALUES ${junctionPlaceholders.join(', ')}
+                 ON CONFLICT (callsign_id, file_upload_id) DO NOTHING`,
+                junctionValues
+              );
+            }
           }
         }
 
@@ -637,6 +659,29 @@ export async function POST(request: NextRequest) {
         // 조치완료 쌍: 분석정보만 갱신, 상태/조치 보존 (재검출)
         if (toUpdateCompleted.length > 0) {
           await updateBatch(toUpdateCompleted, false);
+        }
+
+        // 4-2c. UPDATE된 콜사인들도 callsign_uploads junction에 링크 추가
+        const allUpdatedRows = [...toUpdateInProgress, ...toUpdateCompleted];
+        if (allUpdatedRows.length > 0) {
+          const JUNCTION_BATCH_SIZE = 200;
+          for (let i = 0; i < allUpdatedRows.length; i += JUNCTION_BATCH_SIZE) {
+            const batch = allUpdatedRows.slice(i, i + JUNCTION_BATCH_SIZE);
+            const jValues: any[] = [];
+            const jPlaceholders: string[] = [];
+            let jIdx = 1;
+            for (const row of batch) {
+              jPlaceholders.push(`($${jIdx}::uuid, $${jIdx + 1}::uuid)`);
+              jValues.push(row.id, uploadId);
+              jIdx += 2;
+            }
+            await trx(
+              `INSERT INTO callsign_uploads (callsign_id, file_upload_id)
+               VALUES ${jPlaceholders.join(', ')}
+               ON CONFLICT (callsign_id, file_upload_id) DO NOTHING`,
+              jValues
+            );
+          }
         }
 
         // 4-3. Batch INSERT for occurrences (배치 내 중복 제거)
