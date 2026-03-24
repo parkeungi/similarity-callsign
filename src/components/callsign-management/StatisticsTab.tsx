@@ -14,6 +14,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { TimePatternChart } from '@/components/admin/charts/TimePatternChart';
+import { SearchStatsSubTab } from './SearchStatsSubTab';
 
 interface CallsignStatsResponse {
   total: number;
@@ -73,7 +74,7 @@ function getPeriodLabel(period: PeriodType, offset: number, customFrom?: string,
   return '';
 }
 
-type StatsSubTab = 'overview' | 'timePattern';
+type StatsSubTab = 'overview' | 'timePattern' | 'searchStats';
 
 export function StatisticsTab() {
   const [statsSubTab, setStatsSubTab] = useState<StatsSubTab>('overview');
@@ -141,17 +142,8 @@ export function StatisticsTab() {
     color: [COLORS.rose, COLORS.amber, COLORS.emerald, COLORS.blue][i % 4]
   })).filter(i => i.value > 0);
 
-  const isLoading =
+  const isOverviewLoading =
     callsignStatsQuery.isLoading || totalActionsQuery.isLoading || sysStatsQuery.isLoading || airlineDetailStatsQuery.isLoading;
-
-  if (isLoading) {
-    return (
-      <div className="py-20 text-center">
-        <div className="inline-block w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        <p className="mt-4 text-sm font-bold text-slate-400 uppercase tracking-widest">Loading Data...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
@@ -177,14 +169,23 @@ export function StatisticsTab() {
         >
           시간대 패턴 분석
         </button>
+        <button
+          onClick={() => setStatsSubTab('searchStats')}
+          className={`px-5 py-2.5 text-sm font-bold transition-colors -mb-px ${
+            statsSubTab === 'searchStats'
+              ? 'text-indigo-600 border-b-2 border-indigo-600'
+              : 'text-gray-500 hover:text-gray-800'
+          }`}
+        >
+          사전조회 통계
+        </button>
       </div>
 
       {/* 시간대 패턴 분석 탭 */}
       {statsSubTab === 'timePattern' && <TimePatternChart />}
 
-      {/* 기본 통계 탭 */}
-      {statsSubTab === 'overview' && <>
-      {/* 1. 시간 범위 선택 UI */}
+      {/* 시간 범위 선택 UI (overview + searchStats 공유) */}
+      {(statsSubTab === 'overview' || statsSubTab === 'searchStats') && (
       <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 p-8">
         <div className="flex flex-col gap-6">
           <div className="flex gap-2 flex-wrap">
@@ -220,7 +221,19 @@ export function StatisticsTab() {
           )}
         </div>
       </div>
+      )}
 
+      {/* 사전조회 통계 탭 */}
+      {statsSubTab === 'searchStats' && <SearchStatsSubTab dateRange={dateRange} />}
+
+      {/* 기본 통계 탭 */}
+      {statsSubTab === 'overview' && <>
+      {isOverviewLoading ? (
+        <div className="py-20 text-center">
+          <div className="inline-block w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <p className="mt-4 text-sm font-bold text-slate-400 uppercase tracking-widest">Loading Data...</p>
+        </div>
+      ) : <>
       {/* 2. KPI 카드 */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
         <StatCard label="총 호출부호" value={totalCallsigns} color="text-slate-800" />
@@ -388,7 +401,7 @@ export function StatisticsTab() {
         )}
       </div>
 
-      </>}
+      </>}</>}
     </div>
   );
 }

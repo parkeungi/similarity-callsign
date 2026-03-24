@@ -3,6 +3,32 @@ import { query } from '@/lib/db';
 
 const DAY_NAMES_KO = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
 
+// 검색 이력 로깅 (fire-and-forget, 검색 응답에 영향 없음)
+function logSearch(
+  request: NextRequest,
+  callsign: string,
+  resultCount: number,
+  results: Array<{ airlineCode?: string; otherAirlineCode?: string; riskLevel?: string }>
+) {
+  try {
+    const airlines = [...new Set(results.flatMap(r => [r.airlineCode, r.otherAirlineCode]).filter(Boolean))];
+    const risks = [...new Set(results.map(r => r.riskLevel).filter(Boolean))];
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip') || null;
+    const ua = (request.headers.get('user-agent') || '').slice(0, 512) || null;
+
+    query(
+      `INSERT INTO search_logs (searched_callsign, result_count, matched_airline_codes, matched_risk_levels, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [callsign, resultCount, airlines.join(',') || null, risks.join(',') || null, ip, ua]
+    ).catch((err) => {
+      console.error('[search_logs] Insert failed:', err);
+    });
+  } catch (err) {
+    console.error('[search_logs] logSearch error:', err);
+  }
+}
+
 // 한국 시간대 기준 요일 계산 (UTC+9)
 function getKoreaDayOfWeek(): number {
   const now = new Date();
@@ -57,6 +83,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (callsignResult.rows.length === 0) {
+      logSearch(request, callsign, 0, []);
       return NextResponse.json({
         data: {
           searchedCallsign: callsign,
@@ -162,6 +189,8 @@ export async function GET(request: NextRequest) {
         sameDayCount: sameDayOccurrences.length,
       };
     });
+
+    logSearch(request, callsign, results.length, results);
 
     return NextResponse.json({
       data: {

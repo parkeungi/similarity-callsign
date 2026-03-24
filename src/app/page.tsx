@@ -96,6 +96,11 @@ export default function Home() {
 
       <main className="relative z-30 w-full flex-1 flex flex-col lg:flex-row items-center justify-between gap-16 lg:gap-32 px-10 pt-20 pb-20 lg:pb-32">
 
+        {/* 모바일/태블릿: 헤더 아래 검색 패널 (데스크톱에서는 숨김) */}
+        <div className="w-full lg:hidden animate-in fade-in slide-in-from-top-4 duration-700">
+          <PreflightSearchPanel />
+        </div>
+
         {/* 왼쪽 메인 슬로건 영역 */}
         <div className="flex-1 text-left animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-200 fill-mode-both lg:self-end">
 
@@ -125,8 +130,8 @@ export default function Home() {
 
         {/* 오른쪽 로그인 + 검색 영역 */}
         <div className="w-full max-w-[460px] animate-in fade-in slide-in-from-right-8 duration-1000 delay-400 fill-mode-both flex flex-col gap-4">
-          {/* 검색 패널: 모바일/태블릿에서는 로그인 위, 데스크톱에서는 아래 */}
-          <div className="order-first lg:order-last">
+          {/* 검색 패널: 데스크톱에서만 로그인 아래에 표시 (모바일은 상단에 별도 렌더링) */}
+          <div className="hidden lg:block order-last">
             <PreflightSearchPanel />
           </div>
 

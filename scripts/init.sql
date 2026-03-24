@@ -532,3 +532,18 @@ CREATE TABLE IF NOT EXISTS ai_analysis_jobs (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   created_by UUID REFERENCES users(id) ON DELETE SET NULL
 );
+
+-- 사전조회 검색 이력 테이블
+CREATE TABLE IF NOT EXISTS search_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  searched_callsign VARCHAR(20) NOT NULL,
+  result_count INT NOT NULL DEFAULT 0,
+  matched_airline_codes TEXT,
+  matched_risk_levels TEXT,
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  searched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_logs_searched_at ON search_logs(searched_at DESC);
+CREATE INDEX IF NOT EXISTS idx_search_logs_callsign ON search_logs(searched_callsign);
