@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     // 새 비밀번호 규칙 검사
     if (!PASSWORD_REGEX.test(newPassword)) {
       return NextResponse.json(
-        { error: '8자 이상, 대문자·소문자·숫자·특수문자 모두 포함 필요' },
+        { error: '비밀번호는 4자 이상 입력해주세요.' },
         { status: 400 }
       );
     }

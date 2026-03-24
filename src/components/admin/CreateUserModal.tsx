@@ -50,7 +50,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
     }
 
     if (!PASSWORD_REGEX.test(password)) {
-      setError('비밀번호: 8자 이상, 대문자·소문자·숫자·특수문자 모두 포함 필요');
+      setError('비밀번호는 4자 이상 입력해주세요.');
       return;
     }
 
@@ -161,7 +161,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
                   <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="8자 이상, 대/소문자+숫자+특수문자"
+                    placeholder="4자 이상"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isLoading}
@@ -178,7 +178,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
                 </div>
               </div>
               <p className="text-[11px] font-medium text-slate-500 mt-1.5 ml-1">
-                8자 이상, 대문자·소문자·숫자·특수문자(!@#$%^&*) 모두 포함
+                4자 이상 입력
               </p>
             </div>
 

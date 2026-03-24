@@ -27,7 +27,7 @@ const schema = z
     currentPassword: z.string().min(1, '현재 비밀번호를 입력해주세요.'),
     newPassword: z
       .string()
-      .min(8, '비밀번호는 8자 이상이어야 합니다.')
+      .min(4, '비밀번호는 4자 이상이어야 합니다.')
       .regex(PASSWORD_REGEX, PASSWORD_RULE),
     newPasswordConfirm: z.string().min(1, '비밀번호 확인을 입력해주세요.'),
   })
@@ -142,7 +142,7 @@ export function ChangePasswordForm({ forced = false }: ChangePasswordFormProps) 
               id="newPassword"
               type="password"
               label="새 비밀번호"
-              placeholder="8자 이상, 대문자 + 숫자 포함"
+              placeholder="4자 이상"
               autoComplete="new-password"
               required
               error={errors.newPassword?.message}

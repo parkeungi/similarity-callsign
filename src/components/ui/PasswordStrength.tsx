@@ -1,11 +1,8 @@
-// 비밀번호 강도 표시기 - 길이·대소문자·숫자·특수문자 규칙별 진행 바 렌더링
+// 비밀번호 강도 표시기 - 길이 규칙 기반 진행 바 렌더링
 /**
  * 비밀번호 강도 표시 컴포넌트
- * - 8자 이상
- * - 대문자 1개 이상
- * - 소문자 1개 이상
- * - 숫자 1개 이상
- * - 특수문자 1개 이상
+ * - 4자 이상 (필수)
+ * - 대문자, 숫자, 특수문자는 선택사항 (강도 표시용)
  */
 
 interface PasswordStrengthProps {
@@ -18,10 +15,10 @@ interface Rule {
 }
 
 const rules: Rule[] = [
+  { label: '4자 이상', test: (pw) => pw.length >= 4 },
   { label: '8자 이상', test: (pw) => pw.length >= 8 },
-  { label: '대문자 포함', test: (pw) => /[A-Z]/.test(pw) },
-  { label: '소문자 포함', test: (pw) => /[a-z]/.test(pw) },
   { label: '숫자 포함', test: (pw) => /\d/.test(pw) },
+  { label: '대문자 포함', test: (pw) => /[A-Z]/.test(pw) },
   { label: '특수문자 포함', test: (pw) => /[!@#$%^&*(),.?":{}|<>]/.test(pw) },
 ];
 

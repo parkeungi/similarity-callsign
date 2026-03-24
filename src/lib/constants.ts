@@ -5,15 +5,12 @@
 export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || '유사호출부호 공유시스템';
 
 /**
- * 비밀번호 규칙 (강화됨)
- * - 최소 8자
- * - 최소 1개의 대문자
- * - 최소 1개의 소문자
- * - 최소 1개의 숫자
- * - 최소 1개의 특수문자
+ * 비밀번호 규칙 (완화됨)
+ * - 최소 4자
+ * - 문자, 숫자 등 제한 없음
  */
-export const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]).{8,}$/;
-export const PASSWORD_RULE = '8자 이상, 대문자·소문자·숫자·특수문자 모두 포함';
+export const PASSWORD_REGEX = /^.{4,}$/;
+export const PASSWORD_RULE = '4자 이상 입력';
 
 /**
  * 에러 메시지 (열거 공격 방어: 이메일/비밀번호 구분 없이 동일 메시지)
