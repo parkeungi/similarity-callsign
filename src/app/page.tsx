@@ -4,10 +4,11 @@
 import Link from 'next/link';
 import { AppFooter } from '@/components/layout/AppFooter';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Mail, Lock } from 'lucide-react';
 import { ROUTES } from '@/lib/constants';
 import { useAuthStore } from '@/store/authStore';
+import PreflightSearchPanel from '@/components/preflight/PreflightSearchPanel';
 
 // 고퀄리티 이미지와 태스크 중심 슬로건을 활용한 신규 레이아웃
 export default function Home() {
@@ -122,19 +123,24 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 오른쪽 로그인 영역 */}
-        <div className="w-full max-w-[460px] animate-in fade-in slide-in-from-right-8 duration-1000 delay-400 fill-mode-both">
-          <div className="bg-slate-900/75 backdrop-blur-[28px] rounded-none p-8 md:p-10 border border-white/5 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8)] relative overflow-hidden">
+        {/* 오른쪽 로그인 + 검색 영역 */}
+        <div className="w-full max-w-[460px] animate-in fade-in slide-in-from-right-8 duration-1000 delay-400 fill-mode-both flex flex-col gap-4">
+          {/* 검색 패널: 모바일/태블릿에서는 로그인 위, 데스크톱에서는 아래 */}
+          <div className="order-first lg:order-last">
+            <PreflightSearchPanel />
+          </div>
+
+          <div className="bg-slate-900/75 backdrop-blur-[28px] rounded-none p-6 md:p-8 border border-white/5 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8)] relative overflow-hidden">
             <div className="absolute -top-32 -right-32 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
 
             <div className="relative z-10">
-              <div className="mb-8 text-center text-white/80">
-                <span className="text-[11px] font-extrabold text-blue-400 uppercase tracking-[0.5em] block mb-3">Login System</span>
-                <h3 className="text-4xl font-black text-white tracking-[0.2em] uppercase">LOGIN</h3>
+              <div className="mb-5 text-center text-white/80">
+                <span className="text-[11px] font-extrabold text-blue-400 uppercase tracking-[0.5em] block mb-2">Login System</span>
+                <h3 className="text-3xl font-black text-white tracking-[0.2em] uppercase">LOGIN</h3>
               </div>
 
-              <form className="space-y-7" onSubmit={handleLogin}>
-                <div className="space-y-3">
+              <form className="space-y-5" onSubmit={handleLogin}>
+                <div className="space-y-2">
                   <label className="text-[11px] font-bold text-white/40 tracking-[0.1em] ml-2 uppercase">Account ID</label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
@@ -151,7 +157,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-[11px] font-bold text-white/40 tracking-[0.1em] ml-2 uppercase">Password</label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
@@ -174,7 +180,7 @@ export default function Home() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center justify-between pt-1">
                   <label className="flex items-center group cursor-pointer">
                     <input type="checkbox" className="hidden peer" />
                     <div className="w-5 h-5 rounded-none border border-white/10 bg-white/5 peer-checked:bg-blue-600 peer-checked:border-blue-500 flex items-center justify-center transition-all group-hover:bg-white/10">
@@ -188,19 +194,20 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`w-full py-3 mt-8 rounded-none text-base font-black text-white bg-blue-600 hover:bg-blue-500 shadow-2xl shadow-blue-600/30 active:scale-[0.98] transition-all tracking-[0.3em] uppercase ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`w-full py-3 mt-4 rounded-none text-base font-black text-white bg-blue-600 hover:bg-blue-500 shadow-2xl shadow-blue-600/30 active:scale-[0.98] transition-all tracking-[0.3em] uppercase ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {isSubmitting ? 'LOGGING IN...' : 'LOGIN'}
                 </button>
               </form>
 
-              <div className="mt-10 pt-8 border-t border-white/5 text-center">
+              <div className="mt-6 pt-5 border-t border-white/5 text-center">
                 <p className="text-[11px] font-black text-white/30 tracking-[0.2em] uppercase leading-loose">
                   Korea Airports Corporation <span className="text-white/10 mx-1">|</span> Aviation Services
                 </p>
               </div>
             </div>
           </div>
+
         </div>
       </main>
 

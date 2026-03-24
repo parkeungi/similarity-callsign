@@ -280,6 +280,9 @@ CREATE INDEX IF NOT EXISTS idx_callsigns_risk_occurrence ON callsigns(risk_level
 CREATE INDEX IF NOT EXISTS idx_callsigns_airline_id_code ON callsigns(airline_id, airline_code);
 CREATE INDEX IF NOT EXISTS idx_callsigns_airports ON callsigns(departure_airport1, arrival_airport1);
 CREATE INDEX IF NOT EXISTS idx_callsigns_uploaded_at ON callsigns(uploaded_at DESC);
+-- 사전조회 검색 성능 최적화
+CREATE INDEX IF NOT EXISTS idx_callsigns_my_callsign ON callsigns(my_callsign);
+CREATE INDEX IF NOT EXISTS idx_callsigns_other_callsign ON callsigns(other_callsign);
 
 -- 2-1. callsign_occurrences 테이블 (호출부호 쌍의 발생 이력)
 -- 같은 호출부호 쌍이 여러 날짜에 발생한 경우를 별도로 관리
