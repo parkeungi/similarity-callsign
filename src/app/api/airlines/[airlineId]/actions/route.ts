@@ -67,6 +67,10 @@ export async function GET(
       );
     }
 
+    // 로그인 항공사 ICAO 코드 조회 (스왑 로직용)
+    const airlineResult = await query('SELECT code FROM airlines WHERE id = $1', [airlineId]);
+    const airlineCode = airlineResult.rows[0]?.code || '';
+
     // 필터 파라미터
     const status = request.nextUrl.searchParams.get('status');
     const search = request.nextUrl.searchParams.get('search');
@@ -250,24 +254,36 @@ export async function GET(
     const total = parseInt(countResult.rows[0]?.total || '0', 10);
 
     return NextResponse.json({
-      data: result.rows.map((row: any) => ({
-        // 조치 정보 (있는 경우)
-        id: row.id,
-        airline_id: row.airline_id,
-        airline: row.airline_code ? {
-          id: row.airline_id,
-          code: row.airline_code,
-          name_ko: row.airline_name_ko,
-        } : null,
-        callsign_id: row.callsign_id || row.cs_id,
-        callsign_pair: row.callsign_pair || null,
-        callsign: row.callsign_pair ? {
+      data: result.rows.map((row: any) => {
+        // 로그인 항공사 기준으로 my/other 재정렬 (DB는 알파벳순 정규화)
+        const myPrefix = (row.my_callsign || '').replace(/[0-9]/g, '');
+        const otherPrefix = (row.other_callsign || '').replace(/[0-9]/g, '');
+        const needSwap = myPrefix !== airlineCode && otherPrefix === airlineCode;
+        const myCs = needSwap ? row.other_callsign : row.my_callsign;
+        const otherCs = needSwap ? row.my_callsign : row.other_callsign;
+        const swappedOtherCode = needSwap ? myPrefix : otherPrefix;
+        const swappedPair = needSwap ? `${myCs} | ${otherCs}` : row.callsign_pair;
+
+        return {
+          // 조치 정보 (있는 경우)
+          id: row.id,
+          airline_id: row.airline_id,
+          airline: row.airline_code ? {
+            id: row.airline_id,
+            code: row.airline_code,
+            name_ko: row.airline_name_ko,
+          } : null,
+          callsign_id: row.callsign_id || row.cs_id,
+          callsign_pair: swappedPair || null,
+          my_callsign: myCs,
+          other_callsign: otherCs,
+          callsign: row.callsign_pair ? {
             id: row.cs_id,
-            callsign_pair: row.callsign_pair,
-            my_callsign: row.my_callsign,
-            other_callsign: row.other_callsign,
+            callsign_pair: swappedPair,
+            my_callsign: myCs,
+            other_callsign: otherCs,
             airline_code: row.cs_airline_code,
-            other_airline_code: row.other_airline_code,
+            other_airline_code: swappedOtherCode,
             risk_level: row.risk_level,
             occurrence_count: row.occurrence_count,
             error_type: row.error_type,
@@ -277,41 +293,42 @@ export async function GET(
             first_occurred_at: row.first_occurred_at,
             last_occurred_at: row.last_occurred_at,
           } : null,
-        action_type: row.action_type,
-        description: row.description,
-        manager_name: row.manager_name,
-        planned_due_date: row.planned_due_date,
-        status: row.status,
-        result_detail: row.result_detail,
-        completed_at: row.completed_at,
-        registered_by: row.registered_by,
-        registered_at: row.registered_at,
-        updated_at: row.updated_at,
-        reviewed_by: row.reviewed_by,
-        reviewed_at: row.reviewed_at,
-        review_comment: row.review_comment,
-        is_virtual: Boolean(row.is_virtual),
-        // camelCase 별칭
-        airlineId: row.airline_id,
-        callsignId: row.callsign_id || row.cs_id,
-        actionType: row.action_type,
-        managerName: row.manager_name,
-        plannedDueDate: row.planned_due_date,
-        resultDetail: row.result_detail,
-        completedAt: row.completed_at,
-        registeredBy: row.registered_by,
-        registeredAt: row.registered_at,
-        updatedAt: row.updated_at,
-        reviewedBy: row.reviewed_by,
-        reviewedAt: row.reviewed_at,
-        reviewComment: row.review_comment,
-        isVirtual: Boolean(row.is_virtual),
-        airlineCode: row.cs_airline_code,
-        otherAirlineCode: row.other_airline_code,
-        occurrence_dates: row.occurrence_dates || undefined,
-        occurrenceDates: row.occurrence_dates || undefined,
-        error_type_counts: row.error_type_counts || {},
-      })),
+          action_type: row.action_type,
+          description: row.description,
+          manager_name: row.manager_name,
+          planned_due_date: row.planned_due_date,
+          status: row.status,
+          result_detail: row.result_detail,
+          completed_at: row.completed_at,
+          registered_by: row.registered_by,
+          registered_at: row.registered_at,
+          updated_at: row.updated_at,
+          reviewed_by: row.reviewed_by,
+          reviewed_at: row.reviewed_at,
+          review_comment: row.review_comment,
+          is_virtual: Boolean(row.is_virtual),
+          // camelCase 별칭
+          airlineId: row.airline_id,
+          callsignId: row.callsign_id || row.cs_id,
+          actionType: row.action_type,
+          managerName: row.manager_name,
+          plannedDueDate: row.planned_due_date,
+          resultDetail: row.result_detail,
+          completedAt: row.completed_at,
+          registeredBy: row.registered_by,
+          registeredAt: row.registered_at,
+          updatedAt: row.updated_at,
+          reviewedBy: row.reviewed_by,
+          reviewedAt: row.reviewed_at,
+          reviewComment: row.review_comment,
+          isVirtual: Boolean(row.is_virtual),
+          airlineCode: row.cs_airline_code,
+          otherAirlineCode: swappedOtherCode,
+          occurrence_dates: row.occurrence_dates || undefined,
+          occurrenceDates: row.occurrence_dates || undefined,
+          error_type_counts: row.error_type_counts || {},
+        };
+      }),
       pagination: {
         page,
         limit,

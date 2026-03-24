@@ -39,7 +39,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
     setSuccess(false);
 
     // 유효성 검사
-    if (!email || !password || !passwordConfirm || !airlineCode) {
+    if (!email || !password || !passwordConfirm || (role === 'user' && !airlineCode)) {
       setError('모든 필드를 입력해주세요.');
       return;
     }
@@ -200,17 +200,17 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
 
             <div className="flex flex-col gap-1.5">
               <label htmlFor="airlineCode" className="text-xs font-bold text-slate-400">
-                소속 항공사 <span className="text-rose-500">*</span>
+                소속 항공사 {role === 'user' && <span className="text-rose-500">*</span>}
               </label>
               <select
                 id="airlineCode"
                 value={airlineCode}
                 onChange={(e) => setAirlineCode(e.target.value)}
-                disabled={isLoading || airlinesLoading}
-                className="w-full px-3.5 py-2.5 rounded-none border border-slate-700 bg-slate-800 text-slate-100 text-sm font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-shadow disabled:bg-slate-800/50 disabled:text-slate-500 disabled:cursor-not-allowed"
-                required
+                disabled={isLoading || airlinesLoading || role === 'admin'}
+                className={`w-full px-3.5 py-2.5 rounded-none border border-slate-700 bg-slate-800 text-slate-100 text-sm font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-shadow disabled:bg-slate-800/50 disabled:text-slate-500 disabled:cursor-not-allowed ${role === 'admin' ? 'opacity-50' : ''}`}
+                required={role === 'user'}
               >
-                <option value="">항공사를 선택하세요</option>
+                <option value="">{role === 'admin' ? '선택 안함 (전체 시스템 관리)' : '항공사를 선택하세요'}</option>
                 {airlines.map((airline) => (
                   <option key={airline.code} value={airline.code}>
                     {airline.name_ko} ({airline.code})
@@ -253,7 +253,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
                     value="admin"
                     className="hidden"
                     checked={role === 'admin'}
-                    onChange={() => setRole('admin')}
+                    onChange={() => { setRole('admin'); setAirlineCode(''); }}
                     disabled={isLoading}
                   />
                   관리자

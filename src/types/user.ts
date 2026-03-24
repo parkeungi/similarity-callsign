@@ -17,7 +17,7 @@ export interface User {
   id: string;
   email: string;
   password?: string; // 응답에는 포함되지 않음
-  airline_id: string;
+  airline_id: string | null;
   airline?: Airline;
   status: 'active' | 'suspended';
   role: 'admin' | 'user';

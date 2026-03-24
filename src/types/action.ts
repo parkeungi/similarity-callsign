@@ -182,6 +182,8 @@ export interface Action {
   airline_id: string;
   callsign_id: string;
   callsign_pair?: string; // API 응답 시 최상위 포함
+  my_callsign?: string;   // 로그인 항공사 기준 스왑된 호출부호
+  other_callsign?: string; // 상대 항공사 호출부호
 
   // 조치 정보
   action_type: string; // "편명 변경", "브리핑 시행", "모니터링 강화" 등

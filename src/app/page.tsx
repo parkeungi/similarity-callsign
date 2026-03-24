@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AppFooter } from '@/components/layout/AppFooter';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Building2, ShieldCheck, Mail, Lock } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
 import { ROUTES } from '@/lib/constants';
 import { useAuthStore } from '@/store/authStore';
 
@@ -14,7 +14,6 @@ export default function Home() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
   const setUser = useAuthStore((s) => s.setUser);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -50,9 +49,13 @@ export default function Home() {
         setAuth(result.user, result.accessToken);
       }
 
-      // 역할에 따라 즉시 라우팅 (테스트 단계에서는 추가 검증 생략)
-      const destination = result.user.role === 'admin' ? ROUTES.ADMIN : ROUTES.AIRLINE;
-      router.push(destination);
+      // 기본 비밀번호(1234) 사용자는 비밀번호 변경 페이지로 이동
+      if (result.forceChangePassword) {
+        router.push(`${ROUTES.CHANGE_PASSWORD}?forced=true`);
+      } else {
+        const destination = result.user.role === 'admin' ? ROUTES.ADMIN : ROUTES.AIRLINE;
+        router.push(destination);
+      }
     } catch (err) {
       setError('로그인 중 오류가 발생했습니다.');
       setIsSubmitting(false);
@@ -128,24 +131,6 @@ export default function Home() {
               <div className="mb-8 text-center text-white/80">
                 <span className="text-[11px] font-extrabold text-blue-400 uppercase tracking-[0.5em] block mb-3">Login System</span>
                 <h3 className="text-4xl font-black text-white tracking-[0.2em] uppercase">LOGIN</h3>
-              </div>
-
-              {/* 탭 스타일 */}
-              <div className="flex bg-black/40 p-1 rounded-none border border-white/5 mb-8 shadow-2xl">
-                <button
-                  type="button"
-                  onClick={() => setIsAdmin(false)}
-                  className={`flex-1 py-3.5 rounded-none text-[13px] font-bold transition-all duration-300 ${!isAdmin ? 'bg-white/10 text-white border border-white/5 shadow-xl' : 'text-white/40 hover:text-white'}`}
-                >
-                  항공사 업무
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAdmin(true)}
-                  className={`flex-1 py-3.5 rounded-none text-[13px] font-bold transition-all duration-300 ${isAdmin ? 'bg-white/10 text-white border border-white/5 shadow-xl' : 'text-white/40 hover:text-white'}`}
-                >
-                  운영 관리자
-                </button>
               </div>
 
               <form className="space-y-7" onSubmit={handleLogin}>

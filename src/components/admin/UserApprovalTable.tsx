@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useUsers, useUserMutations } from '@/hooks/useUsers';
 import { useAdminAirlines } from '@/hooks/useAirlines';
+import { useAuthStore } from '@/store/authStore';
 import { User } from '@/types/user';
 import { CreateUserModal } from './CreateUserModal';
 
@@ -38,6 +39,7 @@ function formatDate(isoString: string) {
 }
 
 export function UserApprovalTable() {
+  const currentUser = useAuthStore((s) => s.user);
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [updatingAirline, setUpdatingAirline] = useState<{ userId: string; airlineId: string } | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -203,7 +205,7 @@ export function UserApprovalTable() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
-                      {user.status === 'active' && user.role !== 'admin' && (
+                      {user.status === 'active' && user.id !== currentUser?.id && (
                         <Button
                           variant="secondary"
                           size="sm"
@@ -225,7 +227,7 @@ export function UserApprovalTable() {
                           활성화
                         </Button>
                       )}
-                      {user.role !== 'admin' && (
+                      {user.id !== currentUser?.id && (
                         <Button
                           variant="danger"
                           size="sm"

@@ -15,6 +15,23 @@
 - **Database**: PostgreSQL (Supabase)
 - **Auth**: JWT (AccessToken + RefreshToken, 회원가입 없음)
 
+## 1-1. Vercel 배포 가이드라인 (환경변수 수정 최소화)
+> **원칙: 코드 수정만으로 배포가 완료되어야 하며, Vercel 대시보드 환경변수 변경은 최소화한다.**
+
+- **API 호출 시 상대경로 사용 필수**: 클라이언트에서 API 호출 시 `NEXT_PUBLIC_API_URL` 등 환경변수에 의존하지 말고, 상대경로 `/api/...`를 사용하세요. 상대경로는 로컬(`localhost:3000`)과 Vercel(`your-app.vercel.app`) 모두에서 자동으로 올바른 호스트로 요청됩니다.
+  ```typescript
+  // ✅ 올바른 방식 - 상대경로
+  const API_BASE = '/api';
+  await fetch('/api/auth/login', { ... });
+
+  // ❌ 금지 - 환경변수로 호스트 지정
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
+  // → 환경변수가 'http://localhost:3000'이면 Vercel에서 경로 오류 발생
+  ```
+- **서버 전용 환경변수**: DB 연결(`DATABASE_URL`), JWT 시크릿 등 서버에서만 사용하는 값은 `NEXT_PUBLIC_` 접두사 없이 Vercel 환경변수에 설정합니다. 이 값들은 변경 빈도가 낮으므로 허용됩니다.
+- **새 환경변수 추가 금지**: 코드에서 새로운 `NEXT_PUBLIC_*` 환경변수를 만들지 마세요. 필요한 설정은 코드 내 상수 또는 `/api/config` 엔드포인트로 처리하세요.
+- **배포 검증**: `npm run build` 성공만으로 Vercel 배포 가능해야 합니다. 빌드 후 Vercel 대시보드 설정 변경이 필요한 수정은 하지 마세요.
+
 ## 2. Next.js Best Practices (Strict)
 - **Routing**: `app/` 디렉토리(App Router)만 사용하세요.
 - **Components**: 기본적으로 **Server Component**로 작성하고, `useState`, `useEffect`가 꼭 필요한 경우만 파일 최상단에 `'use client'`를 명시하세요.

@@ -135,10 +135,10 @@ export async function POST(request: NextRequest) {
 
     const { email, password, airlineId, airlineCode, role = 'user' } = await request.json();
 
-    // 유효성 검사
-    if (!email || !password || (!airlineId && !airlineCode)) {
+    // 유효성 검사: 관리자는 항공사 선택 불필요
+    if (!email || !password || (role !== 'admin' && !airlineId && !airlineCode)) {
       return NextResponse.json(
-        { error: '이메일, 비밀번호, 항공사는 필수입니다.' },
+        { error: role === 'admin' ? '이메일, 비밀번호는 필수입니다.' : '이메일, 비밀번호, 항공사는 필수입니다.' },
         { status: 400 }
       );
     }
@@ -168,19 +168,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 항공사 존재 여부 확인 (code 또는 id로 조회)
-    const airlineCheck = airlineCode
-      ? await query('SELECT id FROM airlines WHERE code = $1', [airlineCode])
-      : await query('SELECT id FROM airlines WHERE id = $1', [airlineId]);
-    if (airlineCheck.rows.length === 0) {
+    // 항공사 존재 여부 확인 (관리자는 항공사 없이 생성 가능)
+    let resolvedAirlineId: string | null = null;
+
+    if (airlineCode || airlineId) {
+      const airlineCheck = airlineCode
+        ? await query('SELECT id FROM airlines WHERE code = $1', [airlineCode])
+        : await query('SELECT id FROM airlines WHERE id = $1', [airlineId]);
+      if (airlineCheck.rows.length === 0) {
+        return NextResponse.json(
+          { error: '존재하지 않는 항공사입니다.' },
+          { status: 404 }
+        );
+      }
+      resolvedAirlineId = airlineCheck.rows[0].id;
+    } else if (role !== 'admin') {
       return NextResponse.json(
-        { error: '존재하지 않는 항공사입니다.' },
-        { status: 404 }
+        { error: '항공사 사용자는 소속 항공사를 선택해야 합니다.' },
+        { status: 400 }
       );
     }
-
-    // 실제 DB의 UUID id 사용
-    const resolvedAirlineId: string = airlineCheck.rows[0].id;
 
     // 비밀번호 암호화 (필수)
     let passwordHash: string;

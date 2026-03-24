@@ -58,9 +58,10 @@ export async function GET(
       );
     }
 
-    // 토큰에서 항공사 ID 확인
+    // 토큰에서 항공사 ID 확인 (관리자는 항공사 없이도 접근 가능)
     const tokenAirlineId = payload.airlineId;
-    if (!tokenAirlineId) {
+    const isAdmin = payload.role === 'admin';
+    if (!isAdmin && !tokenAirlineId) {
       return NextResponse.json(
         { error: '토큰에 항공사 정보가 없습니다.' },
         { status: 401 }
@@ -68,7 +69,6 @@ export async function GET(
     }
 
     // 요청한 항공사 ID가 로그인 사용자의 항공사 ID와 일치하는지 확인 (관리자는 제외)
-    const isAdmin = payload.role === 'admin';
     if (!isAdmin && requestedAirlineId !== tokenAirlineId) {
       return NextResponse.json(
         { error: '권한이 없습니다.' },
@@ -313,7 +313,7 @@ export async function GET(
           id: callsign.id,
           airline_id: callsign.airline_id,
           airline_code: airlineCode,
-          callsign_pair: callsign.callsign_pair,
+          callsign_pair: needSwap ? `${myCs} | ${otherCs}` : callsign.callsign_pair,
           my_callsign: myCs,
           other_callsign: otherCs,
           other_airline_code: otherCode,

@@ -218,11 +218,26 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       );
     }
 
-    if (adminCheck.rows[0].role === 'admin') {
+    // 자기 자신은 삭제 불가
+    if (userId === payload.userId) {
       return NextResponse.json(
-        { error: '관리자는 삭제할 수 없습니다.' },
+        { error: '자기 자신은 삭제할 수 없습니다.' },
         { status: 400 }
       );
+    }
+
+    // 관리자 삭제 시: 최소 1명의 관리자는 남아있어야 함
+    if (adminCheck.rows[0].role === 'admin') {
+      const adminCountResult = await query(
+        "SELECT COUNT(*) as count FROM users WHERE role = 'admin'",
+      );
+      const adminCount = parseInt(adminCountResult.rows[0].count, 10);
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          { error: '최소 1명의 관리자가 필요합니다. 마지막 관리자는 삭제할 수 없습니다.' },
+          { status: 400 }
+        );
+      }
     }
 
     // 삭제 전 사용자 정보 저장

@@ -6,7 +6,7 @@
 
 import { apiFetch } from '@/lib/api/client';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
+const API_BASE = '/api';
 
 interface ChangePasswordRequest {
   currentPassword: string;

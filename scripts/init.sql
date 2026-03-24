@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  airline_id UUID NOT NULL REFERENCES airlines(id),
+  airline_id UUID REFERENCES airlines(id),            -- 관리자는 NULL 허용
   status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
   role VARCHAR(50) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
 
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- 비밀번호 이력 테이블 생성 (NEW)
 CREATE TABLE IF NOT EXISTS password_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   password_hash VARCHAR(255) NOT NULL,
   changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
   changed_by VARCHAR(50)
@@ -61,7 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_password_history_user_id ON password_history(user
 -- Create audit log table for tracking changes
 CREATE TABLE IF NOT EXISTS audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   action VARCHAR(50) NOT NULL,
   table_name VARCHAR(50),
   old_data JSONB,
