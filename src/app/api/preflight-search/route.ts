@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { AIRLINES } from '@/lib/constants';
 
 const DAY_NAMES_KO = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+
+// 국내항공사 코드 Set (DB 쿼리 전 조기 차단용)
+const DOMESTIC_CODES = new Set(AIRLINES.map(a => a.code));
 
 // 검색 이력 로깅 (fire-and-forget, 검색 응답에 영향 없음)
 function logSearch(
@@ -51,6 +55,15 @@ export async function GET(request: NextRequest) {
     if (!/^[A-Z0-9]+$/.test(callsign)) {
       return NextResponse.json(
         { error: '호출부호는 영문과 숫자만 입력 가능합니다.', success: false },
+        { status: 400 }
+      );
+    }
+
+    // 외항사 조기 차단: 앞 3글자가 국내항공사 코드가 아니면 DB 쿼리 없이 리턴
+    const prefix = callsign.slice(0, 3);
+    if (!DOMESTIC_CODES.has(prefix)) {
+      return NextResponse.json(
+        { error: '검색 대상이 아닙니다.', success: false },
         { status: 400 }
       );
     }

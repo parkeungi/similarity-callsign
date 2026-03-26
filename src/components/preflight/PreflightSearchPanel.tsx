@@ -1,8 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, AlertTriangle, CheckCircle, Clock, MapPin, ChevronDown, ChevronUp, Plane } from 'lucide-react';
 import type { PreflightSearchResult } from '@/types/preflight';
+import { AIRLINES } from '@/lib/constants';
+
+// 국내항공사 코드 Set (빠른 조회용)
+const DOMESTIC_CODES = new Set(AIRLINES.map(a => a.code));
 
 export default function PreflightSearchPanel() {
   const [callsign, setCallsign] = useState('');
@@ -14,6 +18,30 @@ export default function PreflightSearchPanel() {
   const [error, setError] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const cooldownRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 쿨다운 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
+    };
+  }, []);
+
+  // 쿨다운 시작 함수
+  const startCooldown = (seconds: number) => {
+    setCooldown(seconds);
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setCooldown(prev => {
+        if (prev <= 1) {
+          if (cooldownRef.current) clearInterval(cooldownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const handleSearch = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -21,6 +49,13 @@ export default function PreflightSearchPanel() {
 
     if (!trimmed || trimmed.length < 3) {
       setError('호출부호를 3자 이상 입력해주세요.');
+      return;
+    }
+
+    // 외항사 조기 차단: 앞 3글자가 국내항공사 코드인지 확인
+    const prefix = trimmed.slice(0, 3);
+    if (!DOMESTIC_CODES.has(prefix)) {
+      setError('국내 항공사 호출부호만 검색 가능합니다.');
       return;
     }
 
@@ -48,6 +83,7 @@ export default function PreflightSearchPanel() {
       setResults(null);
     } finally {
       setIsLoading(false);
+      startCooldown(3); // 검색 후 3초 쿨다운
     }
   };
 
@@ -102,17 +138,17 @@ export default function PreflightSearchPanel() {
               type="text"
               value={callsign}
               onChange={(e) => setCallsign(e.target.value.toUpperCase())}
-              placeholder="호출부호 입력 (예: KAL852)"
+              placeholder="호출부호 입력 (예: ABC123)"
               className="w-full pl-10 pr-4 py-3 md:py-2.5 bg-black/40 border border-white/5 rounded-none text-white placeholder-white/20 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:bg-black/60 transition-all"
               maxLength={10}
             />
           </div>
           <button
             type="submit"
-            disabled={isLoading}
-            className="px-4 md:px-5 py-3 md:py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold tracking-wider transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isLoading || cooldown > 0}
+            className="px-4 md:px-5 py-3 md:py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold tracking-wider transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed min-w-[60px]"
           >
-            {isLoading ? '...' : '조회'}
+            {isLoading ? '...' : cooldown > 0 ? `${cooldown}초` : '조회'}
           </button>
         </form>
 
