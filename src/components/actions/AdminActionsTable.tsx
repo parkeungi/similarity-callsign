@@ -61,7 +61,7 @@ export function AdminActionsTable({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">항공사</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">호출부호</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">조치 유형</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">담당자</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">담당자 / 등록자</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">상태</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">등록일</th>
             </tr>
@@ -84,7 +84,12 @@ export function AdminActionsTable({
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-900">{action.action_type}</td>
-                <td className="px-6 py-4 text-sm text-gray-900">{action.manager_name || '-'}</td>
+                <td className="px-6 py-4 text-sm text-gray-900">
+                  <div>{action.manager_name || '-'}</div>
+                  <div className={`text-xs ${action.registered_by_email === '삭제된 사용자' ? 'text-red-400' : 'text-gray-400'}`}>
+                    {action.registered_by_email || '-'}
+                  </div>
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span
                     style={{

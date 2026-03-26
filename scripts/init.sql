@@ -355,7 +355,7 @@ CREATE TABLE IF NOT EXISTS actions (
   completed_at TIMESTAMP,                    -- 완료 날짜시간
 
   -- 등록자/수정자
-  registered_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  registered_by UUID REFERENCES users(id) ON DELETE SET NULL,
   registered_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 

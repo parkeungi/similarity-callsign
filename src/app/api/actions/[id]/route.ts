@@ -51,10 +51,12 @@ export async function GET(
         a.reviewed_by, a.reviewed_at, a.review_comment,
         al.code as airline_code, al.name_ko as airline_name_ko, al.name_en as airline_name_en,
         cs.callsign_pair, cs.my_callsign, cs.other_callsign, cs.risk_level, cs.similarity,
-        cs.error_type, cs.sub_error, cs.occurrence_count
+        cs.error_type, cs.sub_error, cs.occurrence_count,
+        COALESCE(ru.email, '삭제된 사용자') as registered_by_email
       FROM actions a
       LEFT JOIN airlines al ON a.airline_id = al.id
       LEFT JOIN callsigns cs ON a.callsign_id = cs.id
+      LEFT JOIN users ru ON a.registered_by = ru.id
       WHERE a.id = $1`,
       [id]
     );
@@ -104,6 +106,7 @@ export async function GET(
       result_detail: action.result_detail,
       completed_at: action.completed_at,
       registered_by: action.registered_by,
+      registered_by_email: action.registered_by_email,
       registered_at: action.registered_at,
       updated_at: action.updated_at,
       reviewed_by: action.reviewed_by,

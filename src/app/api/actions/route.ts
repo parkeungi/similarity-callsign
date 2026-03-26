@@ -61,10 +61,12 @@ export async function GET(request: NextRequest) {
         a.registered_by, a.registered_at, a.updated_at,
         a.reviewed_by, a.reviewed_at, a.review_comment,
         al.code as airline_code, al.name_ko as airline_name_ko,
-        cs.callsign_pair, cs.my_callsign, cs.other_callsign, cs.risk_level
+        cs.callsign_pair, cs.my_callsign, cs.other_callsign, cs.risk_level,
+        COALESCE(ru.email, '삭제된 사용자') as registered_by_email
       FROM actions a
       LEFT JOIN airlines al ON a.airline_id = al.id
       LEFT JOIN callsigns cs ON a.callsign_id = cs.id
+      LEFT JOIN users ru ON a.registered_by = ru.id
       WHERE COALESCE(a.is_cancelled, false) = false
     `;
     const queryParams: any[] = [];
@@ -235,6 +237,7 @@ export async function GET(request: NextRequest) {
         result_detail: action.result_detail,
         completed_at: action.completed_at,
         registered_by: action.registered_by,
+        registered_by_email: action.registered_by_email,
         registered_at: action.registered_at,
         updated_at: action.updated_at,
         reviewed_by: action.reviewed_by,
@@ -250,6 +253,7 @@ export async function GET(request: NextRequest) {
         resultDetail: action.result_detail,
         completedAt: action.completed_at,
         registeredBy: action.registered_by,
+        registeredByEmail: action.registered_by_email,
         registeredAt: action.registered_at,
         updatedAt: action.updated_at,
         reviewedBy: action.reviewed_by,

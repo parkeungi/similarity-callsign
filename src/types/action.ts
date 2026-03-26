@@ -200,6 +200,7 @@ export interface Action {
 
   // 등록자/수정자
   registered_by: string;
+  registered_by_email?: string;
   registered_at: string;
   updated_at: string;
 
@@ -230,6 +231,7 @@ export interface Action {
   resultDetail?: string;
   completedAt?: string;
   registeredBy?: string;
+  registeredByEmail?: string;
   registeredAt?: string;
   updatedAt?: string;
   reviewedBy?: string;

@@ -112,8 +112,8 @@ export function ActionDetailModal({
             </div>
           </div>
 
-          {/* 조치 정보 + 상대 항공사 조치 내역 (좌우 반반) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 조치 정보 + 상대 항공사 조치 내역 (같은 항공사면 조치 정보만 전체 너비) */}
+          <div className={`grid grid-cols-1 ${isSameAirline ? '' : 'md:grid-cols-2'} gap-4`}>
             {/* 내 조치 정보 */}
             <div className="bg-blue-900/20 p-4 rounded-none border border-blue-800/50 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
@@ -162,8 +162,8 @@ export function ActionDetailModal({
               )}
             </div>
 
-            {/* 상대 항공사 조치 내역 */}
-            {(() => {
+            {/* 상대 항공사 조치 내역 (같은 항공사면 숨김) */}
+            {!isSameAirline && (() => {
               const otherStatus = (callsign as any).other_action_status || (callsign as any).otherActionStatus;
               const otherType = (callsign as any).other_action_type || (callsign as any).otherActionType;
               const otherDesc = (callsign as any).other_action_description || (callsign as any).otherActionDescription;
