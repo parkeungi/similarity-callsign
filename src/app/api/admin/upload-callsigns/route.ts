@@ -244,7 +244,7 @@ export async function POST(request: NextRequest) {
           const coexistenceMinutes = toInt(row[19]);
           const errorProbability = toFloat(row[20]);
           const riskLevelGrade = row[21] ? String(row[21]).trim() : undefined;
-          const atcRecommendation = row[23] ? String(row[23]).trim() : undefined;
+          const atcRecommendation = row[22] ? String(row[22]).trim() : undefined;
           const errorType = row[27] ? String(row[27]).trim() : undefined;
           const subError = row[28] ? String(row[28]).trim() : undefined;
 

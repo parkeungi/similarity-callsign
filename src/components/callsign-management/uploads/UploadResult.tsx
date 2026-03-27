@@ -1,10 +1,12 @@
-// 업로드 결과 요약 - 총 행수·성공·실패 건수 표시, 에러 상세 목록 펼침
+// 업로드 결과 요약 - 신규쌍·기존쌍·필터제외·실패 건수 표시, 에러 상세 목록 펼침
 interface UploadResultProps {
   result: {
     success: boolean;
     total: number;
     inserted: number;
     updated: number;
+    skipped?: number;
+    reDetected?: number;
     failed: number;
     errors?: string[];
   };
@@ -32,13 +34,26 @@ export function UploadResult({ result }: UploadResultProps) {
 
       <div className="space-y-3">
         <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-none border border-emerald-100">
-          <span className="text-sm font-bold text-gray-700">추가</span>
+          <span className="text-sm font-bold text-gray-700">신규 쌍</span>
           <span className="text-lg font-black text-emerald-600">{result.inserted}개</span>
         </div>
-        <div className="flex justify-between items-center p-3 bg-blue-50 rounded-none border border-blue-100">
-          <span className="text-sm font-bold text-gray-700">수정</span>
+        <div className="flex justify-between items-start p-3 bg-blue-50 rounded-none border border-blue-100">
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-gray-700">기존 쌍</span>
+            {(result.reDetected ?? 0) > 0 && (
+              <span className="text-xs text-blue-500 mt-0.5">
+                이 중 조치완료 후 재검출 {result.reDetected}건
+              </span>
+            )}
+          </div>
           <span className="text-lg font-black text-blue-600">{result.updated}개</span>
         </div>
+        {(result.skipped ?? 0) > 0 && (
+          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-none border border-gray-200">
+            <span className="text-sm font-bold text-gray-700">필터 제외</span>
+            <span className="text-lg font-black text-gray-500">{result.skipped}개</span>
+          </div>
+        )}
         <div className="flex justify-between items-center p-3 bg-red-50 rounded-none border border-red-100">
           <span className="text-sm font-bold text-gray-700">실패</span>
           <span className="text-lg font-black text-red-600">{result.failed}개</span>
