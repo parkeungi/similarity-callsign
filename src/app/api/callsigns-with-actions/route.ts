@@ -186,11 +186,15 @@ export async function GET(request: NextRequest) {
               ma.completed_at as action_completed_at,
               ma.description as my_action_description,
               ma.manager_name as my_manager_name,
+              ma.result_detail as my_result_detail,
+              ma.planned_due_date as my_planned_due_date,
               -- 타사 조치 상세 (LATERAL JOIN)
               oa.action_type as other_action_type_detail,
               oa.description as other_action_description,
               oa.manager_name as other_manager_name,
               oa.completed_at as other_completed_at,
+              oa.result_detail as other_result_detail,
+              oa.planned_due_date as other_planned_due_date,
               -- 오류유형별 발생건수 (LATERAL JOIN)
               ec.error_type_counts,
               -- 발생이력 날짜+시간 목록 (LATERAL JOIN)
