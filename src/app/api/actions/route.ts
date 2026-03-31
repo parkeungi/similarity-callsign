@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
         a.reviewed_by, a.reviewed_at, a.review_comment,
         al.code as airline_code, al.name_ko as airline_name_ko,
         cs.callsign_pair, cs.my_callsign, cs.other_callsign, cs.risk_level,
+        cs.other_airline_code, cs.similarity, cs.occurrence_count, cs.last_occurred_at,
         COALESCE(ru.email, '삭제된 사용자') as registered_by_email
       FROM actions a
       LEFT JOIN airlines al ON a.airline_id = al.id
@@ -227,6 +228,10 @@ export async function GET(request: NextRequest) {
           my_callsign: action.my_callsign,
           other_callsign: action.other_callsign,
           risk_level: action.risk_level,
+          other_airline_code: action.other_airline_code,
+          similarity: action.similarity,
+          occurrence_count: action.occurrence_count,
+          last_occurred_at: action.last_occurred_at,
         } : null,
         action_type: action.action_type,
         description: action.description,

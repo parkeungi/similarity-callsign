@@ -9,6 +9,7 @@ import { useAllActions, useAirlineCallsigns } from '@/hooks/useActions';
 import { useAdminAirlines } from '@/hooks/useAirlines';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
+import { apiFetch } from '@/lib/api/client';
 
 type ActionStatusFilter = 'pending' | 'in_progress' | 'completed' | '';
 
@@ -102,19 +103,112 @@ export default function AdminActionsPage() {
 
   const handleExport = () => {
     if (!actionsData?.data) return;
+    // 날짜만 (YYYY-MM-DD)
+    const fmtDate = (v: string | null | undefined) => {
+      if (!v) return '-';
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10);
+    };
+    // 날짜+시분 (YYYY-MM-DD HH:MM)
+    const fmtDateTime = (v: string | null | undefined) => {
+      if (!v) return '-';
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return '-';
+      const date = d.toISOString().slice(0, 10);
+      const hh = String(d.getUTCHours()).padStart(2, '0');
+      const mm = String(d.getUTCMinutes()).padStart(2, '0');
+      return `${date} ${hh}:${mm}`;
+    };
     const rows = actionsData.data.map((a) => ({
-      '항공사': a.airline?.code,
-      '호출부호 쌍': a.callsign?.callsign_pair,
-      '위험도': a.callsign?.risk_level,
-      '조치 유형': a.action_type,
+      // 식별 정보
+      '항공사 코드': a.airline?.code || '-',
+      '항공사명': a.airline?.name_ko || '-',
+      '호출부호 쌍': a.callsign?.callsign_pair || '-',
+      '자사 편명': a.callsign?.my_callsign || '-',
+      '상대 편명': a.callsign?.other_callsign || '-',
+      '상대 항공사': (a.callsign as any)?.other_airline_code || '-',
+      // 위험도 맥락
+      '위험도': a.callsign?.risk_level || '-',
+      '유사도': (a.callsign as any)?.similarity || '-',
+      '발생 건수': (a.callsign as any)?.occurrence_count ?? '-',
+      '최근 발생일': fmtDateTime((a.callsign as any)?.last_occurred_at),
+      // 항공사 입력 조치 내역
+      '조치 유형': a.action_type || '-',
+      '조치 상세설명': a.description || '-',
+      '조치 예정일': fmtDate(a.planned_due_date),
+      '조치 결과': a.result_detail || '-',
+      '완료 일시': fmtDateTime(a.completed_at),
+      // 담당자 및 추적 정보
       '담당자': a.manager_name || '-',
-      '상태': statusLabels[a.status],
-      '등록일': new Date(a.registered_at).toLocaleDateString('ko-KR'),
+      '상태': statusLabels[a.status] || a.status,
+      '등록일': fmtDateTime(a.registered_at),
+      '최종 수정일': fmtDateTime(a.updated_at),
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '조치목록');
     XLSX.writeFile(wb, `조치목록_${new Date().toLocaleDateString('ko-KR')}.xlsx`);
+  };
+
+  const handleExportBothSides = async () => {
+    // 날짜만 (YYYY-MM-DD)
+    const fmtDate = (v: string | null | undefined) => {
+      if (!v) return '-';
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10);
+    };
+    // 날짜+시분 (YYYY-MM-DD HH:MM UTC)
+    const fmtDateTime = (v: string | null | undefined) => {
+      if (!v) return '-';
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return '-';
+      const date = d.toISOString().slice(0, 10);
+      const hh = String(d.getUTCHours()).padStart(2, '0');
+      const mm = String(d.getUTCMinutes()).padStart(2, '0');
+      return `${date} ${hh}:${mm}`;
+    };
+
+    try {
+      const res = await apiFetch('/api/callsigns-with-actions?limit=10000&page=1');
+      if (!res.ok) throw new Error(`조회 실패 (${res.status})`);
+      const json = await res.json();
+      const rows = (json.data || []).map((c: any) => ({
+        // 호출부호 기본 정보
+        '호출부호 쌍': c.callsign_pair || '-',
+        '자사 편명': c.my_callsign || '-',
+        '상대 편명': c.other_callsign || '-',
+        '위험도': c.risk_level || '-',
+        '유사도': c.similarity ?? '-',
+        '발생 건수': c.occurrence_count ?? '-',
+        '최근 발생일': fmtDateTime(c.last_occurred_at),
+        // 자사 조치 내역
+        '자사 항공사': c.my_airline_code || '-',
+        '자사 조치 유형': c.action_type || '-',
+        '자사 조치 상세설명': c.my_action_description || '-',
+        '자사 조치 예정일': fmtDate(c.my_planned_due_date),
+        '자사 조치 결과': c.my_result_detail || '-',
+        '자사 완료 일시': fmtDateTime(c.action_completed_at),
+        '자사 담당자': c.my_manager_name || '-',
+        '자사 상태': c.my_action_status === 'completed' ? '조치완료' : c.my_action_status === 'no_action' ? '미조치' : '조치필요',
+        // 타사 조치 내역
+        '타사 항공사': c.other_airline_code || '-',
+        '타사 조치 유형': c.other_action_type_detail || '-',
+        '타사 조치 상세설명': c.other_action_description || '-',
+        '타사 조치 예정일': fmtDate(c.other_planned_due_date),
+        '타사 조치 결과': c.other_result_detail || '-',
+        '타사 완료 일시': fmtDateTime(c.other_completed_at),
+        '타사 담당자': c.other_manager_name || '-',
+        '타사 상태': c.other_action_status === 'completed' ? '조치완료' : c.other_action_status === 'no_action' ? '미조치' : '조치필요',
+        // 최종 상태
+        '최종 상태': c.final_status === 'complete' ? '완료' : c.final_status === 'partial' ? '부분완료' : '진행중',
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '호출부호쌍별조치현황');
+      XLSX.writeFile(wb, `호출부호쌍별조치현황_${new Date().toLocaleDateString('ko-KR')}.xlsx`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '내보내기 실패');
+    }
   };
 
   const handleResetFilters = () => {
@@ -209,6 +303,16 @@ export default function AdminActionsPage() {
           canExport={canExport}
           summary={summary}
         />
+
+        {/* 호출부호쌍 기준 전체 내보내기 */}
+        <div className="mb-4 flex justify-end">
+          <button
+            onClick={handleExportBothSides}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+          >
+            호출부호쌍 기준 Excel 내보내기
+          </button>
+        </div>
 
         {/* 조치 테이블 */}
         <AdminActionsTable

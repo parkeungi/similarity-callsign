@@ -201,7 +201,8 @@ export async function GET(request: NextRequest) {
        FROM callsigns c
        -- 자사 최신 조치 1건 (airline_code 기준)
        LEFT JOIN LATERAL (
-         SELECT a.action_type, a.completed_at, a.description, a.manager_name
+         SELECT a.action_type, a.completed_at, a.description, a.manager_name,
+                a.result_detail, a.planned_due_date
          FROM actions a
          JOIN airlines al ON a.airline_id = al.id
          WHERE a.callsign_id = c.id AND al.code = c.airline_code
@@ -210,7 +211,8 @@ export async function GET(request: NextRequest) {
        ) ma ON true
        -- 타사 최신 조치 1건 (other_airline_code 기준)
        LEFT JOIN LATERAL (
-         SELECT a.action_type, a.completed_at, a.description, a.manager_name
+         SELECT a.action_type, a.completed_at, a.description, a.manager_name,
+                a.result_detail, a.planned_due_date
          FROM actions a
          JOIN airlines al ON a.airline_id = al.id
          WHERE a.callsign_id = c.id AND al.code = c.other_airline_code
@@ -399,6 +401,11 @@ export async function GET(request: NextRequest) {
         other_action_description: callsign.other_action_description || null,
         other_manager_name: callsign.other_manager_name || null,
         other_completed_at: callsign.other_completed_at || null,
+        // 양쪽 추가 조치 필드
+        my_result_detail: callsign.my_result_detail || null,
+        my_planned_due_date: callsign.my_planned_due_date || null,
+        other_result_detail: callsign.other_result_detail || null,
+        other_planned_due_date: callsign.other_planned_due_date || null,
         // 최종 조치 상태 (3가지)
         // - complete: 조치 완료
         //   ├─ 같은 항공사(KAL-KAL): 한쪽만 완료해도 완료
