@@ -138,12 +138,14 @@ export function UploadHistoryManagement() {
             >
               초기화
             </button>
+            {/* 전체 데이터 삭제 버튼 (임시 비활성화)
             <button
               onClick={handleForceDeleteAllClick}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
             >
               전체 데이터 삭제
             </button>
+            */}
           </div>
         </div>
 

@@ -24,6 +24,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -212,12 +213,70 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
       </div>
 
       <button
-        onClick={handleUpload}
+        onClick={() => setShowConfirm(true)}
         disabled={!selectedFile || isUploading}
         className="w-full mt-6 px-6 py-3 bg-primary text-white font-bold rounded-none shadow-sm hover:bg-navy disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
       >
         {isUploading ? '업로드 중...' : '업로드'}
       </button>
+
+      {/* 업로드 전 확인 팝업 */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-white w-full max-w-md mx-4 shadow-2xl border-t-4 border-red-500">
+            {/* 헤더 */}
+            <div className="bg-red-50 px-6 py-4 flex items-center gap-3 border-b border-red-200">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-base font-black text-red-700">업로드 전 반드시 확인하세요</h4>
+                <p className="text-xs text-red-500 font-medium">중복 데이터 등록 방지</p>
+              </div>
+            </div>
+
+            {/* 본문 */}
+            <div className="px-6 py-5">
+              <div className="bg-amber-50 border border-amber-200 p-4 mb-4">
+                <p className="text-sm font-black text-amber-800 mb-3">
+                  아래 항목을 확인한 후 업로드해 주세요.
+                </p>
+                <ul className="space-y-2">
+                  <li className="flex items-start gap-2 text-sm text-amber-900">
+                    <span className="mt-0.5 flex-shrink-0 text-amber-600 font-black">①</span>
+                    <span>업로드할 파일의 <strong>날짜 범위</strong>가 이미 등록된 데이터와 <strong>겹치지 않는지</strong> 확인했습니까?</span>
+                  </li>
+                  <li className="flex items-start gap-2 text-sm text-amber-900">
+                    <span className="mt-0.5 flex-shrink-0 text-amber-600 font-black">②</span>
+                    <span>동일 기간을 재업로드하면 <strong>발생 이력 누락 및 데이터 불일치</strong>가 발생할 수 있습니다.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <p className="text-xs text-gray-500 mb-5">
+                파일명: <span className="font-bold text-gray-700">{selectedFile?.name}</span>
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200 transition-colors"
+                >
+                  취소 (다시 확인)
+                </button>
+                <button
+                  onClick={() => { setShowConfirm(false); handleUpload(); }}
+                  className="flex-1 py-2.5 bg-red-600 text-white text-sm font-black hover:bg-red-700 transition-colors"
+                >
+                  확인 후 업로드
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 실시간 진행 상황 */}
       {isUploading && (
