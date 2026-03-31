@@ -559,27 +559,51 @@ export function OverviewTab() {
                 const allData = await response.json();
                 const allRows = allData.data || [];
 
+                const fmtDate = (v: string | null | undefined) => {
+                  if (!v) return '-';
+                  const d = new Date(v);
+                  return isNaN(d.getTime()) ? '-' : d.toISOString().slice(0, 10);
+                };
+                const fmtDateTime = (v: string | null | undefined) => {
+                  if (!v) return '-';
+                  const d = new Date(v);
+                  if (isNaN(d.getTime())) return '-';
+                  const date = d.toISOString().slice(0, 10);
+                  const hh = String(d.getUTCHours()).padStart(2, '0');
+                  const mm = String(d.getUTCMinutes()).padStart(2, '0');
+                  return `${date} ${hh}:${mm}`;
+                };
                 const excelRows = allRows.map((callsign: any) => ({
+                  // 호출부호 기본 정보
                   '호출부호 쌍': callsign.callsign_pair,
+                  '자사 편명': callsign.my_callsign || '-',
+                  '상대 편명': callsign.other_callsign || '-',
                   '위험도': callsign.risk_level,
                   '유사도': callsign.similarity || '-',
                   '오류유형': callsign.error_type || '-',
                   '발생횟수': callsign.occurrence_count || 0,
-                  '최근발생일': callsign.last_occurred_at
-                    ? new Date(callsign.last_occurred_at).toLocaleDateString('ko-KR')
-                    : '-',
-                  '조치유형': callsign.action_type || '-',
-                  '처리일자': callsign.action_completed_at
-                    ? new Date(callsign.action_completed_at).toLocaleDateString('ko-KR')
-                    : '-',
+                  '최근발생일': fmtDateTime(callsign.last_occurred_at),
+                  // 자사 조치 내역
                   '자사(코드)': callsign.my_airline_code || '-',
+                  '자사 조치유형': callsign.action_type || '-',
+                  '자사 조치상세설명': callsign.my_action_description || '-',
+                  '자사 조치예정일': fmtDate(callsign.my_planned_due_date),
+                  '자사 조치결과': callsign.my_result_detail || '-',
+                  '자사 완료일시': fmtDateTime(callsign.action_completed_at),
+                  '자사 담당자': callsign.my_manager_name || '-',
                   '자사 조치상태': getActionStatusMeta(callsign.my_action_status).label,
+                  // 타사 조치 내역
                   '타사(코드)': callsign.other_airline_code || '-',
+                  '타사 조치유형': callsign.other_action_type_detail || '-',
+                  '타사 조치상세설명': callsign.other_action_description || '-',
+                  '타사 조치예정일': fmtDate(callsign.other_planned_due_date),
+                  '타사 조치결과': callsign.other_result_detail || '-',
+                  '타사 완료일시': fmtDateTime(callsign.other_completed_at),
+                  '타사 담당자': callsign.other_manager_name || '-',
                   '타사 조치상태': getActionStatusMeta(callsign.other_action_status).label,
+                  // 최종 상태
                   '조치 상태': callsign.final_status === 'complete' ? '완전 완료' : callsign.final_status === 'partial' ? '부분 완료' : '진행중',
-                  '등록일': callsign.uploaded_at
-                    ? new Date(callsign.uploaded_at).toLocaleDateString('ko-KR')
-                    : '-',
+                  '등록일': fmtDate(callsign.uploaded_at),
                 }));
                 const ws = XLSX.utils.json_to_sheet(excelRows);
                 const wb = XLSX.utils.book_new();
