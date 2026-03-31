@@ -1,8 +1,10 @@
 // 사전조회 검색 통계 서브탭 - 일별추이·Top호출부호·시간대분포·항공사분포
 'use client';
 
+import { useState } from 'react';
 import { useSearchStats } from '@/hooks/useSearchStats';
 import { StatCard } from './StatCard';
+import { apiFetch } from '@/lib/api/client';
 import {
   BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -25,6 +27,32 @@ const PIE_COLORS = ['#4f46e5', '#2563eb', '#059669', '#d97706', '#e11d48', '#7c3
 
 export function SearchStatsSubTab({ dateRange }: SearchStatsSubTabProps) {
   const { data, isLoading, isError } = useSearchStats(dateRange);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  async function handleDownload() {
+    setIsDownloading(true);
+    try {
+      const params = new URLSearchParams();
+      if (dateRange?.dateFrom) params.append('dateFrom', dateRange.dateFrom);
+      if (dateRange?.dateTo) params.append('dateTo', dateRange.dateTo);
+
+      const response = await apiFetch(`/api/admin/search-stats/export?${params.toString()}`);
+      if (!response.ok) throw new Error('다운로드 실패');
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      a.href = url;
+      a.download = `사전조회_이력_${dateStr}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('엑셀 다운로드 중 오류가 발생했습니다.');
+    } finally {
+      setIsDownloading(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -58,6 +86,29 @@ export function SearchStatsSubTab({ dateRange }: SearchStatsSubTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* 다운로드 버튼 */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleDownload}
+          disabled={isDownloading}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {isDownloading ? (
+            <>
+              <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              다운로드 중...
+            </>
+          ) : (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              엑셀 다운로드
+            </>
+          )}
+        </button>
+      </div>
+
       {/* 1. KPI 카드 */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
         <StatCard label="총 검색 횟수" value={summary.totalSearches} color="text-indigo-600" />

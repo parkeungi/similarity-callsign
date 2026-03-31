@@ -200,7 +200,7 @@ export default function Home() {
 
               <div className="mt-4 pt-4 border-t border-white/5 text-center">
                 <p className="text-[11px] font-black text-white/30 tracking-[0.2em] uppercase leading-loose">
-                  Korea Airports Corporation <span className="text-white/10 mx-1">|</span> Aviation Services
+                  항공교통본부 <span className="text-white/10 mx-1">|</span> Aviation Services
                 </p>
               </div>
             </div>

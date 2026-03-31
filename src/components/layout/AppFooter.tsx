@@ -5,7 +5,7 @@ export function AppFooter() {
       <div className="max-w-6xl mx-auto px-6">
         <div className="flex flex-wrap gap-6 items-center justify-center">
           <div className="text-sm font-medium text-gray-700">
-            Similar Callsign Sharing System | Korea Airports Corporation
+            Similar Callsign Sharing System | 항공교통본부
           </div>
           <div className="flex gap-5 text-sm">
             <span className="text-gray-400">항공교통본부</span>
@@ -20,7 +20,7 @@ export function AppFooter() {
           </div>
         </div>
         <div className="border-t border-gray-200 mt-3 pt-3 text-xs text-gray-400 text-center">
-          © 2026 Korea Airports Corporation. All Rights Reserved.
+          © 2026 항공교통본부. All Rights Reserved.
         </div>
       </div>
     </footer>

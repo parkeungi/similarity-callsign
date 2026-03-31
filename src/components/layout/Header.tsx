@@ -200,6 +200,16 @@ export function Header() {
               </Link>
             )}
 
+            {isAdmin && <span className="text-white/10 text-[10px]">|</span>}
+
+            {/* 비밀번호 변경 */}
+            <Link
+              href={ROUTES.CHANGE_PASSWORD}
+              className="text-white/40 hover:text-white/70 text-[9px] font-medium tracking-wide transition-all"
+            >
+              비밀번호 변경
+            </Link>
+
             <div className="w-px h-3 bg-white/10" />
 
             {/* 로그아웃 (간소화) */}
