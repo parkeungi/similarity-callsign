@@ -67,8 +67,8 @@ export async function GET(
         c.coexistence_minutes,
         c.error_probability,
         c.atc_recommendation,
-        co.occurred_date,
-        co.occurred_time,
+        TO_CHAR(co.occurred_date, 'YYYY-MM-DD') AS occurred_date_str,
+        TO_CHAR(co.occurred_time, 'HH24:MI') AS occurred_time_str,
         co.coexistence_minutes as occ_coexistence_minutes,
         co.error_type as occ_error_type,
         co.sub_error as occ_sub_error
@@ -90,23 +90,20 @@ export async function GET(
     //           보고여부, 관제사권고사항, 보고일시, 보고자, 혼돈편명,
     //           오류유형, 세부오류유형, 비고
     const excelRows = callsignsResult.rows.map((row: any) => {
-      // occurred_date: PostgreSQL DATE → 'YYYY-MM-DD' 문자열로 직접 추출
-      const occurredDate = row.occurred_date
-        ? String(row.occurred_date).slice(0, 10)
-        : '';
-      // occurred_time: PostgreSQL TIMESTAMP → HH:MM 추출
-      const occurredTime = row.occurred_time
-        ? String(row.occurred_time).replace('T', ' ').slice(11, 16)
-        : '';
+      // SQL TO_CHAR로 포맷된 문자열 사용 → pg 타입 변환 문제 없음
+      const occurredDate = row.occurred_date_str || '';
+      const occurredTime = row.occurred_time_str || '';
 
       // 종료일시: 발생 건별 coexistence_minutes(우선) → callsigns coexistence_minutes(fallback) 으로 계산
       const coexMins = row.occ_coexistence_minutes ?? row.coexistence_minutes ?? null;
       let endDatetime = '';
       if (occurredDate && occurredTime && coexMins !== null) {
         const startMs = new Date(`${occurredDate}T${occurredTime}:00`).getTime();
-        const endDate = new Date(startMs + coexMins * 60 * 1000);
-        const pad = (n: number) => String(n).padStart(2, '0');
-        endDatetime = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())} ${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`;
+        if (!isNaN(startMs)) {
+          const endDate = new Date(startMs + coexMins * 60 * 1000);
+          const pad = (n: number) => String(n).padStart(2, '0');
+          endDatetime = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())} ${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`;
+        }
       }
 
       return {
