@@ -69,6 +69,7 @@ export async function GET(
         c.atc_recommendation,
         co.occurred_date,
         co.occurred_time,
+        co.coexistence_minutes as occ_coexistence_minutes,
         co.error_type as occ_error_type,
         co.sub_error as occ_sub_error
       FROM callsigns c
@@ -89,14 +90,28 @@ export async function GET(
     //           보고여부, 관제사권고사항, 보고일시, 보고자, 혼돈편명,
     //           오류유형, 세부오류유형, 비고
     const excelRows = callsignsResult.rows.map((row: any) => {
+      // occurred_date: PostgreSQL DATE → 'YYYY-MM-DD' 문자열로 직접 추출
       const occurredDate = row.occurred_date
-        ? new Date(row.occurred_date).toISOString().split('T')[0]
+        ? String(row.occurred_date).slice(0, 10)
         : '';
-      const occurredTime = row.occurred_time || '';
+      // occurred_time: PostgreSQL TIMESTAMP → HH:MM 추출
+      const occurredTime = row.occurred_time
+        ? String(row.occurred_time).replace('T', ' ').slice(11, 16)
+        : '';
+
+      // 종료일시: 발생 건별 coexistence_minutes(우선) → callsigns coexistence_minutes(fallback) 으로 계산
+      const coexMins = row.occ_coexistence_minutes ?? row.coexistence_minutes ?? null;
+      let endDatetime = '';
+      if (occurredDate && occurredTime && coexMins !== null) {
+        const startMs = new Date(`${occurredDate}T${occurredTime}:00`).getTime();
+        const endDate = new Date(startMs + coexMins * 60 * 1000);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        endDatetime = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())} ${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`;
+      }
 
       return {
         '시작일시': occurredDate && occurredTime ? `${occurredDate} ${occurredTime}` : occurredDate,
-        '종료일시': '',
+        '종료일시': endDatetime,
         '관할섹터명': row.sector || '',
         '편명1': row.my_callsign || '',
         '출발공항1': row.departure_airport1 || '',

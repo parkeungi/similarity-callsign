@@ -244,7 +244,7 @@ export async function POST(request: NextRequest) {
           const coexistenceMinutes = toInt(row[19]);
           const errorProbability = toFloat(row[20]);
           const riskLevelGrade = row[21] ? String(row[21]).trim() : undefined;
-          const atcRecommendation = row[22] ? String(row[22]).trim() : undefined;
+          const atcRecommendation = row[23] ? String(row[23]).trim() : undefined;
           const errorType = row[27] ? String(row[27]).trim() : undefined;
           const subError = row[28] ? String(row[28]).trim() : undefined;
 
@@ -707,7 +707,7 @@ export async function POST(request: NextRequest) {
             const callsignId = existingMap.get(`${row.airline_code}::${row.callsign_pair}`);
             if (!callsignId) continue;
 
-            placeholders.push(`($${paramIdx}::uuid, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5}::uuid, $${paramIdx + 6}, $${paramIdx + 7}, $${paramIdx + 8}, $${paramIdx + 9})`);
+            placeholders.push(`($${paramIdx}::uuid, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5}::uuid, $${paramIdx + 6}, $${paramIdx + 7}, $${paramIdx + 8}, $${paramIdx + 9}, $${paramIdx + 10})`);
             values.push(
               callsignId,
               row.occurred_date,
@@ -719,15 +719,16 @@ export async function POST(request: NextRequest) {
               row.arrival_airport1 || null,
               row.departure_airport2 || null,
               row.arrival_airport2 || null,
+              row.coexistence_minutes ?? null,
             );
-            paramIdx += 10;
+            paramIdx += 11;
           }
 
           if (placeholders.length > 0) {
             await trx(
               `INSERT INTO callsign_occurrences
                 (callsign_id, occurred_date, occurred_time, error_type, sub_error, file_upload_id,
-                 departure_a, arrival_a, departure_b, arrival_b)
+                 departure_a, arrival_a, departure_b, arrival_b, coexistence_minutes)
                VALUES ${placeholders.join(', ')}
                ON CONFLICT (callsign_id, occurred_date, occurred_time) DO NOTHING`,
               values

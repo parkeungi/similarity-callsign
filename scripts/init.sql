@@ -303,6 +303,9 @@ CREATE TABLE IF NOT EXISTS callsign_occurrences (
   location VARCHAR(100),                          -- 발생 위치 (공역, 공항 등)
   flight_level VARCHAR(20),                       -- 비행 고도
 
+  -- 발생 건별 공존시간 (분)
+  coexistence_minutes INTEGER,                   -- 해당 발생 건의 공존시간(분)
+
   -- 노선 정보 (발생 건별 출발/도착 공항, 쌍 정규화 순서 A/B)
   departure_a VARCHAR(50),                       -- callsign_a 출발공항
   arrival_a VARCHAR(50),                         -- callsign_a 도착공항
