@@ -10,6 +10,7 @@ import * as XLSX from 'xlsx';
 import { parseJsonCookie } from '@/lib/cookies';
 import { ROUTES } from '@/lib/constants';
 import { useAirlineActions, useAirlineActionStats, useAirlineCallsigns, useAcknowledgeReDetection } from '@/hooks/useActions';
+import { useFileUploads } from '@/hooks/useFileUploads';
 import { useActiveAnnouncements, useAnnouncementHistory } from '@/hooks/useAnnouncements';
 import { useDateRangeFilter, formatDateInput, toInputDate } from '@/hooks/useDateRangeFilter';
 import { useAirlineModal } from '@/hooks/useAirlineModal';
@@ -73,6 +74,20 @@ export default function AirlinePage() {
   const incidentsDateFilter = useDateRangeFilter({ defaultRange: '1m' });
   const statsDateFilter = useDateRangeFilter({ defaultRange: '1m' });
 
+  // 업로드 배치 선택 상태
+  const [selectedFileUploadId, setSelectedFileUploadId] = useState<string>('');
+
+  // 업로드 목록 조회 (완료된 것만)
+  const fileUploadsQuery = useFileUploads({ status: 'completed', limit: 20 });
+
+  // 최신 업로드 자동 선택
+  useEffect(() => {
+    const uploads = fileUploadsQuery.data?.data;
+    if (uploads && uploads.length > 0 && !selectedFileUploadId) {
+      setSelectedFileUploadId(uploads[0].id);
+    }
+  }, [fileUploadsQuery.data]);
+
 
   // 초기 로드 - authStore에서 사용자 정보 사용
   useEffect(() => {
@@ -119,6 +134,7 @@ export default function AirlinePage() {
 
   const { data: callsignsData, isLoading: callsignsLoading } = useAirlineCallsigns(airlineId, {
     limit: 1000,
+    fileUploadId: selectedFileUploadId || undefined,
   }, {
     enabled: activeTab === 'occurrence' || activeTab === 'action-history' || activeTab === 'statistics'
   });
@@ -200,6 +216,8 @@ export default function AirlinePage() {
       // 재검출 (조치완료 후 재발생)
       reDetected: cs.re_detected ?? cs.reDetected ?? false,
       reDetectedAcknowledged: cs.re_detected_acknowledged ?? cs.reDetectedAcknowledged ?? false,
+      // 이전 업로드에도 있던 건
+      isRepeated: (cs as any).is_repeated ?? false,
     }));
   }, [callsignsData]);
 
@@ -355,6 +373,30 @@ export default function AirlinePage() {
         {/* 오른쪽 콘텐츠 영역 */}
         <div className="flex-1 bg-gray-50">
           <div className="w-full max-w-[90rem] mx-auto px-4 py-10 space-y-8 animate-fade-in flex flex-col">
+            {/* 업로드 배치 선택 */}
+            {(activeTab === 'occurrence' || activeTab === 'action-history') && fileUploadsQuery.data?.data && fileUploadsQuery.data.data.length > 0 && (
+              <div className="flex items-center gap-3 bg-white rounded-lg border border-gray-100 px-4 py-3 shadow-sm">
+                <span className="text-xs font-medium text-gray-500 shrink-0">업로드 기준</span>
+                <select
+                  value={selectedFileUploadId}
+                  onChange={(e) => setSelectedFileUploadId(e.target.value)}
+                  className="text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[260px] bg-white"
+                >
+                  <option value="">전체 이력</option>
+                  {fileUploadsQuery.data.data.map((u) => {
+                    const d = new Date(u.uploaded_at);
+                    const label = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} — ${u.file_name} (${u.success_count}건)`;
+                    return <option key={u.id} value={u.id}>{label}</option>;
+                  })}
+                </select>
+                {selectedFileUploadId && (
+                  <span className="text-xs text-blue-500">
+                    이번 업로드 기준 • 이전에도 있던 건: <strong>{incidents.filter(i => i.isRepeated).length}</strong>건 / 신규: <strong>{incidents.filter(i => !i.isRepeated).length}</strong>건
+                  </span>
+                )}
+              </div>
+            )}
+
             {activeTab === 'occurrence' && (
               <AirlineOccurrenceTab
                 incidents={incidents}

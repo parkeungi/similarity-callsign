@@ -2,6 +2,7 @@
 "use client";
 
 import { Airline } from '@/hooks/useAirlines';
+import { FileUploadItem } from '@/hooks/useFileUploads';
 
 type ActionStatus = '' | 'pending' | 'in_progress' | 'completed';
 
@@ -28,6 +29,13 @@ interface AdminActionsFiltersProps {
     selectedStatusLabel?: string;
     filteredCount?: number;
   };
+  // 업로드 배치 선택
+  fileUploads?: FileUploadItem[];
+  fileUploadsLoading?: boolean;
+  selectedFileUploadId?: string;
+  onFileUploadChange?: (id: string) => void;
+  showAllHistory?: boolean;
+  onToggleAllHistory?: () => void;
 }
 
 export function AdminActionsFilters({
@@ -49,9 +57,52 @@ export function AdminActionsFilters({
   canCreate,
   canExport,
   summary,
+  fileUploads,
+  fileUploadsLoading,
+  selectedFileUploadId,
+  onFileUploadChange,
+  showAllHistory,
+  onToggleAllHistory,
 }: AdminActionsFiltersProps) {
+  const fmtUploadDate = (iso: string) => {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+
   return (
     <div className="bg-white rounded-lg shadow p-6 mb-6">
+      {/* 업로드 배치 선택 영역 */}
+      {fileUploads !== undefined && (
+        <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
+          <label className="text-sm font-medium text-gray-700 shrink-0">업로드 기준</label>
+          <select
+            value={showAllHistory ? '' : (selectedFileUploadId || '')}
+            onChange={(e) => {
+              if (e.target.value === '') {
+                onToggleAllHistory?.();
+              } else {
+                onFileUploadChange?.(e.target.value);
+                if (showAllHistory) onToggleAllHistory?.();
+              }
+            }}
+            disabled={fileUploadsLoading}
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 min-w-[280px]"
+          >
+            <option value="">전체 이력 보기</option>
+            {fileUploads.map((u) => (
+              <option key={u.id} value={u.id}>
+                {fmtUploadDate(u.uploaded_at)} — {u.file_name} ({u.success_count}건)
+              </option>
+            ))}
+          </select>
+          {!showAllHistory && selectedFileUploadId && (
+            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+              이번 업로드 기준 조회 중
+            </span>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">항공사</label>

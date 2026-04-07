@@ -1,12 +1,13 @@
 // 조치 이력 관리 페이지 - AdminActionsTable+AdminActionsFilters 렌더링, 전체 조치 목록 조회
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ActionModal } from '@/components/actions/ActionModal';
 import { AdminActionsFilters } from '@/components/actions/AdminActionsFilters';
 import { AdminActionsTable } from '@/components/actions/AdminActionsTable';
-import { useAllActions, useAirlineCallsigns } from '@/hooks/useActions';
+import { useAllActions, useAirlineCallsigns, useCallsignsWithActions } from '@/hooks/useActions';
 import { useAdminAirlines } from '@/hooks/useAirlines';
+import { useFileUploads } from '@/hooks/useFileUploads';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import { apiFetch } from '@/lib/api/client';
@@ -37,8 +38,29 @@ export default function AdminActionsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [limit] = useState(20);
 
+  // 업로드 배치 선택 상태
+  const [selectedFileUploadId, setSelectedFileUploadId] = useState<string>('');
+  const [showAllHistory, setShowAllHistory] = useState(false);
+
   // 항공사 목록 조회
   const airlinesQuery = useAdminAirlines();
+
+  // 업로드 목록 조회 (완료된 것만, 최신순)
+  const fileUploadsQuery = useFileUploads({ status: 'completed', limit: 50 });
+
+  // 최신 업로드 자동 선택
+  useEffect(() => {
+    const uploads = fileUploadsQuery.data?.data;
+    if (uploads && uploads.length > 0 && !selectedFileUploadId) {
+      setSelectedFileUploadId(uploads[0].id);
+    }
+  }, [fileUploadsQuery.data]);
+
+  // 업로드 배치 기준 조치현황 (진행률 카드용)
+  const batchQuery = useCallsignsWithActions(
+    { fileUploadId: (!showAllHistory && selectedFileUploadId) ? selectedFileUploadId : undefined, limit: 1 },
+    { enabled: !showAllHistory && !!selectedFileUploadId }
+  );
 
   // 전체 조치 목록 조회
   const actionsQuery = useAllActions({
@@ -267,6 +289,43 @@ export default function AdminActionsPage() {
           </div>
         </div>
 
+        {/* 업로드 배치 진행률 카드 */}
+        {!showAllHistory && selectedFileUploadId && batchQuery.data?.summary && (() => {
+          const s = batchQuery.data.summary;
+          const withActions = s.total - s.in_progress;
+          const pct = s.total > 0 ? Math.round((withActions / s.total) * 100) : 0;
+          const selectedUpload = fileUploadsQuery.data?.data.find(u => u.id === selectedFileUploadId);
+          return (
+            <div className="bg-white rounded-lg shadow p-5 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <span className="text-sm font-semibold text-gray-800">이번 업로드 조치 등록 현황</span>
+                  {selectedUpload && (
+                    <span className="ml-2 text-xs text-gray-400">{selectedUpload.file_name}</span>
+                  )}
+                </div>
+                <span className="text-lg font-bold text-blue-600">{pct}%</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <div className="flex gap-6 text-sm">
+                <span className="text-gray-600">전체 <strong className="text-gray-900">{s.total}건</strong></span>
+                <span className="text-blue-600">조치등록 <strong>{withActions}건</strong></span>
+                <span className="text-gray-400">미등록 <strong>{s.in_progress}건</strong></span>
+                {s.repeated !== null && (
+                  <span className="text-gray-400 ml-auto text-xs">
+                    신규 {s.new_count}건 / 이전에도 있던 건 {s.repeated}건
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* 필터 및 검색 */}
         <AdminActionsFilters
           airlines={airlines}
@@ -302,6 +361,12 @@ export default function AdminActionsPage() {
           canCreate={Boolean(selectedAirlineId)}
           canExport={canExport}
           summary={summary}
+          fileUploads={fileUploadsQuery.data?.data}
+          fileUploadsLoading={fileUploadsQuery.isLoading}
+          selectedFileUploadId={selectedFileUploadId}
+          onFileUploadChange={(id) => { setSelectedFileUploadId(id); setShowAllHistory(false); }}
+          showAllHistory={showAllHistory}
+          onToggleAllHistory={() => setShowAllHistory(prev => !prev)}
         />
 
         {/* 호출부호쌍 기준 전체 내보내기 */}

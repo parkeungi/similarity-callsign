@@ -83,6 +83,8 @@ export interface Incident {
   // 재검출
   reDetected?: boolean;
   reDetectedAcknowledged?: boolean;
+  // 이전 업로드에도 있던 건 (업로드 배치 필터 시 참고 표시용)
+  isRepeated?: boolean;
 }
 
 /**

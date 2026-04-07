@@ -78,9 +78,14 @@ export async function GET(
 
     // 필터 파라미터
     const riskLevel = request.nextUrl.searchParams.get('riskLevel');
+    const fileUploadId = request.nextUrl.searchParams.get('fileUploadId');
     const page = Math.max(1, parseInt(request.nextUrl.searchParams.get('page') || '1', 10));
     const limit = Math.min(1000, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '20', 10)));
     const offset = (page - 1) * limit;
+
+    // fileUploadId UUID 형식 검증
+    const hexRegex = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validFileUploadId = fileUploadId && hexRegex.test(fileUploadId) ? fileUploadId : null;
 
     // 항공사 코드 조회
     const airlineCodeResult = await query(
@@ -104,10 +109,21 @@ export async function GET(
     // PostgreSQL 파라미터 빌드
     const queryParams: (string | number)[] = [airlineCode];
     let riskLevelCondition = '';
+    let uploadJoinClause = '';
+    let uploadWhereClause = '';
+    let isRepeatedSelect = 'false AS is_repeated';
 
     if (filteredRiskLevel) {
       queryParams.push(filteredRiskLevel);
       riskLevelCondition = `AND risk_level = $${queryParams.length}`;
+    }
+
+    if (validFileUploadId) {
+      queryParams.push(validFileUploadId);
+      const uploadParamIdx = queryParams.length;
+      uploadJoinClause = `LEFT JOIN callsign_uploads cu_batch ON cu_batch.callsign_id = c.id AND cu_batch.file_upload_id = $${uploadParamIdx}`;
+      uploadWhereClause = `AND (cu_batch.callsign_id IS NOT NULL OR (c.file_upload_id = $${uploadParamIdx} AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu_chk WHERE cu_chk.callsign_id = c.id)))`;
+      isRepeatedSelect = `EXISTS (SELECT 1 FROM callsign_uploads cu_prev WHERE cu_prev.callsign_id = c.id AND cu_prev.file_upload_id != $${uploadParamIdx}) AS is_repeated`;
     }
 
     queryParams.push(limit);
@@ -129,15 +145,18 @@ export async function GET(
          c.first_occurred_at,
          c.last_occurred_at,
          c.re_detected_acknowledged_at,
+         ${isRepeatedSelect},
          -- AI 분석 데이터
          ai.ai_score,
          ai.ai_reason,
          ai.reason_type
        FROM callsigns c
+       ${uploadJoinClause}
        LEFT JOIN callsign_ai_analysis ai
          ON ai.callsign_pair = c.callsign_pair
        WHERE (c.airline_code = $1 OR c.other_airline_code = $1)
          ${riskLevelCondition}
+         ${uploadWhereClause}
        ORDER BY
          CASE WHEN c.status = 'in_progress' THEN 0 ELSE 1 END,
          CASE
@@ -424,6 +443,8 @@ export async function GET(
           // 재검출 확인 여부
           re_detected_acknowledged: reDetectedAcknowledged,
           reDetectedAcknowledged: reDetectedAcknowledged,
+          // 이전 업로드에도 있던 건 여부 (업로드 배치 필터 시에만 의미 있음)
+          is_repeated: callsign.is_repeated ?? false,
           // AI 분석 데이터
           ai_score: callsign.ai_score ?? null,
           ai_reason: callsign.ai_reason ?? null,

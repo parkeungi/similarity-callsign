@@ -8,8 +8,9 @@
  *   - airlineId: 항공사 ID 필터 (UUID)
  *   - myActionStatus: 최종 조치 상태 필터 (complete|partial|in_progress)
  *   - actionType: 조치 유형 필터
- *   - dateFrom: 등록일자 시작 (YYYY-MM-DD, uploaded_at 기준)
- *   - dateTo: 등록일자 종료 (YYYY-MM-DD, uploaded_at 기준)
+ *   - fileUploadId: 업로드 배치 ID (UUID) - 지정 시 해당 배치 callsign만 조회, dateFrom/dateTo 무시
+ *   - dateFrom: 등록일자 시작 (YYYY-MM-DD, uploaded_at 기준, fileUploadId 없을 때만 적용)
+ *   - dateTo: 등록일자 종료 (YYYY-MM-DD, uploaded_at 기준, fileUploadId 없을 때만 적용)
  *   - page: 페이지 번호 (기본값: 1)
  *   - limit: 페이지 크기 (기본값: 20, 최대: 100)
  */
@@ -110,6 +111,7 @@ export async function GET(request: NextRequest) {
     const airlineFilter = request.nextUrl.searchParams.get('airlineFilter'); // 'foreign' = 외항사끼리
     const myActionStatus = request.nextUrl.searchParams.get('myActionStatus');
     const actionType = request.nextUrl.searchParams.get('actionType');
+    const fileUploadId = request.nextUrl.searchParams.get('fileUploadId');
     const dateFrom = request.nextUrl.searchParams.get('dateFrom');
     const dateTo = request.nextUrl.searchParams.get('dateTo');
     const page = Math.max(1, parseInt(request.nextUrl.searchParams.get('page') || '1', 10));
@@ -119,11 +121,18 @@ export async function GET(request: NextRequest) {
     const validRiskLevels = ['매우높음', '높음'];
     const filteredRiskLevel = riskLevel && validRiskLevels.includes(riskLevel) ? riskLevel : null;
 
-    // airlineId 형식 검증 (16진수 문자열, 하이픈 있거나 없음)
+    // UUID 형식 검증 (16진수 문자열, 하이픈 있거나 없음)
     const hexRegex = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (airlineId && !hexRegex.test(airlineId)) {
       return NextResponse.json(
         { error: '유효하지 않은 항공사 ID입니다.' },
+        { status: 400 }
+      );
+    }
+
+    if (fileUploadId && !hexRegex.test(fileUploadId)) {
+      return NextResponse.json(
+        { error: '유효하지 않은 업로드 ID입니다.' },
         { status: 400 }
       );
     }
@@ -160,15 +169,32 @@ export async function GET(request: NextRequest) {
       whereClauses.push(`c.airline_code != 'FOREIGN' AND c.other_airline_code NOT IN (SELECT code FROM airlines WHERE code != 'FOREIGN')`);
     }
 
-    if (dateFrom) {
-      sqlParams.push(dateFrom);
-      whereClauses.push(`c.uploaded_at >= $${sqlParams.length}`);
-    }
+    // 업로드 배치 필터: fileUploadId 있으면 callsign_uploads JOIN으로 해당 배치만 조회
+    // fileUploadId 있을 때는 dateFrom/dateTo 무시
+    let uploadJoinClause = '';
+    let isRepeatedSelect = 'false AS is_repeated';
 
-    if (dateTo) {
-      const exclusiveDateTo = getExclusiveDateTo(dateTo);
-      sqlParams.push(exclusiveDateTo);
-      whereClauses.push(`c.uploaded_at < $${sqlParams.length}`);
+    if (fileUploadId) {
+      sqlParams.push(fileUploadId);
+      const uploadParamIdx = sqlParams.length;
+      // callsign_uploads 조인으로 해당 배치에 포함된 callsign만 필터
+      uploadJoinClause = `LEFT JOIN callsign_uploads cu_batch ON cu_batch.callsign_id = c.id AND cu_batch.file_upload_id = $${uploadParamIdx}`;
+      whereClauses.push(
+        `(cu_batch.callsign_id IS NOT NULL OR (c.file_upload_id = $${uploadParamIdx} AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu_chk WHERE cu_chk.callsign_id = c.id)))`
+      );
+      // is_repeated: 이 callsign이 이전 업로드에도 있었는지 (참고 표시용)
+      isRepeatedSelect = `EXISTS (SELECT 1 FROM callsign_uploads cu_prev WHERE cu_prev.callsign_id = c.id AND cu_prev.file_upload_id != $${uploadParamIdx}) AS is_repeated`;
+    } else {
+      // fileUploadId 없을 때만 날짜 범위 필터 적용
+      if (dateFrom) {
+        sqlParams.push(dateFrom);
+        whereClauses.push(`c.uploaded_at >= $${sqlParams.length}`);
+      }
+      if (dateTo) {
+        const exclusiveDateTo = getExclusiveDateTo(dateTo);
+        sqlParams.push(exclusiveDateTo);
+        whereClauses.push(`c.uploaded_at < $${sqlParams.length}`);
+      }
     }
 
     const conditions = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
@@ -181,6 +207,7 @@ export async function GET(request: NextRequest) {
               c.occurrence_count, c.first_occurred_at, c.last_occurred_at,
               c.file_upload_id, c.uploaded_at, c.status, c.created_at, c.updated_at,
               c.my_action_status, c.other_action_status,
+              ${isRepeatedSelect},
               -- 자사 조치 상세 (LATERAL JOIN)
               ma.action_type,
               ma.completed_at as action_completed_at,
@@ -203,6 +230,7 @@ export async function GET(request: NextRequest) {
               lc.latest_completed_at,
               c.re_detected_acknowledged_at
        FROM callsigns c
+       ${uploadJoinClause}
        -- 자사 최신 조치 1건 (airline_code 기준)
        LEFT JOIN LATERAL (
          SELECT a.action_type, a.completed_at, a.description, a.manager_name,
@@ -273,6 +301,8 @@ export async function GET(request: NextRequest) {
     // 카드의 숫자는 항상 전체 데이터를 기반으로 표시해야 함
     const summary = {
       total: callsignsResult.rows.length,
+      repeated: fileUploadId ? callsignsResult.rows.filter((r: any) => r.is_repeated).length : null,
+      new_count: fileUploadId ? callsignsResult.rows.filter((r: any) => !r.is_repeated).length : null,
       completed: callsignsResult.rows.filter((r: any) => {
         const myCompleted = r.my_action_status === 'completed';
         const otherCompleted = r.other_action_status === 'completed';
@@ -387,6 +417,7 @@ export async function GET(request: NextRequest) {
         last_occurred_at: callsign.last_occurred_at,
         file_upload_id: callsign.file_upload_id,
         uploaded_at: callsign.uploaded_at,
+        is_repeated: callsign.is_repeated ?? false,
         status: callsign.status,
         created_at: callsign.created_at,
         updated_at: callsign.updated_at,

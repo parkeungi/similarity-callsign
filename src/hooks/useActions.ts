@@ -154,6 +154,7 @@ export function useAirlineCallsigns(
   airlineId: string | undefined,
   filters?: {
     riskLevel?: string;
+    fileUploadId?: string;
     page?: number;
     limit?: number;
   },
@@ -164,7 +165,7 @@ export function useAirlineCallsigns(
   const limit = filters?.limit || 20;
 
   return useQuery({
-    queryKey: ['airline-callsigns', airlineId, filters?.riskLevel, page, limit],
+    queryKey: ['airline-callsigns', airlineId, filters?.riskLevel, filters?.fileUploadId, page, limit],
     queryFn: async () => {
       if (!airlineId) {
         throw new Error('항공사 ID가 필요합니다.');
@@ -172,6 +173,7 @@ export function useAirlineCallsigns(
 
       const params = new URLSearchParams();
       if (filters?.riskLevel) params.append('riskLevel', filters.riskLevel);
+      if (filters?.fileUploadId) params.append('fileUploadId', filters.fileUploadId);
       params.append('page', String(page));
       params.append('limit', String(limit));
 
@@ -551,6 +553,7 @@ export function useCallsignsWithActions(
     airlineFilter?: string;
     myActionStatus?: string;
     actionType?: string;
+    fileUploadId?: string;
     dateFrom?: string;
     dateTo?: string;
     page?: number;
@@ -563,7 +566,7 @@ export function useCallsignsWithActions(
   const limit = filters?.limit || 20;
 
   return useQuery({
-    queryKey: ['callsigns-with-actions', filters?.riskLevel, filters?.airlineId, filters?.airlineFilter, filters?.myActionStatus, filters?.actionType, filters?.dateFrom, filters?.dateTo, page, limit],
+    queryKey: ['callsigns-with-actions', filters?.riskLevel, filters?.airlineId, filters?.airlineFilter, filters?.myActionStatus, filters?.actionType, filters?.fileUploadId, filters?.dateFrom, filters?.dateTo, page, limit],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters?.riskLevel) params.append('riskLevel', filters.riskLevel);
@@ -571,6 +574,7 @@ export function useCallsignsWithActions(
       if (filters?.airlineFilter) params.append('airlineFilter', filters.airlineFilter);
       if (filters?.myActionStatus) params.append('myActionStatus', filters.myActionStatus);
       if (filters?.actionType) params.append('actionType', filters.actionType);
+      if (filters?.fileUploadId) params.append('fileUploadId', filters.fileUploadId);
       if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
       if (filters?.dateTo) params.append('dateTo', filters.dateTo);
       params.append('page', String(page));
