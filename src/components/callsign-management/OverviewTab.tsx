@@ -371,7 +371,7 @@ export function OverviewTab() {
               className="h-9 px-2.5 border border-indigo-200 bg-white text-sm font-semibold text-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 shrink-0">
               {availableYMs.length === 0 && <option value="">--</option>}
               {availableYMs.map(ym => (
-                <option key={ym} value={ym}>{ym.slice(2, 4) + ym.slice(5, 7)}</option>
+                <option key={ym} value={ym}>{`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7))}월`}</option>
               ))}
             </select>
             <select value={selectedFileUploadId} onChange={(e) => { setSelectedFileUploadId(e.target.value); setPage(1); }}

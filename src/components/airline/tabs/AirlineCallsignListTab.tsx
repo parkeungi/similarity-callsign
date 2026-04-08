@@ -354,7 +354,7 @@ export function AirlineCallsignListTab({
               >
                 {availableYMs.length === 0 && <option value="">--</option>}
                 {availableYMs.map(ym => (
-                  <option key={ym} value={ym}>{ym.slice(2, 4) + ym.slice(5, 7)}</option>
+                  <option key={ym} value={ym}>{`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7))}월`}</option>
                 ))}
               </select>
               <select
