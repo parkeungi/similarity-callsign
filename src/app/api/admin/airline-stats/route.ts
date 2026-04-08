@@ -65,23 +65,44 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
+    const fileUploadId = searchParams.get('fileUploadId');
+    const uuidRegex = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validFileUploadId = fileUploadId && uuidRegex.test(fileUploadId) ? fileUploadId : null;
 
-    // SQL WHERE 절 동적 구성 (서브쿼리에서 사용하므로 테이블 별칭 없음)
-    let whereClause = '1=1';
     const params: (string | null)[] = [];
     let paramIndex = 1;
 
-    if (dateFrom) {
-      whereClause += ` AND DATE(registered_at) >= DATE($${paramIndex++})`;
-      params.push(dateFrom);
-    }
-
-    if (dateTo) {
-      whereClause += ` AND DATE(registered_at) <= DATE($${paramIndex++})`;
-      params.push(dateTo);
-    }
-
     // 3️⃣ 항공사별 집계 통계 조회
+    let callsignBatchFilter = '';
+    let actionsBatchJoin = '';
+    let actionsDateWhere = '1=1';
+
+    if (validFileUploadId) {
+      // 배치 필터: callsign_uploads JOIN 또는 레거시 file_upload_id 기준
+      params.push(validFileUploadId);
+      const batchParam = `$${paramIndex++}`;
+      callsignBatchFilter = `AND (
+        EXISTS (SELECT 1 FROM callsign_uploads _cu WHERE _cu.callsign_id = cs.id AND _cu.file_upload_id = ${batchParam})
+        OR (cs.file_upload_id = ${batchParam} AND NOT EXISTS (SELECT 1 FROM callsign_uploads _cu2 WHERE _cu2.callsign_id = cs.id))
+      )`;
+      // actions 서브쿼리도 같은 배치의 callsign만 대상으로
+      params.push(validFileUploadId);
+      const batchParam2 = `$${paramIndex++}`;
+      actionsBatchJoin = `JOIN callsigns _cs ON _cs.id = actions.callsign_id AND (
+        EXISTS (SELECT 1 FROM callsign_uploads _cu WHERE _cu.callsign_id = _cs.id AND _cu.file_upload_id = ${batchParam2})
+        OR (_cs.file_upload_id = ${batchParam2} AND NOT EXISTS (SELECT 1 FROM callsign_uploads _cu2 WHERE _cu2.callsign_id = _cs.id))
+      )`;
+    } else {
+      if (dateFrom) {
+        actionsDateWhere += ` AND DATE(registered_at) >= DATE($${paramIndex++})`;
+        params.push(dateFrom);
+      }
+      if (dateTo) {
+        actionsDateWhere += ` AND DATE(registered_at) <= DATE($${paramIndex++})`;
+        params.push(dateTo);
+      }
+    }
+
     // 조치율 = (진행중 + 완료) / 전체호출부호 × 100%
     // 📌 카티션 곱셈 방지: 서브쿼리로 각각 집계 후 JOIN
     const result = await query(
@@ -99,17 +120,16 @@ export async function GET(request: NextRequest) {
           1
         ) as completion_rate
       FROM airlines al
-      LEFT JOIN callsigns cs ON cs.airline_id = al.id
+      LEFT JOIN callsigns cs ON cs.airline_id = al.id ${callsignBatchFilter}
       LEFT JOIN (
-        -- 액션 집계 서브쿼리 (날짜 필터 적용)
-        -- 📌 진행중 = pending + in_progress 통합
         SELECT
-          airline_id,
-          SUM(CASE WHEN status IN ('pending', 'in_progress') AND COALESCE(is_cancelled, false) = false THEN 1 ELSE 0 END) as in_progress_actions,
-          SUM(CASE WHEN status = 'completed' AND COALESCE(is_cancelled, false) = false THEN 1 ELSE 0 END) as completed_actions
+          actions.airline_id,
+          SUM(CASE WHEN actions.status IN ('pending', 'in_progress') AND COALESCE(actions.is_cancelled, false) = false THEN 1 ELSE 0 END) as in_progress_actions,
+          SUM(CASE WHEN actions.status = 'completed' AND COALESCE(actions.is_cancelled, false) = false THEN 1 ELSE 0 END) as completed_actions
         FROM actions
-        WHERE (${whereClause})
-        GROUP BY airline_id
+        ${actionsBatchJoin}
+        WHERE (${actionsDateWhere})
+        GROUP BY actions.airline_id
       ) action_stats ON action_stats.airline_id = al.id
       GROUP BY al.id, al.code, al.name_ko
       ORDER BY completed_actions DESC, in_progress_actions DESC

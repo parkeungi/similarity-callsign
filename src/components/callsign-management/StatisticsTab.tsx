@@ -1,11 +1,12 @@
 // 발생현황 통계 탭 - recharts 차트(위험도분포·항공사별·월별추세), GET /api/callsigns/stats 데이터 시각화
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import { useActionTypeStats, useAirlineDetailStats, useSystemStats } from '@/hooks/useAdminStats';
 import { useAllActions } from '@/hooks/useActions';
+import { useFileUploads } from '@/hooks/useFileUploads';
 import { StatCard } from './StatCard';
 import { format, addDays, lastDayOfMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -23,7 +24,7 @@ interface CallsignStatsResponse {
   low: number;
 }
 
-type PeriodType = 'daily' | 'monthly' | 'yearly' | 'custom';
+type PeriodType = 'daily' | 'monthly' | 'yearly' | 'custom' | 'batch';
 
 const COLORS = {
   rose: '#e11d48',    // 매우높음, Error
@@ -37,6 +38,7 @@ const COLORS = {
 // 날짜 범위 계산 함수
 function getDateRange(period: PeriodType, offset: number, customFrom?: string, customTo?: string): { dateFrom: string; dateTo: string } {
   const now = new Date();
+  if (period === 'batch') return { dateFrom: '', dateTo: '' };
   if (period === 'custom') {
     return { dateFrom: customFrom || format(now, 'yyyy-MM-dd'), dateTo: customTo || format(now, 'yyyy-MM-dd') };
   }
@@ -58,6 +60,7 @@ function getDateRange(period: PeriodType, offset: number, customFrom?: string, c
 // 표시 텍스트 함수
 function getPeriodLabel(period: PeriodType, offset: number, customFrom?: string, customTo?: string): string {
   const now = new Date();
+  if (period === 'batch') return '';
   if (period === 'custom') {
     if (customFrom === customTo) return format(new Date(customFrom + 'T00:00:00'), 'yyyy년 M월 d일', { locale: ko });
     return `${customFrom} ~ ${customTo}`;
@@ -82,15 +85,61 @@ export function StatisticsTab() {
   const [periodOffset, setPeriodOffset] = useState(0);
   const [customFrom, setCustomFrom] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [customTo, setCustomTo] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedFileUploadId, setSelectedFileUploadId] = useState<string>('');
+  const [selectedYM, setSelectedYM] = useState<string>(''); // "YYYY-MM"
   const accessToken = useAuthStore((s) => s.accessToken);
+  const fileUploadsQuery = useFileUploads({ status: 'completed', limit: 200 });
 
-  const dateRange = useMemo(() => getDateRange(period, periodOffset, customFrom, customTo), [period, periodOffset, customFrom, customTo]);
+  // 고유 년월 목록 (내림차순)
+  const availableYMs = useMemo(() => {
+    const uploads = fileUploadsQuery.data?.data ?? [];
+    return [...new Set(uploads.map(u => u.uploaded_at.slice(0, 7)))]
+      .sort((a, b) => b.localeCompare(a));
+  }, [fileUploadsQuery.data]);
+
+  // 선택 년월의 업로드 목록
+  const filteredUploads = useMemo(() => {
+    const uploads = fileUploadsQuery.data?.data ?? [];
+    if (!selectedYM) return uploads;
+    return uploads.filter(u => u.uploaded_at.startsWith(selectedYM));
+  }, [fileUploadsQuery.data, selectedYM]);
+
+  // batch 모드 진입 시 최신 년월 자동 초기화
+  useEffect(() => {
+    if (period !== 'batch') return;
+    const uploads = fileUploadsQuery.data?.data;
+    if (!uploads || uploads.length === 0) return;
+    if (!selectedYM) setSelectedYM(uploads[0].uploaded_at.slice(0, 7));
+  }, [period, fileUploadsQuery.data]);
+
+  // 년월 변경 시 해당 기간 최신 업로드 자동 선택
+  useEffect(() => {
+    if (period !== 'batch' || filteredUploads.length === 0) return;
+    setSelectedFileUploadId(filteredUploads[0].id);
+  }, [filteredUploads]);
+
+  // batch 모드 해제 시 년월 리셋
+  useEffect(() => {
+    if (period !== 'batch') setSelectedYM('');
+  }, [period]);
+
+  const isBatchMode = period === 'batch' && !!selectedFileUploadId;
+  const dateRange = useMemo(() => {
+    if (isBatchMode) return { dateFrom: '', dateTo: '', fileUploadId: selectedFileUploadId };
+    return getDateRange(period, periodOffset, customFrom, customTo);
+  }, [period, periodOffset, customFrom, customTo, isBatchMode, selectedFileUploadId]);
   const periodLabel = useMemo(() => getPeriodLabel(period, periodOffset, customFrom, customTo), [period, periodOffset, customFrom, customTo]);
 
   const callsignStatsQuery = useQuery<CallsignStatsResponse>({
-    queryKey: ['callsigns-stats', dateRange.dateFrom, dateRange.dateTo],
+    queryKey: ['callsigns-stats', dateRange.fileUploadId, dateRange.dateFrom, dateRange.dateTo],
     queryFn: async () => {
-      const params = new URLSearchParams({ dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo });
+      const params = new URLSearchParams();
+      if (isBatchMode) {
+        params.append('fileUploadId', selectedFileUploadId);
+      } else {
+        if (dateRange.dateFrom) params.append('dateFrom', dateRange.dateFrom);
+        if (dateRange.dateTo) params.append('dateTo', dateRange.dateTo);
+      }
       const res = await fetch(`/api/callsigns/stats?${params.toString()}`, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) throw new Error('통계 조회 실패');
       return res.json();
@@ -99,10 +148,13 @@ export function StatisticsTab() {
   });
 
   const isOverview = statsSubTab === 'overview';
-  const totalActionsQuery = useAllActions({ page: 1, limit: 1, dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo }, { enabled: isOverview });
-  const pendingActionsQuery = useAllActions({ page: 1, limit: 1, status: 'pending', dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo }, { enabled: isOverview });
-  const inProgressActionsQuery = useAllActions({ page: 1, limit: 1, status: 'in_progress', dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo }, { enabled: isOverview });
-  const completedActionsQuery = useAllActions({ page: 1, limit: 1, status: 'completed', dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo }, { enabled: isOverview });
+  const actionFilters = isBatchMode
+    ? { fileUploadId: selectedFileUploadId }
+    : { dateFrom: dateRange.dateFrom, dateTo: dateRange.dateTo };
+  const totalActionsQuery = useAllActions({ page: 1, limit: 1, ...actionFilters }, { enabled: isOverview });
+  const pendingActionsQuery = useAllActions({ page: 1, limit: 1, status: 'pending', ...actionFilters }, { enabled: isOverview });
+  const inProgressActionsQuery = useAllActions({ page: 1, limit: 1, status: 'in_progress', ...actionFilters }, { enabled: isOverview });
+  const completedActionsQuery = useAllActions({ page: 1, limit: 1, status: 'completed', ...actionFilters }, { enabled: isOverview });
 
   const airlineDetailStatsQuery = useAirlineDetailStats(dateRange);
   const sysStatsQuery = useSystemStats(dateRange);
@@ -188,19 +240,66 @@ export function StatisticsTab() {
       {(statsSubTab === 'overview' || statsSubTab === 'searchStats') && (
       <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 p-8">
         <div className="flex flex-col gap-6">
-          <div className="flex gap-2 flex-wrap">
-            {(['daily', 'monthly', 'yearly', 'custom'] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => { setPeriod(p); setPeriodOffset(0); }}
-                className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${period === p ? 'bg-indigo-500 text-white shadow-lg' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              >
-                {p === 'daily' ? '일별' : p === 'monthly' ? '월별' : p === 'yearly' ? '년간' : '기간선택'}
-              </button>
-            ))}
+          {/* 엑셀기준 / 기간선택 토글 */}
+          <div className="flex h-9 rounded border border-slate-200 overflow-hidden w-fit">
+            <button type="button" onClick={() => { setPeriod('batch'); setPeriodOffset(0); }}
+              className={`px-4 text-sm font-semibold transition-colors ${period === 'batch' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+              엑셀기준
+            </button>
+            <button type="button" onClick={() => { setPeriod('monthly'); setPeriodOffset(0); }}
+              className={`px-4 text-sm font-semibold transition-colors border-l border-slate-200 ${period !== 'batch' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+              기간선택
+            </button>
           </div>
 
-          {period === 'custom' ? (
+          {/* 기간선택 모드: 기간 단위 버튼 */}
+          {period !== 'batch' && (
+            <div className="flex gap-2 flex-wrap">
+              {(['daily', 'monthly', 'yearly', 'custom'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => { setPeriod(p); setPeriodOffset(0); }}
+                  className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${period === p ? 'bg-indigo-500 text-white shadow-lg' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  {p === 'daily' ? '일별' : p === 'monthly' ? '월별' : p === 'yearly' ? '년간' : '기간선택'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {period === 'batch' ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* 년월 합산 셀렉터 (YYMM 표기) */}
+              <select
+                value={selectedYM}
+                onChange={(e) => setSelectedYM(e.target.value)}
+                className="px-2.5 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {availableYMs.length === 0 && <option value="">--</option>}
+                {availableYMs.map(ym => (
+                  <option key={ym} value={ym}>{ym.slice(2, 4) + ym.slice(5, 7)}</option>
+                ))}
+              </select>
+
+              {/* 업로드 드롭다운 (년월 필터됨, 레이블에서 년도 제외) */}
+              <select
+                value={selectedFileUploadId}
+                onChange={(e) => setSelectedFileUploadId(e.target.value)}
+                className="flex-1 min-w-[200px] px-3 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">업로드 선택...</option>
+                {filteredUploads.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.uploaded_at.slice(5, 10)} — {u.file_name} ({u.success_count}건)
+                  </option>
+                ))}
+              </select>
+
+              {filteredUploads.length === 0 && selectedYM && (
+                <p className="text-xs text-slate-400">해당 기간에 업로드가 없습니다.</p>
+              )}
+            </div>
+          ) : period === 'custom' ? (
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="flex-1">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">시작일</label>

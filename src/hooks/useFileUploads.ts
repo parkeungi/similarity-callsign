@@ -53,6 +53,7 @@ export function useFileUploads(
   }
 ) {
   const accessToken = useAuthStore((s) => s.accessToken);
+  const isAdmin = useAuthStore((s) => s.isAdmin());
   const page = filters?.page || 1;
   const limit = filters?.limit || 20;
 
@@ -64,7 +65,12 @@ export function useFileUploads(
       params.append('page', String(page));
       params.append('limit', String(limit));
 
-      const response = await apiFetch(`/api/admin/file-uploads?${params.toString()}`);
+      // 관리자는 상세 정보 포함된 admin API, 항공사 사용자는 읽기 전용 API 사용
+      const endpoint = isAdmin
+        ? `/api/admin/file-uploads?${params.toString()}`
+        : `/api/file-uploads?${params.toString()}`;
+
+      const response = await apiFetch(endpoint);
 
       if (!response.ok) {
         if (response.status === 401) {

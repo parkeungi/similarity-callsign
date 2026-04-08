@@ -254,16 +254,28 @@ export async function GET(
     // 전체 개수 조회
     const countParams: (string | number)[] = [airlineCode];
     let countRiskCondition = '';
+    let countUploadJoin = '';
+    let countUploadWhere = '';
+
     if (filteredRiskLevel) {
       countParams.push(filteredRiskLevel);
       countRiskCondition = `AND c.risk_level = $${countParams.length}`;
     }
 
+    if (validFileUploadId) {
+      countParams.push(validFileUploadId);
+      const countUploadIdx = countParams.length;
+      countUploadJoin = `LEFT JOIN callsign_uploads cu_batch ON cu_batch.callsign_id = c.id AND cu_batch.file_upload_id = $${countUploadIdx}`;
+      countUploadWhere = `AND (cu_batch.callsign_id IS NOT NULL OR (c.file_upload_id = $${countUploadIdx} AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu_chk WHERE cu_chk.callsign_id = c.id)))`;
+    }
+
     const countResult = await query(
       `SELECT COUNT(DISTINCT c.id) as total
        FROM callsigns c
+       ${countUploadJoin}
        WHERE (c.airline_code = $1 OR c.other_airline_code = $1)
-         ${countRiskCondition}`,
+         ${countRiskCondition}
+         ${countUploadWhere}`,
       countParams
     );
     const total = parseInt(countResult.rows[0].total, 10);

@@ -7,6 +7,7 @@ import { getErrorTypeColor } from '@/lib/error-type-colors';
 import { useAuthStore } from '@/store/authStore';
 import { apiFetch } from '@/lib/api/client';
 import { useAdminAirlines } from '@/hooks/useAirlines';
+import { useFileUploads } from '@/hooks/useFileUploads';
 import { Incident, RISK_LEVEL_ORDER, REASON_TYPE_CONFIG, getAiScoreColor } from '@/types/airline';
 import { formatOccurrenceBadge } from '@/lib/occurrence-format';
 import { Pagination } from '@/components/common/Pagination';
@@ -27,8 +28,10 @@ type ActionStatusFilter = 'all' | 'in_progress' | 'completed';
 export function AdminOccurrenceTab() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const airlinesQuery = useAdminAirlines();
+  const fileUploadsQuery = useFileUploads({ status: 'completed', limit: 200 });
 
   const [selectedAirlineId, setSelectedAirlineId] = useState<'all' | string>('all');
+  const [selectedFileUploadId, setSelectedFileUploadId] = useState<string>('');
   const [startDate, setStartDate] = useState<string>(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -46,13 +49,52 @@ export function AdminOccurrenceTab() {
   const limit = 10;
 
   const airlines = airlinesQuery.data || [];
-  const selectedAirline = airlines.find(a => a.id === selectedAirlineId);
 
-  // 전체 발생현황 통합 조회 (1번 API 호출로 모든 항공사 데이터 수신)
+  // 조회 모드: 엑셀기준 / 기간선택
+  const hasBatch = !!(fileUploadsQuery.data?.data && fileUploadsQuery.data.data.length > 0);
+  const [viewMode, setViewMode] = useState<'batch' | 'date'>('batch');
+  const [selectedYM, setSelectedYM] = useState<string>('');
+
+  const availableYMs = useMemo(() => {
+    const uploads = fileUploadsQuery.data?.data ?? [];
+    return [...new Set(uploads.map(u => u.uploaded_at.slice(0, 7)))]
+      .sort((a, b) => b.localeCompare(a));
+  }, [fileUploadsQuery.data]);
+
+  const filteredUploads = useMemo(() => {
+    const uploads = fileUploadsQuery.data?.data ?? [];
+    if (!selectedYM) return uploads;
+    return uploads.filter(u => u.uploaded_at.startsWith(selectedYM));
+  }, [fileUploadsQuery.data, selectedYM]);
+
+  // 최초 진입 시 최신 년월 자동 초기화
+  useEffect(() => {
+    const uploads = fileUploadsQuery.data?.data;
+    if (!uploads || uploads.length === 0) return;
+    if (!selectedYM) setSelectedYM(uploads[0].uploaded_at.slice(0, 7));
+  }, [fileUploadsQuery.data]);
+
+  // 엑셀기준 모드에서 년월 변경 시 최신 업로드 자동 선택
+  const firstFilteredUploadId = filteredUploads[0]?.id ?? '';
+  useEffect(() => {
+    if (viewMode !== 'batch') return;
+    if (!firstFilteredUploadId) return;
+    setSelectedFileUploadId(firstFilteredUploadId);
+    setPage(1);
+  }, [firstFilteredUploadId, viewMode]);
+
+  const handleViewModeChange = (mode: 'batch' | 'date') => {
+    setViewMode(mode);
+    if (mode === 'date') setSelectedFileUploadId('');
+  };
+
+  // 전체 발생현황 통합 조회 (fileUploadId 변경 시 재조회)
   const allOccurrencesQuery = useQuery({
-    queryKey: ['admin-all-occurrences-v2', accessToken],
+    queryKey: ['admin-all-occurrences-v2', accessToken, selectedFileUploadId],
     queryFn: async () => {
-      const response = await apiFetch('/api/admin/occurrences');
+      const params = new URLSearchParams();
+      if (selectedFileUploadId) params.append('fileUploadId', selectedFileUploadId);
+      const response = await apiFetch(`/api/admin/occurrences${params.toString() ? `?${params.toString()}` : ''}`);
       if (!response.ok) return [];
       const result = await response.json();
       return (result.data || []).map((cs: any) => ({
@@ -74,6 +116,8 @@ export function AdminOccurrenceTab() {
         aiScore: cs.ai_score ?? cs.aiScore ?? null,
         aiReason: cs.ai_reason ?? cs.aiReason ?? null,
         reasonType: cs.reason_type ?? cs.reasonType ?? null,
+        // 이전 업로드에도 있던 건 여부
+        isRepeated: cs.is_repeated ?? false,
       } as OccurrenceIncident));
     },
     enabled: !!accessToken,
@@ -97,8 +141,9 @@ export function AdminOccurrenceTab() {
     return all;
   }, [allOccurrencesQuery.data, selectedAirlineId, airlines]);
 
-  // 날짜 필터링
+  // 날짜 필터링 (업로드 배치 선택 시 스킵)
   const filteredByDate = useMemo(() => {
+    if (selectedFileUploadId) return rawIncidents;
     const startObj = startDate ? new Date(startDate) : null;
     const endObj = endDate ? new Date(`${endDate}T23:59:59`) : null;
     return rawIncidents.filter((incident) => {
@@ -107,7 +152,7 @@ export function AdminOccurrenceTab() {
       if (Number.isNaN(d.getTime())) return true;
       return d >= startObj && d <= endObj;
     });
-  }, [rawIncidents, startDate, endDate]);
+  }, [rawIncidents, startDate, endDate, selectedFileUploadId]);
 
   // 통계 계산 - 호출부호 쌍 기준 오류유형 집계
   const stats = useMemo(() => {
@@ -257,108 +302,107 @@ export function AdminOccurrenceTab() {
 
   return (
     <div className="space-y-6">
-      {/* 필터 바 */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* 항공사 선택 */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-bold text-gray-700 min-w-fit">항공사:</label>
-            <select
-              value={selectedAirlineId}
-              onChange={(e) => { setSelectedAirlineId(e.target.value); setPage(1); }}
-              className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">모든 항공사</option>
-              {airlines.map((airline) => (
-                <option key={airline.id} value={airline.id}>
-                  {airline.name_ko} ({airline.code})
-                </option>
+      {/* 필터 바 - 1줄 */}
+      <div className="bg-white rounded-lg border border-gray-200 px-4 py-2.5 shadow-sm flex flex-wrap items-center gap-2">
+        {/* 엑셀기준 / 기간선택 토글 */}
+        {hasBatch && (
+          <div className="flex h-9 rounded border border-gray-200 overflow-hidden shrink-0">
+            <button type="button" onClick={() => handleViewModeChange('batch')}
+              className={`px-3 text-xs font-semibold transition-colors ${viewMode === 'batch' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
+              엑셀기준
+            </button>
+            <button type="button" onClick={() => handleViewModeChange('date')}
+              className={`px-3 text-xs font-semibold transition-colors border-l border-gray-200 ${viewMode === 'date' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
+              기간선택
+            </button>
+          </div>
+        )}
+
+        {/* 엑셀기준 모드: 년월 + 업로드 선택 + 신규/이전 뱃지 */}
+        {viewMode === 'batch' && hasBatch && (
+          <>
+            <select value={selectedYM} onChange={(e) => { setSelectedYM(e.target.value); setPage(1); }}
+              className="h-9 px-2.5 border border-gray-200 bg-white text-sm font-semibold text-gray-700 rounded outline-none focus:ring-2 focus:ring-indigo-400 shrink-0">
+              {availableYMs.length === 0 && <option value="">--</option>}
+              {availableYMs.map(ym => (
+                <option key={ym} value={ym}>{ym.slice(2, 4) + ym.slice(5, 7)}</option>
               ))}
             </select>
-          </div>
-
-          {/* 날짜 필터 */}
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-              className="px-3 py-2 border border-gray-300 rounded text-sm font-medium"
-            />
-            <span className="text-gray-400 font-bold">~</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-              className="px-3 py-2 border border-gray-300 rounded text-sm font-medium"
-            />
-          </div>
-
-          {/* 조치 상태 필터 */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-bold text-gray-700 min-w-fit">조치상태:</label>
-            <select
-              value={actionStatusFilter}
-              onChange={(e) => { setActionStatusFilter(e.target.value as ActionStatusFilter); setPage(1); }}
-              className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">전체</option>
-              <option value="in_progress">조치필요</option>
-              <option value="completed">조치완료</option>
+            <select value={selectedFileUploadId} onChange={(e) => { setSelectedFileUploadId(e.target.value); setPage(1); }}
+              className="h-9 px-3 border border-gray-200 bg-white text-sm font-medium text-gray-800 rounded outline-none focus:ring-2 focus:ring-indigo-400 min-w-[200px] shrink-0">
+              {filteredUploads.map((u) => (
+                <option key={u.id} value={u.id}>{u.uploaded_at.slice(5, 10)} — {u.file_name} ({u.success_count}건)</option>
+              ))}
             </select>
-          </div>
-
-          {/* 정렬 */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-bold text-gray-700 min-w-fit">정렬:</label>
-            <select
-              value={sortOrder}
-              onChange={(e) => { setSortOrder(e.target.value as SortOrder); setPage(1); }}
-              className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="ai_score">AI분석순</option>
-              <option value="risk">오류발생가능성순</option>
-              <option value="count">발생건수순</option>
-            </select>
-          </div>
-
-          {/* AI 추천 토글 */}
-          <button
-            type="button"
-            onClick={() => {
-              setShowAiRecommend(!showAiRecommend);
-              if (!showAiRecommend) {
-                setSortOrder('ai_score');
-              }
-              setPage(1);
-            }}
-            className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors border ${
-              showAiRecommend
-                ? 'bg-purple-600 text-white border-purple-600'
-                : 'bg-white text-purple-600 border-purple-300 hover:bg-purple-50'
-            }`}
-          >
-            🤖 AI 추천
-          </button>
-
-          {/* 호출부호 검색 */}
-          <div className="flex-1 flex items-center gap-2 min-w-[200px]">
-            <input
-              type="text"
-              placeholder="호출부호 검색 (예: JNA, KAL)"
-              value={searchKeyword}
-              onChange={(e) => { setSearchKeyword(e.target.value); setPage(1); }}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {searchKeyword && (
-              <button
-                onClick={() => { setSearchKeyword(''); setPage(1); }}
-                className="px-2 py-2 text-gray-500 hover:text-gray-700 font-bold text-sm"
-              >
-                ✕
-              </button>
+            {selectedFileUploadId && (
+              <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded shrink-0">
+                {(() => {
+                  const repeated = (allOccurrencesQuery.data || []).filter((i: any) => i.isRepeated).length;
+                  const newCount = (allOccurrencesQuery.data || []).length - repeated;
+                  return `신규 ${newCount}건 · 이전 ${repeated}건`;
+                })()}
+              </span>
             )}
-          </div>
+          </>
+        )}
+
+        {/* 기간선택 모드: 날짜 범위 */}
+        {viewMode === 'date' && (
+          <>
+            <input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+              className="h-9 px-2 border border-gray-300 rounded text-sm font-medium w-[130px]" />
+            <span className="text-gray-400 text-sm">~</span>
+            <input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+              className="h-9 px-2 border border-gray-300 rounded text-sm font-medium w-[130px]" />
+          </>
+        )}
+
+        <div className="w-px h-5 bg-gray-200 shrink-0" />
+
+        {/* 항공사 */}
+        <select value={selectedAirlineId} onChange={(e) => { setSelectedAirlineId(e.target.value); setPage(1); }}
+          className="h-9 px-3 border border-gray-300 rounded-lg bg-white text-gray-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="all">모든 항공사</option>
+          {airlines.map((airline) => (
+            <option key={airline.id} value={airline.id}>{airline.name_ko} ({airline.code})</option>
+          ))}
+        </select>
+
+        {/* 조치상태 */}
+        <select value={actionStatusFilter} onChange={(e) => { setActionStatusFilter(e.target.value as ActionStatusFilter); setPage(1); }}
+          className="h-9 px-3 border border-gray-300 rounded-lg bg-white text-gray-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="all">조치상태 전체</option>
+          <option value="in_progress">조치필요</option>
+          <option value="completed">조치완료</option>
+        </select>
+
+        {/* 정렬 */}
+        <select value={sortOrder} onChange={(e) => { setSortOrder(e.target.value as SortOrder); setPage(1); }}
+          className="h-9 px-3 border border-gray-300 rounded-lg bg-white text-gray-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="ai_score">AI분석순</option>
+          <option value="risk">오류발생가능성순</option>
+          <option value="count">발생건수순</option>
+        </select>
+
+        {/* AI 추천 토글 */}
+        <button type="button"
+          onClick={() => { setShowAiRecommend(!showAiRecommend); if (!showAiRecommend) setSortOrder('ai_score'); setPage(1); }}
+          className={`h-9 px-3 text-sm font-bold rounded-lg transition-colors border shrink-0 ${showAiRecommend ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-600 border-purple-300 hover:bg-purple-50'}`}>
+          🤖 AI 추천
+        </button>
+
+        <div className="flex-1" />
+
+        {/* 호출부호 검색 */}
+        <div className="relative w-[240px] shrink-0">
+          <input type="text" placeholder="호출부호 검색 (예: JNA, KAL)"
+            value={searchKeyword}
+            onChange={(e) => { setSearchKeyword(e.target.value); setPage(1); }}
+            className="w-full h-9 px-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-7" />
+          {searchKeyword && (
+            <button onClick={() => { setSearchKeyword(''); setPage(1); }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm font-bold">✕</button>
+          )}
         </div>
       </div>
 

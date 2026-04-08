@@ -22,17 +22,30 @@ export async function GET(request: NextRequest) {
 
         const dateFrom = request.nextUrl.searchParams.get('dateFrom');
         const dateTo = request.nextUrl.searchParams.get('dateTo');
+        const fileUploadId = request.nextUrl.searchParams.get('fileUploadId');
+        const uuidRegex = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const validFileUploadId = fileUploadId && uuidRegex.test(fileUploadId) ? fileUploadId : null;
 
         let conditions = '';
         const params: string[] = [];
         let paramIndex = 1;
-        if (dateFrom) {
-            conditions += ` AND DATE(c.uploaded_at) >= DATE($${paramIndex++})`;
-            params.push(dateFrom);
-        }
-        if (dateTo) {
-            conditions += ` AND DATE(c.uploaded_at) <= DATE($${paramIndex++})`;
-            params.push(dateTo);
+
+        if (validFileUploadId) {
+            params.push(validFileUploadId);
+            const p = `$${paramIndex++}`;
+            conditions += ` AND (
+              EXISTS (SELECT 1 FROM callsign_uploads _cu WHERE _cu.callsign_id = c.id AND _cu.file_upload_id = ${p})
+              OR (c.file_upload_id = ${p} AND NOT EXISTS (SELECT 1 FROM callsign_uploads _cu2 WHERE _cu2.callsign_id = c.id))
+            )`;
+        } else {
+            if (dateFrom) {
+                conditions += ` AND DATE(c.uploaded_at) >= DATE($${paramIndex++})`;
+                params.push(dateFrom);
+            }
+            if (dateTo) {
+                conditions += ` AND DATE(c.uploaded_at) <= DATE($${paramIndex++})`;
+                params.push(dateTo);
+            }
         }
 
         // 1. 월별 트렌드

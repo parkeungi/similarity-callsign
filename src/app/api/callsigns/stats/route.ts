@@ -48,34 +48,52 @@ export async function GET(request: NextRequest) {
     const riskLevel = request.nextUrl.searchParams.get('riskLevel');
     const dateFrom = request.nextUrl.searchParams.get('dateFrom');
     const dateTo = request.nextUrl.searchParams.get('dateTo');
+    const fileUploadId = request.nextUrl.searchParams.get('fileUploadId');
+
+    // fileUploadId UUID 형식 검증
+    const hexRegex = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validFileUploadId = fileUploadId && hexRegex.test(fileUploadId) ? fileUploadId : null;
 
     // 기본 쿼리
-    let sql = `SELECT risk_level, COUNT(*) as count FROM callsigns WHERE 1=1`;
+    let sql = `SELECT c.risk_level, COUNT(*) as count FROM callsigns c`;
     const params: any[] = [];
     let paramIndex = 1;
 
+    // 업로드 배치 필터: fileUploadId 있으면 callsign_uploads JOIN
+    if (validFileUploadId) {
+      params.push(validFileUploadId);
+      sql += ` LEFT JOIN callsign_uploads cu_batch ON cu_batch.callsign_id = c.id AND cu_batch.file_upload_id = $${paramIndex++}`;
+    }
+
+    sql += ` WHERE 1=1`;
+
     // 필터 조건
     if (airlineId) {
-      sql += ` AND airline_id = $${paramIndex++}`;
+      sql += ` AND c.airline_id = $${paramIndex++}`;
       params.push(airlineId);
     }
 
     if (riskLevel && ['매우높음', '높음'].includes(riskLevel)) {
-      sql += ` AND risk_level = $${paramIndex++}`;
+      sql += ` AND c.risk_level = $${paramIndex++}`;
       params.push(riskLevel);
     }
 
-    if (dateFrom) {
-      sql += ` AND uploaded_at >= $${paramIndex++}`;
-      params.push(dateFrom);
-    }
-    if (dateTo) {
-      const exclusiveDateTo = getExclusiveDateTo(dateTo);
-      sql += ` AND uploaded_at < $${paramIndex++}`;
-      params.push(exclusiveDateTo);
+    if (validFileUploadId) {
+      // 업로드 배치 기준: 해당 배치에 포함된 callsign만
+      sql += ` AND (cu_batch.callsign_id IS NOT NULL OR (c.file_upload_id = $1 AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu_chk WHERE cu_chk.callsign_id = c.id)))`;
+    } else {
+      if (dateFrom) {
+        sql += ` AND c.uploaded_at >= $${paramIndex++}`;
+        params.push(dateFrom);
+      }
+      if (dateTo) {
+        const exclusiveDateTo = getExclusiveDateTo(dateTo);
+        sql += ` AND c.uploaded_at < $${paramIndex++}`;
+        params.push(exclusiveDateTo);
+      }
     }
 
-    sql += ` GROUP BY risk_level`;
+    sql += ` GROUP BY c.risk_level`;
 
     const result = await query(sql, params);
 

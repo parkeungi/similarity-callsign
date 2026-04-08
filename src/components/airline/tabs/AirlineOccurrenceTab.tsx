@@ -33,6 +33,14 @@ interface AirlineOccurrenceTabProps {
   exportConfig: ExportConfig;
   onOpenActionModal: (incident: Incident) => void;
   onAcknowledge?: (incident: Incident) => void;
+  uploadBatchActive?: boolean;
+  uploadBatch?: {
+    uploads: { id: string; uploaded_at: string; file_name: string; success_count: number }[];
+    selectedId: string;
+    onChange: (id: string) => void;
+    repeatedCount: number;
+    newCount: number;
+  };
 }
 
 type SortOrder = 'risk' | 'count' | 'latest' | 'priority' | 'ai_score';
@@ -48,6 +56,8 @@ export function AirlineOccurrenceTab({
   exportConfig,
   onOpenActionModal,
   onAcknowledge,
+  uploadBatchActive,
+  uploadBatch,
 }: AirlineOccurrenceTabProps) {
   // Props에서 필요한 값들 추출
   const { startDate, endDate, activeRange, onStartDateChange, onEndDateChange, onApplyQuickRange } = dateFilter;
@@ -60,8 +70,10 @@ export function AirlineOccurrenceTab({
   const [showAiRecommend, setShowAiRecommend] = useState<boolean>(false);
   const [reasonTypeFilter, setReasonTypeFilter] = useState<string>('all');
 
-  // 날짜 필터링된 incidents
+  // 날짜 필터링된 incidents (업로드 배치 기준이면 날짜 필터 스킵)
   const filteredByDate = useMemo(() => {
+    if (uploadBatchActive) return incidents;
+
     const startDateObj = startDate ? new Date(startDate) : null;
     const endDateObj = endDate ? new Date(endDate) : null;
 
@@ -71,7 +83,7 @@ export function AirlineOccurrenceTab({
       if (Number.isNaN(incidentDate.getTime())) return true;
       return incidentDate >= startDateObj && incidentDate <= endDateObj;
     });
-  }, [incidents, startDate, endDate]);
+  }, [incidents, startDate, endDate, uploadBatchActive]);
 
   // 에러 타입 + 검색어 + 정렬 적용된 최종 목록
   const allFilteredIncidents = useMemo(() => {
@@ -285,6 +297,9 @@ export function AirlineOccurrenceTab({
         sortOrder={sortOrder}
         onSortOrderChange={setSortOrder}
         onActionStatusFilterChange={setActionStatusFilter}
+        uploadBatchActive={uploadBatchActive}
+        uploadBatch={uploadBatch}
+        showExcel={false}
       />
 
       {/* 통계 카드 섹션 */}
@@ -376,6 +391,19 @@ export function AirlineOccurrenceTab({
             }`}
           >
             AI 추천
+          </button>
+          {/* EXCEL */}
+          <button
+            type="button"
+            onClick={onExport}
+            disabled={isExporting || allFilteredIncidents.length === 0}
+            className={`h-7 px-2.5 text-[11px] font-bold shrink-0 transition-colors rounded ${
+              isExporting || allFilteredIncidents.length === 0
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            {isExporting ? '...' : 'EXCEL'}
           </button>
           <span className="text-xs text-gray-500 ml-auto shrink-0">{incidentsPage} / {totalPages} 페이지</span>
         </div>

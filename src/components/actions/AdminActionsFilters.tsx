@@ -1,6 +1,7 @@
 // 관리자 조치 필터 - 상태(pending/in_progress/completed)·항공사·날짜범위 드롭다운, onChange 콜백
 "use client";
 
+import { useState, useMemo, useEffect } from 'react';
 import { Airline } from '@/hooks/useAirlines';
 import { FileUploadItem } from '@/hooks/useFileUploads';
 
@@ -34,8 +35,8 @@ interface AdminActionsFiltersProps {
   fileUploadsLoading?: boolean;
   selectedFileUploadId?: string;
   onFileUploadChange?: (id: string) => void;
-  showAllHistory?: boolean;
-  onToggleAllHistory?: () => void;
+  viewMode?: 'batch' | 'date';
+  onViewModeChange?: (mode: 'batch' | 'date') => void;
 }
 
 export function AdminActionsFilters({
@@ -61,106 +62,119 @@ export function AdminActionsFilters({
   fileUploadsLoading,
   selectedFileUploadId,
   onFileUploadChange,
-  showAllHistory,
-  onToggleAllHistory,
+  viewMode: viewModeProp = 'batch',
+  onViewModeChange,
 }: AdminActionsFiltersProps) {
-  const fmtUploadDate = (iso: string) => {
-    const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return match ? `${match[1]}-${match[2]}-${match[3]}` : iso;
+  const hasBatch = !!(fileUploads && fileUploads.length > 0);
+
+  // 년월 합산 필터
+  const [selectedYM, setSelectedYM] = useState<string>('');
+
+  const availableYMs = useMemo(() => {
+    const uploads = fileUploads ?? [];
+    return [...new Set(uploads.map(u => u.uploaded_at.slice(0, 7)))]
+      .sort((a, b) => b.localeCompare(a));
+  }, [fileUploads]);
+
+  const filteredUploads = useMemo(() => {
+    const uploads = fileUploads ?? [];
+    if (!selectedYM) return uploads;
+    return uploads.filter(u => u.uploaded_at.startsWith(selectedYM));
+  }, [fileUploads, selectedYM]);
+
+  // 최초 진입 시 최신 년월 자동 초기화
+  useEffect(() => {
+    if (!fileUploads || fileUploads.length === 0) return;
+    if (!selectedYM) setSelectedYM(fileUploads[0].uploaded_at.slice(0, 7));
+  }, [fileUploads]);
+
+  // 엑셀기준 모드에서 년월 변경 시 최신 업로드 자동 선택
+  const firstFilteredUploadId = filteredUploads[0]?.id ?? '';
+  useEffect(() => {
+    if (viewModeProp !== 'batch') return;
+    if (!firstFilteredUploadId) return;
+    onFileUploadChange?.(firstFilteredUploadId);
+  }, [firstFilteredUploadId, viewModeProp]);
+
+  const handleViewModeChange = (mode: 'batch' | 'date') => {
+    onViewModeChange?.(mode);
+    if (mode === 'date') onFileUploadChange?.('');
   };
 
   return (
     <div className="bg-white rounded-lg shadow p-6 mb-6">
-      {/* 업로드 배치 선택 영역 */}
-      {fileUploads !== undefined && (
-        <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
-          <label className="text-sm font-medium text-gray-700 shrink-0">업로드 기준</label>
-          <select
-            value={showAllHistory ? '' : (selectedFileUploadId || '')}
-            onChange={(e) => {
-              if (e.target.value === '') {
-                onToggleAllHistory?.();
-              } else {
-                onFileUploadChange?.(e.target.value);
-                if (showAllHistory) onToggleAllHistory?.();
-              }
-            }}
-            disabled={fileUploadsLoading}
-            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 min-w-[280px]"
-          >
-            <option value="">전체 이력 보기</option>
-            {fileUploads.map((u) => (
-              <option key={u.id} value={u.id}>
-                {fmtUploadDate(u.uploaded_at)} — {u.file_name} ({u.success_count}건)
-              </option>
-            ))}
-          </select>
-          {!showAllHistory && selectedFileUploadId && (
-            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-              이번 업로드 기준 조회 중
-            </span>
-          )}
-        </div>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">항공사</label>
-          <select
-            value={selectedAirlineId}
-            onChange={(e) => onAirlineChange(e.target.value)}
-            disabled={airlinesLoading}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-          >
-            <option value="">모든 항공사</option>
-            {airlines.map((airline) => (
-              <option key={airline.id} value={airline.id}>
-                {airline.code} - {airline.name_ko}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* 필터 1줄: 토글 + 엑셀/기간 컨트롤 + 항공사 + 상태 + 초기화 */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {/* 엑셀기준 / 기간선택 토글 */}
+        {hasBatch && (
+          <div className="flex h-9 rounded border border-gray-200 overflow-hidden shrink-0">
+            <button type="button" onClick={() => handleViewModeChange('batch')}
+              className={`px-3 text-xs font-semibold transition-colors ${viewModeProp === 'batch' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
+              엑셀기준
+            </button>
+            <button type="button" onClick={() => handleViewModeChange('date')}
+              className={`px-3 text-xs font-semibold transition-colors border-l border-gray-200 ${viewModeProp === 'date' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
+              기간선택
+            </button>
+          </div>
+        )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">상태</label>
-          <select
-            value={selectedStatus}
-            onChange={(e) => onStatusChange(e.target.value as ActionStatus)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">전체</option>
-            <option value="in_progress">조치필요</option>
-            <option value="completed">조치완료</option>
-          </select>
-        </div>
+        {/* 엑셀기준 모드: 년월 + 업로드 선택 */}
+        {viewModeProp === 'batch' && hasBatch && (
+          <>
+            <select value={selectedYM} onChange={(e) => setSelectedYM(e.target.value)}
+              disabled={fileUploadsLoading}
+              className="h-9 px-2.5 border border-gray-200 bg-white text-sm font-semibold text-gray-700 rounded outline-none focus:ring-2 focus:ring-indigo-400 shrink-0 disabled:bg-gray-100">
+              {availableYMs.length === 0 && <option value="">--</option>}
+              {availableYMs.map(ym => (
+                <option key={ym} value={ym}>{ym.slice(2, 4) + ym.slice(5, 7)}</option>
+              ))}
+            </select>
+            <select value={selectedFileUploadId || ''} onChange={(e) => onFileUploadChange?.(e.target.value)}
+              disabled={fileUploadsLoading}
+              className="h-9 px-3 border border-gray-200 bg-white text-sm font-medium text-gray-800 rounded outline-none focus:ring-2 focus:ring-indigo-400 min-w-[200px] shrink-0 disabled:bg-gray-100">
+              {filteredUploads.map((u) => (
+                <option key={u.id} value={u.id}>{u.uploaded_at.slice(5, 10)} — {u.file_name} ({u.success_count}건)</option>
+              ))}
+            </select>
+          </>
+        )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">시작 날짜</label>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => onDateFromChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+        {/* 기간선택 모드: 날짜 범위 */}
+        {viewModeProp === 'date' && (
+          <>
+            <input type="date" value={dateFrom} onChange={(e) => onDateFromChange(e.target.value)}
+              className="h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <span className="text-gray-400 text-sm">~</span>
+            <input type="date" value={dateTo} onChange={(e) => onDateToChange(e.target.value)}
+              className="h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </>
+        )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">종료 날짜</label>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => onDateToChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+        <div className="w-px h-5 bg-gray-200 shrink-0" />
 
-        <div className="flex items-end">
-          <button
-            onClick={onReset}
-            className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium"
-          >
-            초기화
-          </button>
-        </div>
+        {/* 항공사 */}
+        <select value={selectedAirlineId} onChange={(e) => onAirlineChange(e.target.value)}
+          disabled={airlinesLoading}
+          className="h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+          <option value="">모든 항공사</option>
+          {airlines.map((airline) => (
+            <option key={airline.id} value={airline.id}>{airline.code} - {airline.name_ko}</option>
+          ))}
+        </select>
+
+        {/* 상태 */}
+        <select value={selectedStatus} onChange={(e) => onStatusChange(e.target.value as ActionStatus)}
+          className="h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">전체</option>
+          <option value="in_progress">조치필요</option>
+          <option value="completed">조치완료</option>
+        </select>
+
+        <button onClick={onReset}
+          className="h-9 px-4 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium text-sm">
+          초기화
+        </button>
       </div>
 
       <div className="flex gap-2 items-center">

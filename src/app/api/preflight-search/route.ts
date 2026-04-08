@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { AIRLINES } from '@/lib/constants';
 
 const DAY_NAMES_KO = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
-
-// 국내항공사 코드 Set (DB 쿼리 전 조기 차단용)
-const DOMESTIC_CODES = new Set(AIRLINES.map(a => a.code));
 
 // 검색 이력 로깅 (fire-and-forget, 검색 응답에 영향 없음)
 function logSearch(
@@ -59,9 +55,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 외항사 조기 차단: 앞 3글자가 국내항공사 코드가 아니면 DB 쿼리 없이 리턴
+    // 외항사 차단: DB airlines 테이블 기준으로 국내항공사 코드인지 확인
     const prefix = callsign.slice(0, 3);
-    if (!DOMESTIC_CODES.has(prefix)) {
+    const domesticResult = await query(
+      `SELECT 1 FROM airlines WHERE code = $1 AND code != 'FOREIGN' LIMIT 1`,
+      [prefix]
+    );
+    if (!domesticResult.rows || domesticResult.rows.length === 0) {
       return NextResponse.json(
         { error: '검색 대상이 아닙니다.', success: false },
         { status: 400 }

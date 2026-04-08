@@ -37,6 +37,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '관리자 권한이 필요합니다.' }, { status: 403 });
     }
 
+    // fileUploadId 파라미터 처리
+    const fileUploadIdParam = request.nextUrl.searchParams.get('fileUploadId');
+    const hexRegex = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validFileUploadId = fileUploadIdParam && hexRegex.test(fileUploadIdParam) ? fileUploadIdParam : null;
+
+    // 업로드 배치 필터 조건 구성
+    const uploadJoin = validFileUploadId
+      ? `LEFT JOIN callsign_uploads cu_batch ON cu_batch.callsign_id = c.id AND cu_batch.file_upload_id = $1`
+      : '';
+    const uploadWhere = validFileUploadId
+      ? `WHERE (cu_batch.callsign_id IS NOT NULL OR (c.file_upload_id = $1 AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu_chk WHERE cu_chk.callsign_id = c.id)))`
+      : '';
+    const isRepeatedSelect = validFileUploadId
+      ? `EXISTS (SELECT 1 FROM callsign_uploads cu_prev WHERE cu_prev.callsign_id = c.id AND cu_prev.file_upload_id != $1) AS is_repeated,`
+      : `false AS is_repeated,`;
+    const callsignParams = validFileUploadId ? [validFileUploadId] : [];
+
     // 1. 전체 콜사인 + 항공사 정보 + AI 분석 데이터 한 번에 조회
     const callsignsResult = await query(
       `SELECT
@@ -47,17 +64,20 @@ export async function GET(request: NextRequest) {
          a.name_ko as airline_name_ko, a.name_en as airline_name_en,
          ai.ai_score,
          ai.ai_reason,
-         ai.reason_type
+         ai.reason_type,
+         ${isRepeatedSelect}
+         c.file_upload_id
        FROM callsigns c
        JOIN airlines a ON c.airline_id = a.id
-       LEFT JOIN callsign_ai_analysis ai
-         ON ai.callsign_pair = c.callsign_pair
+       LEFT JOIN callsign_ai_analysis ai ON ai.callsign_pair = c.callsign_pair
+       ${uploadJoin}
+       ${uploadWhere}
        ORDER BY
          CASE WHEN c.risk_level = '매우높음' THEN 2
               WHEN c.risk_level = '높음' THEN 1
               ELSE 0 END DESC,
          COALESCE(c.occurrence_count, 0) DESC`,
-      []
+      callsignParams
     );
 
     if (callsignsResult.rows.length === 0) {
@@ -149,6 +169,8 @@ export async function GET(request: NextRequest) {
         aiScore: cs.ai_score ?? null,
         aiReason: cs.ai_reason ?? null,
         reasonType: cs.reason_type ?? null,
+        // 업로드 배치 반복 여부
+        is_repeated: cs.is_repeated ?? false,
       };
     });
 

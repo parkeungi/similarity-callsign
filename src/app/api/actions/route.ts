@@ -211,14 +211,21 @@ export async function GET(request: NextRequest) {
       summaryCountParams.push(searchValue, searchValue, searchValue);
     }
 
-    if (dateFrom) {
-      summarySql += ` AND DATE(a.registered_at) >= DATE($${summaryParamIndex++})`;
-      summaryCountParams.push(dateFrom);
-    }
-
-    if (dateTo) {
-      summarySql += ` AND DATE(a.registered_at) <= DATE($${summaryParamIndex++})`;
-      summaryCountParams.push(dateTo);
+    if (validFileUploadId) {
+      summarySql += ` AND (
+        EXISTS (SELECT 1 FROM callsign_uploads cu WHERE cu.callsign_id = a.callsign_id AND cu.file_upload_id = $${summaryParamIndex++})
+        OR (cs.file_upload_id = $${summaryParamIndex++} AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu2 WHERE cu2.callsign_id = a.callsign_id))
+      )`;
+      summaryCountParams.push(validFileUploadId, validFileUploadId);
+    } else {
+      if (dateFrom) {
+        summarySql += ` AND DATE(a.registered_at) >= DATE($${summaryParamIndex++})`;
+        summaryCountParams.push(dateFrom);
+      }
+      if (dateTo) {
+        summarySql += ` AND DATE(a.registered_at) <= DATE($${summaryParamIndex++})`;
+        summaryCountParams.push(dateTo);
+      }
     }
 
     summarySql += ` GROUP BY a.status`;

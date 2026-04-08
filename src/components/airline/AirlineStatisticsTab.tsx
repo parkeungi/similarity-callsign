@@ -1,7 +1,7 @@
 // 항공사 통계 탭 - recharts 기반 차트 4종(위험도 PieChart·월별 BarChart·오류유형 분포·조치현황 AreaChart), incidents 데이터 가공
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
     BarChart,
     Bar,
@@ -32,6 +32,12 @@ interface AirlineStatisticsTabProps {
     incidents: Incident[];
     airlineId: string | undefined;
     airlineCode: string;
+    uploadBatch?: {
+        uploads: { id: string; uploaded_at: string; file_name: string; success_count: number }[];
+        selectedId: string;
+        onChange: (id: string) => void;
+    };
+    uploadBatchActive?: boolean;
 }
 
 type StatsSubTab = 'overview' | 'timePattern';
@@ -60,15 +66,53 @@ export function AirlineStatisticsTab({
     incidents,
     airlineId,
     airlineCode,
+    uploadBatch,
+    uploadBatchActive = false,
 }: AirlineStatisticsTabProps) {
     const [statsSubTab, setStatsSubTab] = useState<StatsSubTab>('overview');
+
+    // 조회 모드: 엑셀기준 / 기간선택
+    const hasBatch = !!(uploadBatch && uploadBatch.uploads.length > 0);
+    const [viewMode, setViewMode] = useState<'batch' | 'date'>('batch');
+    const [selectedYM, setSelectedYM] = useState<string>('');
+
+    const availableYMs = useMemo(() => {
+        const uploads = uploadBatch?.uploads ?? [];
+        return [...new Set(uploads.map(u => u.uploaded_at.slice(0, 7)))]
+            .sort((a, b) => b.localeCompare(a));
+    }, [uploadBatch?.uploads]);
+
+    const filteredUploads = useMemo(() => {
+        const uploads = uploadBatch?.uploads ?? [];
+        if (!selectedYM) return uploads;
+        return uploads.filter(u => u.uploaded_at.startsWith(selectedYM));
+    }, [uploadBatch?.uploads, selectedYM]);
+
+    useEffect(() => {
+        const uploads = uploadBatch?.uploads;
+        if (!uploads || uploads.length === 0) return;
+        if (!selectedYM) setSelectedYM(uploads[0].uploaded_at.slice(0, 7));
+    }, [uploadBatch?.uploads]);
+
+    const firstFilteredUploadId = filteredUploads[0]?.id ?? '';
+    useEffect(() => {
+        if (viewMode !== 'batch') return;
+        if (!uploadBatch || !firstFilteredUploadId) return;
+        uploadBatch.onChange(firstFilteredUploadId);
+    }, [firstFilteredUploadId, viewMode]);
+
+    const handleViewModeChange = (mode: 'batch' | 'date') => {
+        setViewMode(mode);
+        if (mode === 'date' && uploadBatch) uploadBatch.onChange('');
+    };
 
     // ==========================================
     // Derived Statistics Calculations
     // ==========================================
 
-    // 1. Total Incidents in date range
+    // 1. Total Incidents in date range (업로드 배치 선택 시 날짜 필터 스킵)
     const visibleIncidents = useMemo(() => {
+        if (uploadBatchActive) return incidents;
         const start = statsStartDate ? new Date(statsStartDate) : null;
         const end = statsEndDate ? new Date(statsEndDate) : null;
 
@@ -79,7 +123,7 @@ export function AirlineStatisticsTab({
             if (Number.isNaN(d.getTime())) return true;
             return d >= start && d <= end;
         });
-    }, [incidents, statsStartDate, statsEndDate]);
+    }, [incidents, statsStartDate, statsEndDate, uploadBatchActive]);
 
     // 2. Risk Level Breakdown
     const riskStats = useMemo(() => {
@@ -271,51 +315,103 @@ export function AirlineStatisticsTab({
             {statsSubTab === 'overview' && (
             <>
             {/* Date Filter Bar */}
-            <div className="bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/60 p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 transition-all">
-                <div className="flex items-center gap-4 w-full md:w-auto">
-                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-50 to-indigo-100/50 text-indigo-600 rounded-xl flex items-center justify-center shadow-sm border border-indigo-100">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">통계 조회 기간</p>
+            <div className="bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/60 p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 transition-all">
+                <div className="flex flex-wrap items-center gap-4 w-full">
+                    {/* 엑셀기준 / 기간선택 토글 */}
+                    {hasBatch && (
+                        <div className="flex h-9 rounded border border-slate-200 overflow-hidden shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => handleViewModeChange('batch')}
+                                className={`px-3 text-xs font-semibold transition-colors ${viewMode === 'batch' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                            >
+                                엑셀기준
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleViewModeChange('date')}
+                                className={`px-3 text-xs font-semibold transition-colors border-l border-slate-200 ${viewMode === 'date' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                            >
+                                기간선택
+                            </button>
+                        </div>
+                    )}
+
+                    {/* 엑셀기준 모드: 년월 + 업로드 선택 */}
+                    {viewMode === 'batch' && hasBatch && (
+                        <div className="flex items-center gap-2 shrink-0">
+                            <select
+                                value={selectedYM}
+                                onChange={(e) => setSelectedYM(e.target.value)}
+                                className="h-9 border border-slate-200 bg-white px-2.5 text-sm font-semibold text-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 shrink-0"
+                            >
+                                {availableYMs.length === 0 && <option value="">--</option>}
+                                {availableYMs.map(ym => (
+                                    <option key={ym} value={ym}>{ym.slice(2, 4) + ym.slice(5, 7)}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={uploadBatch!.selectedId}
+                                onChange={(e) => uploadBatch!.onChange(e.target.value)}
+                                className="h-9 border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 min-w-[190px]"
+                            >
+                                {filteredUploads.map((u) => (
+                                    <option key={u.id} value={u.id}>
+                                        {u.uploaded_at.slice(5, 10)} — {u.file_name} ({u.success_count}건)
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {/* 기간선택 모드: 날짜 범위 + 퀵 버튼 */}
+                    {viewMode === 'date' && (
+                    <div className="flex items-center gap-4">
                         <div className="flex items-center gap-3">
-                            <input
-                                type="date"
-                                value={statsStartDate}
-                                onChange={onStatsStartDateChange}
-                                className="bg-transparent border-none p-0 text-sm font-bold text-slate-800 focus:ring-0 cursor-pointer"
-                            />
-                            <span className="text-slate-300 font-medium">~</span>
-                            <input
-                                type="date"
-                                value={statsEndDate}
-                                onChange={onStatsEndDateChange}
-                                className="bg-transparent border-none p-0 text-sm font-bold text-slate-800 focus:ring-0 cursor-pointer"
-                            />
+                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-50 to-indigo-100/50 text-indigo-600 rounded-lg flex items-center justify-center border border-indigo-100 shrink-0">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">조회 기간</p>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="date"
+                                        value={statsStartDate}
+                                        onChange={onStatsStartDateChange}
+                                        className="bg-transparent border-none p-0 text-sm font-bold text-slate-800 focus:ring-0 cursor-pointer"
+                                    />
+                                    <span className="text-slate-300 font-medium">~</span>
+                                    <input
+                                        type="date"
+                                        value={statsEndDate}
+                                        onChange={onStatsEndDateChange}
+                                        className="bg-transparent border-none p-0 text-sm font-bold text-slate-800 focus:ring-0 cursor-pointer"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex bg-slate-100/80 p-1 rounded-lg border border-slate-200/50">
+                            {[
+                                { label: '1주', value: '1w' },
+                                { label: '2주', value: '2w' },
+                                { label: '1개월', value: '1m' },
+                            ].map((range) => (
+                                <button
+                                    key={range.value}
+                                    onClick={() => onApplyStatsQuickRange(range.value as 'today' | '1w' | '2w' | '1m')}
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all duration-200 ${statsActiveRange === range.value
+                                        ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+                                        }`}
+                                >
+                                    {range.label}
+                                </button>
+                            ))}
                         </div>
                     </div>
-                </div>
-
-                <div className="flex bg-slate-100/80 p-1.5 rounded-xl border border-slate-200/50 w-full md:w-auto">
-                    {[
-                        { label: '오늘', value: 'today' },
-                        { label: '1주', value: '1w' },
-                        { label: '2주', value: '2w' },
-                        { label: '1개월', value: '1m' },
-                    ].map((range) => (
-                        <button
-                            key={range.value}
-                            onClick={() => onApplyStatsQuickRange(range.value as 'today' | '1w' | '2w' | '1m')}
-                            className={`px-5 py-2 text-xs font-bold rounded-lg transition-all duration-200 ${statsActiveRange === range.value
-                                ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
-                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-                                }`}
-                        >
-                            {range.label}
-                        </button>
-                    ))}
+                    )}
                 </div>
             </div>
 

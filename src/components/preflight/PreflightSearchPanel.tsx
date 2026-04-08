@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, AlertTriangle, CheckCircle, Clock, MapPin, ChevronDown, ChevronUp, Plane } from 'lucide-react';
 import type { PreflightSearchResult } from '@/types/preflight';
-import { AIRLINES } from '@/lib/constants';
-
-// 국내항공사 코드 Set (빠른 조회용)
-const DOMESTIC_CODES = new Set(AIRLINES.map(a => a.code));
+import { useAirlines } from '@/hooks/useAirlines';
 
 export default function PreflightSearchPanel() {
+  const airlinesQuery = useAirlines();
+  const domesticCodes = useMemo(
+    () => new Set((airlinesQuery.data ?? []).map(a => a.code)),
+    [airlinesQuery.data]
+  );
+
   const [callsign, setCallsign] = useState('');
   const [results, setResults] = useState<PreflightSearchResult[] | null>(null);
   const [searchedCallsign, setSearchedCallsign] = useState('');
@@ -52,9 +55,13 @@ export default function PreflightSearchPanel() {
       return;
     }
 
-    // 외항사 조기 차단: 앞 3글자가 국내항공사 코드인지 확인
+    // 외항사 조기 차단: 앞 3글자가 DB 국내항공사 코드인지 확인 (로딩 중이면 API가 처리)
     const prefix = trimmed.slice(0, 3);
-    if (!DOMESTIC_CODES.has(prefix)) {
+    if (airlinesQuery.isLoading) {
+      setError('항공사 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    if (airlinesQuery.data && !domesticCodes.has(prefix)) {
       setError('국내 항공사 호출부호만 검색 가능합니다.');
       return;
     }

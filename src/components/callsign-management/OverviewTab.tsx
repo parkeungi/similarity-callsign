@@ -7,15 +7,13 @@ import { getErrorTypeColor } from '@/lib/error-type-colors';
 import * as XLSX from 'xlsx';
 import { useCallsignsWithActions } from '@/hooks/useActions';
 import { useAirlines } from '@/hooks/useAirlines';
+import { useFileUploads } from '@/hooks/useFileUploads';
 import { useAuthStore } from '@/store/authStore';
 import { useActiveActionTypes } from '@/hooks/useActionTypes';
 import { apiFetch } from '@/lib/api/client';
 import { StatCard } from './StatCard';
 import { Callsign } from '@/types/action';
-import { AIRLINES } from '@/lib/constants';
 import { Pagination } from '@/components/common/Pagination';
-
-const DOMESTIC_AIRLINE_CODES = new Set<string>(AIRLINES.map((a) => a.code));
 
 interface StatsResponse {
   total: number;
@@ -45,6 +43,7 @@ export function OverviewTab() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFileUploadId, setSelectedFileUploadId] = useState<string>('');
   const pageSizeOptions = [10, 30, 50, 100];
   const accessToken = useAuthStore((s) => s.accessToken);
 
@@ -52,8 +51,54 @@ export function OverviewTab() {
   const [selectedCallsignForDetail, setSelectedCallsignForDetail] = useState<Callsign | null>(null);
   const [isCallsignDetailModalOpen, setIsCallsignDetailModalOpen] = useState(false);
 
+  // 조회 모드: 엑셀기준 / 기간선택
+  const [viewMode, setViewMode] = useState<'batch' | 'date'>('batch');
+  const [selectedYM, setSelectedYM] = useState<string>('');
+
   const airlinesQuery = useAirlines();
   const { data: activeActionTypes = [] } = useActiveActionTypes();
+  const fileUploadsQuery = useFileUploads({ status: 'completed', limit: 200 });
+
+  // DB 항공사 목록 기준 국내항공사 코드 Set (하드코딩 없음)
+  const domesticCodes = useMemo(
+    () => new Set<string>((airlinesQuery.data ?? []).map((a) => a.code)),
+    [airlinesQuery.data]
+  );
+
+  const hasBatch = !!(fileUploadsQuery.data?.data && fileUploadsQuery.data.data.length > 0);
+
+  const availableYMs = useMemo(() => {
+    const uploads = fileUploadsQuery.data?.data ?? [];
+    return [...new Set(uploads.map(u => u.uploaded_at.slice(0, 7)))]
+      .sort((a, b) => b.localeCompare(a));
+  }, [fileUploadsQuery.data]);
+
+  const filteredUploads = useMemo(() => {
+    const uploads = fileUploadsQuery.data?.data ?? [];
+    if (!selectedYM) return uploads;
+    return uploads.filter(u => u.uploaded_at.startsWith(selectedYM));
+  }, [fileUploadsQuery.data, selectedYM]);
+
+  // 최초 진입 시 최신 년월 자동 초기화
+  useEffect(() => {
+    const uploads = fileUploadsQuery.data?.data;
+    if (!uploads || uploads.length === 0) return;
+    if (!selectedYM) setSelectedYM(uploads[0].uploaded_at.slice(0, 7));
+  }, [fileUploadsQuery.data]);
+
+  // 엑셀기준 모드에서 년월 변경 시 최신 업로드 자동 선택
+  const firstFilteredUploadId = filteredUploads[0]?.id ?? '';
+  useEffect(() => {
+    if (viewMode !== 'batch') return;
+    if (!firstFilteredUploadId) return;
+    setSelectedFileUploadId(firstFilteredUploadId);
+    setPage(1);
+  }, [firstFilteredUploadId, viewMode]);
+
+  const handleViewModeChange = (mode: 'batch' | 'date') => {
+    setViewMode(mode);
+    if (mode === 'date') { setSelectedFileUploadId(''); setPage(1); }
+  };
   const callsignsQuery = useCallsignsWithActions({
     riskLevel: selectedRiskLevel || undefined,
     airlineId: (selectedAirlineId === 'foreign' || selectedAirlineId === 'foreign_domestic') ? undefined : (selectedAirlineId || undefined),
@@ -61,21 +106,26 @@ export function OverviewTab() {
     // 카드 클릭으로 선택한 필터 (selectedStatusFilter)를 API에 전달
     myActionStatus: selectedStatusFilter !== 'all' ? selectedStatusFilter : (selectedActionStatus || undefined),
     actionType: selectedActionType || undefined,
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
+    fileUploadId: selectedFileUploadId || undefined,
+    dateFrom: selectedFileUploadId ? undefined : (dateFrom || undefined),
+    dateTo: selectedFileUploadId ? undefined : (dateTo || undefined),
     page,
     limit,
   });
 
   // 전체 통계 조회
   const statsQuery = useQuery({
-    queryKey: ['callsigns-stats', selectedRiskLevel],
+    queryKey: ['callsigns-stats', selectedRiskLevel, selectedAirlineId, selectedFileUploadId, selectedFileUploadId ? null : dateFrom, selectedFileUploadId ? null : dateTo],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedRiskLevel) params.append('riskLevel', selectedRiskLevel);
       if (selectedAirlineId) params.append('airlineId', selectedAirlineId);
-      if (dateFrom) params.append('dateFrom', dateFrom);
-      if (dateTo) params.append('dateTo', dateTo);
+      if (selectedFileUploadId) {
+        params.append('fileUploadId', selectedFileUploadId);
+      } else {
+        if (dateFrom) params.append('dateFrom', dateFrom);
+        if (dateTo) params.append('dateTo', dateTo);
+      }
 
       const response = await apiFetch(`/api/callsigns/stats?${params.toString()}`);
 
@@ -124,6 +174,18 @@ export function OverviewTab() {
     );
   }, [statusFilteredRows, searchQuery]);
 
+  // 외항사끼리 쌍은 맨 뒤로 (국내↔국내 0, 국내↔외 1, 외↔외 2)
+  const sortedRows = useMemo(() => {
+    const getPriority = (r: any) => {
+      const myDom = domesticCodes.has(r.airline_code ?? '');
+      const otherDom = domesticCodes.has(r.other_airline_code ?? '');
+      if (myDom && otherDom) return 0;
+      if (myDom || otherDom) return 1;
+      return 2;
+    };
+    return [...filteredRows].sort((a, b) => getPriority(a) - getPriority(b));
+  }, [filteredRows, domesticCodes]);
+
   // 필터 적용 여부 확인
   const hasFilters = selectedRiskLevel || selectedAirlineId || selectedActionStatus;
 
@@ -148,6 +210,17 @@ export function OverviewTab() {
       setPage(pagination.totalPages);
     }
   }, [pagination, page]);
+
+  // 최신 업로드 자동 선택 (최초 1회만)
+  const uploadAutoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (uploadAutoSelectedRef.current) return;
+    const uploads = fileUploadsQuery.data?.data;
+    if (uploads && uploads.length > 0) {
+      setSelectedFileUploadId(uploads[0].id);
+      uploadAutoSelectedRef.current = true;
+    }
+  }, [fileUploadsQuery.data]);
 
   const getActionStatusMeta = (status?: string) => {
     const normalized = (status || 'no_action').toLowerCase();
@@ -230,6 +303,7 @@ export function OverviewTab() {
     setSearchQuery('');
     setDateFrom(getDefaultDateFrom());
     setDateTo(getDefaultDateTo());
+    setSelectedFileUploadId('');
     setPage(1);
   };
 
@@ -274,142 +348,86 @@ export function OverviewTab() {
 
   return (
     <div className="space-y-8">
-      {/* 필터 영역 */}
-      <div className="bg-slate-50/50 px-4 py-3 rounded-xl border border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-        {/* 드롭다운 및 날짜 (좌측) */}
-        <div className="flex flex-wrap items-center gap-2.5 w-full xl:w-auto">
-          {/* 1. 항공사 */}
-          <div className="relative w-[130px] flex-shrink-0">
-            <select
-              value={selectedAirlineId}
-              onChange={(e) => {
-                setSelectedAirlineId(e.target.value);
-                setPage(1);
-              }}
-              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-sm text-slate-700 appearance-none h-9"
-            >
-              <option value="">항공사 전체</option>
-              {airlinesQuery.data?.map((airline) => (
-                <option key={airline.id} value={airline.id}>
-                  {airline.code} - {airline.name_ko}
-                </option>
+      {/* 필터 + 조회모드 통합 1줄 */}
+      <div className="bg-slate-50/50 px-4 py-2.5 rounded-xl border border-slate-100 flex flex-wrap items-center gap-2">
+        {/* 엑셀기준 / 기간선택 토글 */}
+        {hasBatch && (
+          <div className="flex h-9 rounded border border-indigo-200 overflow-hidden shrink-0">
+            <button type="button" onClick={() => handleViewModeChange('batch')}
+              className={`px-3 text-xs font-semibold transition-colors ${viewMode === 'batch' ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-500 hover:bg-indigo-50'}`}>
+              엑셀기준
+            </button>
+            <button type="button" onClick={() => handleViewModeChange('date')}
+              className={`px-3 text-xs font-semibold transition-colors border-l border-indigo-200 ${viewMode === 'date' ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-500 hover:bg-indigo-50'}`}>
+              기간선택
+            </button>
+          </div>
+        )}
+
+        {/* 엑셀기준 모드: 년월 + 업로드 선택 */}
+        {hasBatch && viewMode === 'batch' && (
+          <>
+            <select value={selectedYM} onChange={(e) => { setSelectedYM(e.target.value); setPage(1); }}
+              className="h-9 px-2.5 border border-indigo-200 bg-white text-sm font-semibold text-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 shrink-0">
+              {availableYMs.length === 0 && <option value="">--</option>}
+              {availableYMs.map(ym => (
+                <option key={ym} value={ym}>{ym.slice(2, 4) + ym.slice(5, 7)}</option>
               ))}
             </select>
-            <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
-              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-            </div>
-          </div>
+            <select value={selectedFileUploadId} onChange={(e) => { setSelectedFileUploadId(e.target.value); setPage(1); }}
+              className="h-9 px-3 border border-indigo-200 bg-white text-sm font-medium text-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 min-w-[180px] shrink-0">
+              {filteredUploads.map(u => (
+                <option key={u.id} value={u.id}>{u.uploaded_at.slice(5, 10)} — {u.file_name}</option>
+              ))}
+            </select>
+          </>
+        )}
 
-          {/* 2. 날짜 */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => {
-                setDateFrom(e.target.value);
-                setPage(1);
-              }}
-              className="w-[125px] px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-sm text-slate-700 h-9"
-            />
+        {/* 기간선택 모드: 날짜 범위 */}
+        {(!hasBatch || viewMode === 'date') && (
+          <>
+            <input type="date" value={dateFrom}
+              onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+              className="h-9 w-[125px] px-3 bg-white border border-slate-200 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 shadow-sm text-slate-700" />
             <span className="text-slate-400 font-medium text-sm">-</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => {
-                setDateTo(e.target.value);
-                setPage(1);
-              }}
-              className="w-[125px] px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-sm text-slate-700 h-9"
-            />
-          </div>
+            <input type="date" value={dateTo}
+              onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+              className="h-9 w-[125px] px-3 bg-white border border-slate-200 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 shadow-sm text-slate-700" />
+          </>
+        )}
 
-          {/* 3. 조치상태 */}
-          <div className="relative w-[120px] flex-shrink-0">
-            <select
-              value={selectedActionStatus}
-              onChange={(e) => {
-                setSelectedActionStatus(e.target.value);
-                setPage(1);
-              }}
-              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-sm text-slate-700 appearance-none h-9"
-            >
-              <option value="">조치상태 전체</option>
-              <option value="complete">완전 완료</option>
-              <option value="partial">부분 완료</option>
-              <option value="in_progress">진행중</option>
-            </select>
-            <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
-              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-            </div>
-          </div>
+        <div className="w-px h-5 bg-slate-200 shrink-0" />
 
-          {/* 4. 위험도 - 현재 미사용
-          <div className="relative w-[110px] flex-shrink-0">
-            <select
-              value={selectedRiskLevel}
-              onChange={(e) => {
-                setSelectedRiskLevel(e.target.value);
-                setPage(1);
-              }}
-              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-sm text-slate-700 appearance-none h-9"
-            >
-              <option value="">위험도 전체</option>
-              <option value="매우높음">매우높음</option>
-              <option value="높음">높음</option>
-            </select>
-            <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
-              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-            </div>
-          </div>
-          */}
+        {/* 항공사 */}
+        <select value={selectedAirlineId}
+          onChange={(e) => { setSelectedAirlineId(e.target.value); setPage(1); }}
+          className="h-9 px-3 bg-white border border-slate-200 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 shadow-sm text-slate-700">
+          <option value="">항공사 전체</option>
+          {airlinesQuery.data?.map((airline) => (
+            <option key={airline.id} value={airline.id}>{airline.code} - {airline.name_ko}</option>
+          ))}
+        </select>
 
-          {/* 5. 조치유형 - 현재 미사용
-          <div className="relative w-[130px] flex-shrink-0">
-            <select
-              value={selectedActionType}
-              onChange={(e) => {
-                setSelectedActionType(e.target.value);
-                setPage(1);
-              }}
-              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-sm text-slate-700 appearance-none h-9"
-            >
-              <option value="">조치유형 전체</option>
-              {activeActionTypes.map((t) => (
-                <option key={t.id} value={t.name}>{t.name}</option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
-              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-            </div>
-          </div>
-          */}
-        </div>
+        {/* 조치상태 */}
+        <select value={selectedActionStatus}
+          onChange={(e) => { setSelectedActionStatus(e.target.value); setPage(1); }}
+          className="h-9 px-3 bg-white border border-slate-200 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 shadow-sm text-slate-700">
+          <option value="">조치상태 전체</option>
+          <option value="complete">완전 완료</option>
+          <option value="partial">부분 완료</option>
+          <option value="in_progress">진행중</option>
+        </select>
 
-        {/* 페이지 보기 설정 (우측) */}
-        <div className="flex items-center gap-2 pl-1 xl:pl-3 xl:border-l xl:border-slate-200/80 mt-1 xl:mt-0 flex-shrink-0">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
-            보기 설정
-          </span>
-          <div className="relative w-[90px]">
-            <select
-              value={String(limit)}
-              onChange={(e) => {
-                setLimit(Number(e.target.value));
-                setPage(1);
-              }}
-              className="w-full pl-3 pr-6 py-1.5 bg-white border border-slate-200 rounded-lg text-[13px] font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-sm text-slate-700 appearance-none h-9"
-            >
-              {pageSizeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}개씩
-                </option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
-              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-            </div>
-          </div>
-        </div>
+        <div className="flex-1" />
+
+        {/* 목록 개수 */}
+        <select value={String(limit)}
+          onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+          className="h-9 px-3 bg-white border border-slate-200 rounded-lg text-[13px] font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 shadow-sm text-slate-700">
+          {pageSizeOptions.map((option) => (
+            <option key={option} value={option}>{option}개씩</option>
+          ))}
+        </select>
       </div>
 
       {/* 상태별 카드 (클릭 가능) - 라벨 없음 */}
@@ -613,7 +631,7 @@ export function OverviewTab() {
                 alert('Excel 저장 중 오류가 발생했습니다.');
               }
             }}
-            disabled={filteredRows.length === 0}
+            disabled={sortedRows.length === 0}
             className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md shadow-indigo-600/20"
           >
             📊 Excel 저장
@@ -633,7 +651,7 @@ export function OverviewTab() {
 
       {/* 호출부호 테이블 영역 */}
       <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/80 overflow-hidden">
-        {filteredRows.length > 0 ? (
+        {sortedRows.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -675,7 +693,7 @@ export function OverviewTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredRows.map((callsign) => (
+                {sortedRows.map((callsign) => (
                   <tr
                     key={callsign.id}
                     className="group hover:bg-slate-50/50 transition-colors cursor-pointer"
@@ -689,8 +707,8 @@ export function OverviewTab() {
                       {(() => {
                         const myCode = callsign.my_airline_code || callsign.my_callsign?.slice(0, 3) || '';
                         const otherCode = callsign.other_airline_code || callsign.other_callsign?.slice(0, 3) || '';
-                        const isMyDomestic = DOMESTIC_AIRLINE_CODES.has(myCode);
-                        const isOtherDomestic = DOMESTIC_AIRLINE_CODES.has(otherCode);
+                        const isMyDomestic = domesticCodes.has(myCode);
+                        const isOtherDomestic = domesticCodes.has(otherCode);
                         const myNum = getCallsignNum(callsign.my_callsign || '');
                         const otherNum = getCallsignNum(callsign.other_callsign || '');
                         const isSameNum = myNum && otherNum && myNum === otherNum;
@@ -856,7 +874,7 @@ export function OverviewTab() {
         )}
 
         {/* 페이지네이션 */}
-        {filteredRows.length > 0 && (
+        {sortedRows.length > 0 && (
           <div className="border-t border-slate-100/50 bg-white">
             <Pagination page={page} totalPages={computedTotalPages} onPageChange={setPage} />
           </div>

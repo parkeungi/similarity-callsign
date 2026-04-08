@@ -184,14 +184,22 @@ export async function GET(
         virtualParams.push(searchValue, searchValue, searchValue);
       }
 
-      if (dateFrom) {
-        virtualConditions.push(`cs.last_occurred_at >= $${virtualParamIndex++}`);
-        virtualParams.push(dateFrom);
-      }
-
-      if (dateTo) {
-        virtualConditions.push(`cs.last_occurred_at <= $${virtualParamIndex++}`);
-        virtualParams.push(dateTo);
+      // 업로드 배치 필터: fileUploadId 있을 때는 날짜 필터 무시
+      if (validFileUploadId) {
+        virtualConditions.push(`(
+          EXISTS (SELECT 1 FROM callsign_uploads cu WHERE cu.callsign_id = cs.id AND cu.file_upload_id = $${virtualParamIndex++})
+          OR (cs.file_upload_id = $${virtualParamIndex++} AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu2 WHERE cu2.callsign_id = cs.id))
+        )`);
+        virtualParams.push(validFileUploadId, validFileUploadId);
+      } else {
+        if (dateFrom) {
+          virtualConditions.push(`cs.last_occurred_at >= $${virtualParamIndex++}`);
+          virtualParams.push(dateFrom);
+        }
+        if (dateTo) {
+          virtualConditions.push(`cs.last_occurred_at <= $${virtualParamIndex++}`);
+          virtualParams.push(dateTo);
+        }
       }
 
       const virtualSql = `

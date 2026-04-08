@@ -45,36 +45,58 @@ export async function GET(
 
     const dateFromParam = request.nextUrl.searchParams.get('dateFrom');
     const dateToParam = request.nextUrl.searchParams.get('dateTo');
+    const fileUploadIdParam = request.nextUrl.searchParams.get('fileUploadId');
+    const hexRegex = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validFileUploadId = fileUploadIdParam && hexRegex.test(fileUploadIdParam) ? fileUploadIdParam : null;
 
-    const now = new Date();
-    const defaultEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const defaultStart = new Date(defaultEnd);
-    defaultStart.setDate(defaultEnd.getDate() - 29);
+    // fileUploadId 있을 때: 업로드 배치 기준 필터 (날짜 필터 무시)
+    // fileUploadId 없을 때: 날짜 범위 필터
+    let filterJoin = '';
+    let filterWhere = '';
+    let baseParams: any[];
 
-    const dateFrom = dateFromParam ? new Date(dateFromParam) : defaultStart;
-    const dateTo = dateToParam ? new Date(dateToParam) : defaultEnd;
+    if (validFileUploadId) {
+      filterJoin = 'LEFT JOIN callsigns cs ON a.callsign_id = cs.id';
+      filterWhere = `AND (
+        EXISTS (SELECT 1 FROM callsign_uploads cu WHERE cu.callsign_id = a.callsign_id AND cu.file_upload_id = $2)
+        OR (cs.file_upload_id = $2 AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu2 WHERE cu2.callsign_id = a.callsign_id))
+      )`;
+      baseParams = [airlineId, validFileUploadId];
+    } else {
+      const now = new Date();
+      const defaultEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const defaultStart = new Date(defaultEnd);
+      defaultStart.setDate(defaultEnd.getDate() - 29);
 
-    if (Number.isNaN(dateFrom.getTime()) || Number.isNaN(dateTo.getTime())) {
-      return NextResponse.json({ error: '유효하지 않은 날짜 형식입니다.' }, { status: 400 });
+      const dateFrom = dateFromParam ? new Date(dateFromParam) : defaultStart;
+      const dateTo = dateToParam ? new Date(dateToParam) : defaultEnd;
+
+      if (Number.isNaN(dateFrom.getTime()) || Number.isNaN(dateTo.getTime())) {
+        return NextResponse.json({ error: '유효하지 않은 날짜 형식입니다.' }, { status: 400 });
+      }
+      if (dateFrom > dateTo) {
+        return NextResponse.json({ error: '조회 시작일이 종료일보다 늦을 수 없습니다.' }, { status: 400 });
+      }
+
+      filterWhere = `AND DATE(a.registered_at) BETWEEN DATE($2) AND DATE($3)`;
+      baseParams = [airlineId, toDateOnlyString(dateFrom), toDateOnlyString(dateTo)];
     }
 
-    if (dateFrom > dateTo) {
-      return NextResponse.json({ error: '조회 시작일이 종료일보다 늦을 수 없습니다.' }, { status: 400 });
-    }
-
-    const fromDateString = toDateOnlyString(dateFrom);
-    const toDateString = toDateOnlyString(dateTo);
+    const fromDateString = validFileUploadId ? '' : (baseParams[1] as string);
+    const toDateString = validFileUploadId ? '' : (baseParams[2] as string);
 
     const summaryResult = await query(
       `SELECT
          COUNT(*) AS total_actions,
-         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
-         SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_count,
-         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_count
-       FROM actions
-       WHERE airline_id = $1
-         AND DATE(registered_at) BETWEEN DATE($2) AND DATE($3)`,
-      [airlineId, fromDateString, toDateString]
+         SUM(CASE WHEN a.status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+         SUM(CASE WHEN a.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_count,
+         SUM(CASE WHEN a.status = 'completed' THEN 1 ELSE 0 END) AS completed_count
+       FROM actions a
+       ${filterJoin}
+       WHERE a.airline_id = $1
+         AND COALESCE(a.is_cancelled, false) = false
+         ${filterWhere}`,
+      baseParams
     );
 
     const summaryRow = summaryResult.rows[0] || {
@@ -92,25 +114,29 @@ export async function GET(
     const completionRate = total > 0 ? Math.round((completedCount / total) * 100) : 0;
 
     const avgResult = await query(
-      `SELECT AVG(${dateDiffInDays('completed_at', 'registered_at')}) AS avg_days
-       FROM actions
-       WHERE airline_id = $1
-         AND status = 'completed'
-         AND completed_at IS NOT NULL
-         AND registered_at IS NOT NULL
-         AND DATE(registered_at) BETWEEN DATE($2) AND DATE($3)`,
-      [airlineId, fromDateString, toDateString]
+      `SELECT AVG(${dateDiffInDays('a.completed_at', 'a.registered_at')}) AS avg_days
+       FROM actions a
+       ${filterJoin}
+       WHERE a.airline_id = $1
+         AND COALESCE(a.is_cancelled, false) = false
+         AND a.status = 'completed'
+         AND a.completed_at IS NOT NULL
+         AND a.registered_at IS NOT NULL
+         ${filterWhere}`,
+      baseParams
     );
     const averageCompletionDays = avgResult.rows[0]?.avg_days ? Math.round(avgResult.rows[0].avg_days) : 0;
 
     const typeResult = await query(
-      `SELECT COALESCE(action_type, '미정의') AS action_type, COUNT(*) AS count
-       FROM actions
-       WHERE airline_id = $1
-         AND DATE(registered_at) BETWEEN DATE($2) AND DATE($3)
+      `SELECT COALESCE(a.action_type, '미정의') AS action_type, COUNT(*) AS count
+       FROM actions a
+       ${filterJoin}
+       WHERE a.airline_id = $1
+         AND COALESCE(a.is_cancelled, false) = false
+         ${filterWhere}
        GROUP BY 1
        ORDER BY count DESC`,
-      [airlineId, fromDateString, toDateString]
+      baseParams
     );
 
     const typeDistribution = typeResult.rows.map((row: any) => ({
@@ -120,14 +146,16 @@ export async function GET(
     }));
 
     const monthlyResult = await query(
-      `SELECT ${monthBucket('registered_at')} AS month, COUNT(*) AS count
-       FROM actions
-       WHERE airline_id = $1
-         AND DATE(registered_at) BETWEEN DATE($2) AND DATE($3)
+      `SELECT ${monthBucket('a.registered_at')} AS month, COUNT(*) AS count
+       FROM actions a
+       ${filterJoin}
+       WHERE a.airline_id = $1
+         AND COALESCE(a.is_cancelled, false) = false
+         ${filterWhere}
        GROUP BY 1
        ORDER BY month DESC
        LIMIT 6`,
-      [airlineId, fromDateString, toDateString]
+      baseParams
     );
 
     const monthlyTrend = monthlyResult.rows.map((row: any) => ({
@@ -149,6 +177,7 @@ export async function GET(
       filters: {
         dateFrom: fromDateString,
         dateTo: toDateString,
+        fileUploadId: validFileUploadId ?? undefined,
       },
     });
   } catch (error) {

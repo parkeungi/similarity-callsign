@@ -18,6 +18,7 @@ export interface ActionTypeStats {
 export interface DateRange {
   dateFrom?: string;
   dateTo?: string;
+  fileUploadId?: string;
 }
 
 export function useActionTypeStats(dateRange?: DateRange) {
@@ -111,11 +112,15 @@ export function useAirlineDetailStats(dateRange?: DateRange) {
   const accessToken = useAuthStore((s) => s.accessToken);
 
   return useQuery({
-    queryKey: ['admin-airline-stats', dateRange?.dateFrom, dateRange?.dateTo],
+    queryKey: ['admin-airline-stats', dateRange?.fileUploadId, dateRange?.dateFrom, dateRange?.dateTo],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (dateRange?.dateFrom) params.append('dateFrom', dateRange.dateFrom);
-      if (dateRange?.dateTo) params.append('dateTo', dateRange.dateTo);
+      if (dateRange?.fileUploadId) {
+        params.append('fileUploadId', dateRange.fileUploadId);
+      } else {
+        if (dateRange?.dateFrom) params.append('dateFrom', dateRange.dateFrom);
+        if (dateRange?.dateTo) params.append('dateTo', dateRange.dateTo);
+      }
 
       const response = await apiFetch(`/api/admin/airline-stats?${params.toString()}`);
 
@@ -148,11 +153,15 @@ export function useSystemStats(dateRange?: DateRange) {
   const accessToken = useAuthStore((s) => s.accessToken);
 
   return useQuery({
-    queryKey: ['admin-system-stats', dateRange?.dateFrom, dateRange?.dateTo],
+    queryKey: ['admin-system-stats', dateRange?.fileUploadId, dateRange?.dateFrom, dateRange?.dateTo],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (dateRange?.dateFrom) params.append('dateFrom', dateRange.dateFrom);
-      if (dateRange?.dateTo) params.append('dateTo', dateRange.dateTo);
+      if (dateRange?.fileUploadId) {
+        params.append('fileUploadId', dateRange.fileUploadId);
+      } else {
+        if (dateRange?.dateFrom) params.append('dateFrom', dateRange.dateFrom);
+        if (dateRange?.dateTo) params.append('dateTo', dateRange.dateTo);
+      }
 
       const response = await apiFetch(`/api/admin/comprehensive-stats?${params.toString()}`);
 

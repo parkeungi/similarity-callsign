@@ -379,21 +379,22 @@ function buildCallsignSummary(rows: Array<{ final_status?: string }>) {
  */
 export function useAirlineActionStats(
   airlineId?: string,
-  filters?: { dateFrom?: string; dateTo?: string },
+  filters?: { dateFrom?: string; dateTo?: string; fileUploadId?: string },
   options?: { enabled?: boolean }
 ) {
   const accessToken = useAuthStore((s) => s.accessToken);
 
   return useQuery({
-    queryKey: ['airline-action-stats', airlineId, filters?.dateFrom, filters?.dateTo],
+    queryKey: ['airline-action-stats', airlineId, filters?.fileUploadId, filters?.dateFrom, filters?.dateTo],
     queryFn: async () => {
       if (!airlineId) {
         throw new Error('항공사 ID가 필요합니다.');
       }
 
       const params = new URLSearchParams();
-      if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
-      if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+      if (filters?.fileUploadId) params.append('fileUploadId', filters.fileUploadId);
+      if (!filters?.fileUploadId && filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+      if (!filters?.fileUploadId && filters?.dateTo) params.append('dateTo', filters.dateTo);
 
       const qs = params.toString();
       const response = await apiFetch(

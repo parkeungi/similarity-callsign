@@ -40,13 +40,13 @@ export default function AdminActionsPage() {
 
   // 업로드 배치 선택 상태
   const [selectedFileUploadId, setSelectedFileUploadId] = useState<string>('');
-  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [viewMode, setViewMode] = useState<'batch' | 'date'>('batch');
 
   // 항공사 목록 조회
   const airlinesQuery = useAdminAirlines();
 
   // 업로드 목록 조회 (완료된 것만, 최신순)
-  const fileUploadsQuery = useFileUploads({ status: 'completed', limit: 50 });
+  const fileUploadsQuery = useFileUploads({ status: 'completed', limit: 200 });
 
   // 최신 업로드 자동 선택
   useEffect(() => {
@@ -56,19 +56,21 @@ export default function AdminActionsPage() {
     }
   }, [fileUploadsQuery.data, selectedFileUploadId]);
 
+  const isBatchMode = viewMode === 'batch' && !!selectedFileUploadId;
+
   // 업로드 배치 기준 조치현황 (진행률 카드용)
   const batchQuery = useCallsignsWithActions(
-    { fileUploadId: (!showAllHistory && selectedFileUploadId) ? selectedFileUploadId : undefined, limit: 1 },
-    { enabled: !showAllHistory && !!selectedFileUploadId }
+    { fileUploadId: isBatchMode ? selectedFileUploadId : undefined, limit: 1 },
+    { enabled: isBatchMode }
   );
 
   // 전체 조치 목록 조회 (업로드 배치 선택 시 해당 배치 조치만 표시)
   const actionsQuery = useAllActions({
     airlineId: selectedAirlineId || undefined,
     status: selectedStatus as any,
-    fileUploadId: (!showAllHistory && selectedFileUploadId) ? selectedFileUploadId : undefined,
-    dateFrom: (!showAllHistory && selectedFileUploadId) ? undefined : (dateFrom || undefined),
-    dateTo: (!showAllHistory && selectedFileUploadId) ? undefined : (dateTo || undefined),
+    fileUploadId: isBatchMode ? selectedFileUploadId : undefined,
+    dateFrom: isBatchMode ? undefined : (dateFrom || undefined),
+    dateTo: isBatchMode ? undefined : (dateTo || undefined),
     page,
     limit,
   });
@@ -291,7 +293,7 @@ export default function AdminActionsPage() {
         </div>
 
         {/* 업로드 배치 진행률 카드 */}
-        {!showAllHistory && selectedFileUploadId && batchQuery.data?.summary && (() => {
+        {isBatchMode && batchQuery.data?.summary && (() => {
           const s = batchQuery.data.summary;
           const withActions = s.total - s.in_progress;
           const pct = s.total > 0 ? Math.round((withActions / s.total) * 100) : 0;
@@ -365,9 +367,9 @@ export default function AdminActionsPage() {
           fileUploads={fileUploadsQuery.data?.data}
           fileUploadsLoading={fileUploadsQuery.isLoading}
           selectedFileUploadId={selectedFileUploadId}
-          onFileUploadChange={(id) => { setSelectedFileUploadId(id); setShowAllHistory(false); }}
-          showAllHistory={showAllHistory}
-          onToggleAllHistory={() => setShowAllHistory(prev => !prev)}
+          onFileUploadChange={(id) => { setSelectedFileUploadId(id); setPage(1); }}
+          viewMode={viewMode}
+          onViewModeChange={(mode) => { setViewMode(mode); setPage(1); }}
         />
 
         {/* 호출부호쌍 기준 전체 내보내기 */}
