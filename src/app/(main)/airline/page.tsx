@@ -86,7 +86,7 @@ export default function AirlinePage() {
     if (uploads && uploads.length > 0 && !selectedFileUploadId) {
       setSelectedFileUploadId(uploads[0].id);
     }
-  }, [fileUploadsQuery.data]);
+  }, [fileUploadsQuery.data, selectedFileUploadId]);
 
 
   // 초기 로드 - authStore에서 사용자 정보 사용

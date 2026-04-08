@@ -54,7 +54,7 @@ export default function AdminActionsPage() {
     if (uploads && uploads.length > 0 && !selectedFileUploadId) {
       setSelectedFileUploadId(uploads[0].id);
     }
-  }, [fileUploadsQuery.data]);
+  }, [fileUploadsQuery.data, selectedFileUploadId]);
 
   // 업로드 배치 기준 조치현황 (진행률 카드용)
   const batchQuery = useCallsignsWithActions(
