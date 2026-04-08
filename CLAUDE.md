@@ -961,11 +961,179 @@ git push origin master
 
 | 날짜 | 항목 | 상태 |
 |------|------|------|
+| 2026-04-08 | 업로드 배치 년월 필터 + 엑셀기준/기간선택 토글 전면 적용 (6개 탭) | ✅ |
+| 2026-04-08 | 국내항공사 하드코딩 제거 → DB airlines 테이블 기준 판별 | ✅ |
+| 2026-04-08 | 관리자 조치현황/발생현황 필터 바 1줄 통합 | ✅ |
 | 2026-03-15 | Vercel+Supabase 배포 전 전체 코드 리뷰 수정 (CRITICAL 7건, HIGH 10건) | ✅ |
-| 2026-03-15 | 오류유형 색상 통일, 페이지네이션 수정, 세션 속도 개선 | ✅ |
 | 2026-03-09 | SQLite → PostgreSQL 마이그레이션 완료 | ✅ |
-| 2026-03-01 | 통계 차트 2종 추가 (관리자 대시보드) | ✅ |
-| 2026-03-01 | Actions 상태 관리 로직 명확화 | ✅ |
+
+---
+
+## 🗂️ 업로드 배치 조회 패턴 (필수 준수)
+
+> 엑셀 업로드 목록이 누적되면 드롭다운이 길어지는 문제를 해결하기 위해 아래 패턴을 표준으로 사용한다.
+> **새로운 탭/페이지에 업로드 배치 조회 기능을 추가할 때 반드시 이 패턴을 따른다.**
+
+### 표준 구현 패턴
+
+```typescript
+// 1. useFileUploads는 반드시 limit: 200 사용 (20/50 금지)
+const fileUploadsQuery = useFileUploads({ status: 'completed', limit: 200 });
+
+// 2. viewMode 초기값은 반드시 'batch' 고정 (hasBatch 조건부 초기화 금지)
+const [viewMode, setViewMode] = useState<'batch' | 'date'>('batch');
+const [selectedYM, setSelectedYM] = useState<string>('');
+
+// 3. 년월 목록 파생 (useMemo)
+const availableYMs = useMemo(() => {
+  const uploads = fileUploadsQuery.data?.data ?? [];
+  return [...new Set(uploads.map(u => u.uploaded_at.slice(0, 7)))]
+    .sort((a, b) => b.localeCompare(a));
+}, [fileUploadsQuery.data]);
+
+// 4. 필터된 업로드 파생 (useMemo)
+const filteredUploads = useMemo(() => {
+  const uploads = fileUploadsQuery.data?.data ?? [];
+  if (!selectedYM) return uploads;
+  return uploads.filter(u => u.uploaded_at.startsWith(selectedYM));
+}, [fileUploadsQuery.data, selectedYM]);
+
+// 5. 최초 년월 자동 초기화 useEffect
+useEffect(() => {
+  const uploads = fileUploadsQuery.data?.data;
+  if (!uploads || uploads.length === 0) return;
+  if (!selectedYM) setSelectedYM(uploads[0].uploaded_at.slice(0, 7));
+}, [fileUploadsQuery.data]);
+
+// 6. 무한루프 방지: filteredUploads 배열이 아닌 string primitive를 dep으로 사용
+const firstFilteredUploadId = filteredUploads[0]?.id ?? '';
+useEffect(() => {
+  if (viewMode !== 'batch') return;
+  if (!firstFilteredUploadId) return;
+  setSelectedFileUploadId(firstFilteredUploadId); // 또는 onChange(firstFilteredUploadId)
+}, [firstFilteredUploadId, viewMode]);
+
+// 7. 모드 전환 핸들러
+const handleViewModeChange = (mode: 'batch' | 'date') => {
+  setViewMode(mode);
+  if (mode === 'date') setSelectedFileUploadId('');
+};
+```
+
+### 년월 표시 형식 (필수)
+```typescript
+// ✅ 올바름: "2026년 4월"
+`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7))}월`
+
+// ❌ 금지: "2604" (축약형)
+ym.slice(2, 4) + ym.slice(5, 7)
+```
+
+### 업로드 레이블 형식 (필수)
+```typescript
+// ✅ 올바름: 연도 없이 MM-DD만 표시
+u.uploaded_at.slice(5, 10)  // "04-06"
+
+// ❌ 금지: 전체 날짜 표시
+new Date(u.uploaded_at).toLocaleDateString(...)
+```
+
+### 자동선택 ref 패턴 금지 ⛔
+```typescript
+// ❌ 금지: uploadAutoSelectedRef 패턴 — 년월 필터와 충돌
+const uploadAutoSelectedRef = useRef(false);
+useEffect(() => {
+  if (uploadAutoSelectedRef.current) return;
+  // ...
+  uploadAutoSelectedRef.current = true;
+}, [fileUploadsQuery.data]);
+
+// ✅ 대신: 각 탭 컴포넌트 내부의 firstFilteredUploadId useEffect에 위임
+```
+
+### UI 구조 (표준)
+```tsx
+{/* 1. 토글 버튼 */}
+{hasBatch && (
+  <div className="flex h-9 rounded border border-gray-200 overflow-hidden shrink-0">
+    <button onClick={() => handleViewModeChange('batch')} ...>엑셀기준</button>
+    <button onClick={() => handleViewModeChange('date')} ...>기간선택</button>
+  </div>
+)}
+
+{/* 2. 엑셀기준 모드: 년월 + 업로드 드롭다운 */}
+{viewMode === 'batch' && hasBatch && (
+  <>
+    <select value={selectedYM} onChange={(e) => setSelectedYM(e.target.value)}>
+      {availableYMs.map(ym => (
+        <option key={ym} value={ym}>{`${ym.slice(0,4)}년 ${parseInt(ym.slice(5,7))}월`}</option>
+      ))}
+    </select>
+    <select value={selectedFileUploadId} onChange={(e) => setSelectedFileUploadId(e.target.value)}>
+      {filteredUploads.map(u => (
+        <option key={u.id} value={u.id}>{u.uploaded_at.slice(5, 10)} — {u.file_name}</option>
+      ))}
+    </select>
+  </>
+)}
+
+{/* 3. 기간선택 모드: 날짜 범위 */}
+{(!hasBatch || viewMode === 'date') && (
+  // 날짜 input 렌더링
+)}
+```
+
+---
+
+## 🏢 국내항공사 판별 규칙 (필수 준수)
+
+> **항공사 코드를 하드코딩하는 것은 절대 금지.** DB airlines 테이블에 등록된 항공사가 국내항공사이고, 나머지는 모두 외항사다.
+
+### 프론트엔드 (클라이언트 컴포넌트)
+```typescript
+// ✅ 올바름: useAirlines() 훅으로 동적 파생
+const airlinesQuery = useAirlines();
+const domesticCodes = useMemo(
+  () => new Set((airlinesQuery.data ?? []).map(a => a.code)),
+  [airlinesQuery.data]
+);
+const isDomestic = domesticCodes.has(airlineCode);
+
+// ❌ 금지: 하드코딩 Set
+const DOMESTIC = new Set(['KAL', 'AAR', 'JJA', ...]);
+```
+
+### 백엔드 (API Route / 서버 함수)
+```typescript
+// ✅ 올바름: DB 쿼리로 판별
+const result = await query(
+  `SELECT code FROM airlines WHERE code != 'FOREIGN'`
+);
+const domesticAirlines = new Set(result.rows.map(r => r.code));
+
+// 또는 단건 체크
+const check = await query(
+  `SELECT 1 FROM airlines WHERE code = $1 AND code != 'FOREIGN' LIMIT 1`,
+  [airlineCode]
+);
+const isDomestic = check.rows.length > 0;
+
+// ❌ 금지: constants.ts의 AIRLINES 배열 참조 (삭제됨)
+import { AIRLINES } from '@/lib/constants'; // 존재하지 않음
+```
+
+### 정렬 우선순위 (국내 우선)
+```typescript
+// 관리자 조치현황 목록 등에서 국내항공사 쌍을 먼저 표시
+const getPriority = (row: any) => {
+  const myDom = domesticCodes.has(row.airline_code ?? '');
+  const otherDom = domesticCodes.has(row.other_airline_code ?? '');
+  if (myDom && otherDom) return 0;   // 국내↔국내
+  if (myDom || otherDom) return 1;   // 국내↔외항사
+  return 2;                           // 외↔외
+};
+const sorted = [...rows].sort((a, b) => getPriority(a) - getPriority(b));
+```
 
 ---
 
@@ -979,5 +1147,5 @@ git push origin master
 
 ---
 
-**최종 수정**: 2026-03-15 (Vercel+Supabase 배포 전 문서 동기화)
+**최종 수정**: 2026-04-08 (업로드 배치 년월 필터 패턴 / 국내항공사 하드코딩 제거 규칙 추가)
 **관리자**: sein
