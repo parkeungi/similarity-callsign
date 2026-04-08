@@ -74,8 +74,13 @@ export async function GET(
     // 필터 파라미터
     const status = request.nextUrl.searchParams.get('status');
     const search = request.nextUrl.searchParams.get('search');
+    const fileUploadId = request.nextUrl.searchParams.get('fileUploadId');
     const dateFrom = request.nextUrl.searchParams.get('dateFrom');
     const dateTo = request.nextUrl.searchParams.get('dateTo');
+
+    // fileUploadId UUID 형식 검증
+    const hexRegex = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validFileUploadId = fileUploadId && hexRegex.test(fileUploadId) ? fileUploadId : null;
     const page = Math.max(1, parseInt(request.nextUrl.searchParams.get('page') || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '20', 10)));
     const offset = (page - 1) * limit;
@@ -103,14 +108,23 @@ export async function GET(
       actionParams.push(searchValue, searchValue, searchValue);
     }
 
-    if (dateFrom) {
-      actionConditions.push(`a.registered_at >= $${actionParamIndex++}`);
-      actionParams.push(dateFrom);
-    }
-
-    if (dateTo) {
-      actionConditions.push(`a.registered_at <= $${actionParamIndex++}`);
-      actionParams.push(dateTo);
+    // 업로드 배치 필터: 해당 배치 callsign의 조치만 조회
+    // fileUploadId 있을 때는 dateFrom/dateTo 무시
+    if (validFileUploadId) {
+      actionConditions.push(`(
+        EXISTS (SELECT 1 FROM callsign_uploads cu WHERE cu.callsign_id = a.callsign_id AND cu.file_upload_id = $${actionParamIndex++})
+        OR (cs.file_upload_id = $${actionParamIndex++} AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu2 WHERE cu2.callsign_id = a.callsign_id))
+      )`);
+      actionParams.push(validFileUploadId, validFileUploadId);
+    } else {
+      if (dateFrom) {
+        actionConditions.push(`a.registered_at >= $${actionParamIndex++}`);
+        actionParams.push(dateFrom);
+      }
+      if (dateTo) {
+        actionConditions.push(`a.registered_at <= $${actionParamIndex++}`);
+        actionParams.push(dateTo);
+      }
     }
 
     const actionSql = `

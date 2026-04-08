@@ -7,8 +7,9 @@
  *   - airlineId: 항공사별 필터 (선택사항)
  *   - status: pending|in_progress|completed
  *   - search: 검색어 (유사호출부호, 조치유형, 담당자)
- *   - dateFrom: 시작 날짜 (YYYY-MM-DD)
- *   - dateTo: 종료 날짜 (YYYY-MM-DD)
+ *   - fileUploadId: 업로드 배치 ID (UUID) - 해당 배치 callsign의 조치만 조회
+ *   - dateFrom: 시작 날짜 (YYYY-MM-DD, fileUploadId 없을 때만 적용)
+ *   - dateTo: 종료 날짜 (YYYY-MM-DD, fileUploadId 없을 때만 적용)
  *   - page: 페이지 번호 (기본값: 1)
  *   - limit: 페이지 크기 (기본값: 20, 최대: 100)
  */
@@ -45,8 +46,13 @@ export async function GET(request: NextRequest) {
     const airlineId = request.nextUrl.searchParams.get('airlineId');
     const status = request.nextUrl.searchParams.get('status');
     const search = request.nextUrl.searchParams.get('search');
+    const fileUploadId = request.nextUrl.searchParams.get('fileUploadId');
     const dateFrom = request.nextUrl.searchParams.get('dateFrom');
     const dateTo = request.nextUrl.searchParams.get('dateTo');
+
+    // fileUploadId UUID 형식 검증
+    const hexRegex = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validFileUploadId = fileUploadId && hexRegex.test(fileUploadId) ? fileUploadId : null;
     const page = Math.max(1, parseInt(request.nextUrl.searchParams.get('page') || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '20', 10)));
     const offset = (page - 1) * limit;
@@ -99,15 +105,24 @@ export async function GET(request: NextRequest) {
       queryParams.push(searchValue, searchValue, searchValue);
     }
 
-    // 날짜 필터
-    if (dateFrom) {
-      sql += ` AND DATE(a.registered_at) >= DATE($${paramIndex++})`;
-      queryParams.push(dateFrom);
-    }
-
-    if (dateTo) {
-      sql += ` AND DATE(a.registered_at) <= DATE($${paramIndex++})`;
-      queryParams.push(dateTo);
+    // 업로드 배치 필터: 해당 배치에 포함된 callsign의 조치만 조회
+    // fileUploadId 있을 때는 dateFrom/dateTo 무시
+    if (validFileUploadId) {
+      sql += ` AND (
+        EXISTS (SELECT 1 FROM callsign_uploads cu WHERE cu.callsign_id = a.callsign_id AND cu.file_upload_id = $${paramIndex++})
+        OR (cs.file_upload_id = $${paramIndex++} AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu2 WHERE cu2.callsign_id = a.callsign_id))
+      )`;
+      queryParams.push(validFileUploadId, validFileUploadId);
+    } else {
+      // 날짜 필터 (fileUploadId 없을 때만)
+      if (dateFrom) {
+        sql += ` AND DATE(a.registered_at) >= DATE($${paramIndex++})`;
+        queryParams.push(dateFrom);
+      }
+      if (dateTo) {
+        sql += ` AND DATE(a.registered_at) <= DATE($${paramIndex++})`;
+        queryParams.push(dateTo);
+      }
     }
 
     // 페이지네이션
@@ -147,14 +162,21 @@ export async function GET(request: NextRequest) {
       countParams.push(searchValue, searchValue, searchValue);
     }
 
-    if (dateFrom) {
-      countSql += ` AND DATE(a.registered_at) >= DATE($${countParamIndex++})`;
-      countParams.push(dateFrom);
-    }
-
-    if (dateTo) {
-      countSql += ` AND DATE(a.registered_at) <= DATE($${countParamIndex++})`;
-      countParams.push(dateTo);
+    if (validFileUploadId) {
+      countSql += ` AND (
+        EXISTS (SELECT 1 FROM callsign_uploads cu WHERE cu.callsign_id = a.callsign_id AND cu.file_upload_id = $${countParamIndex++})
+        OR (cs.file_upload_id = $${countParamIndex++} AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu2 WHERE cu2.callsign_id = a.callsign_id))
+      )`;
+      countParams.push(validFileUploadId, validFileUploadId);
+    } else {
+      if (dateFrom) {
+        countSql += ` AND DATE(a.registered_at) >= DATE($${countParamIndex++})`;
+        countParams.push(dateFrom);
+      }
+      if (dateTo) {
+        countSql += ` AND DATE(a.registered_at) <= DATE($${countParamIndex++})`;
+        countParams.push(dateTo);
+      }
     }
 
     const countResult = await query(countSql, countParams);

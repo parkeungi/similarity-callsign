@@ -32,6 +32,7 @@ export function useAllActions(
     airlineId?: string;
     status?: 'pending' | 'in_progress' | 'completed';
     search?: string;
+    fileUploadId?: string;
     dateFrom?: string;
     dateTo?: string;
     page?: number;
@@ -44,12 +45,13 @@ export function useAllActions(
   const limit = filters?.limit || 20;
 
   return useQuery({
-    queryKey: ['all-actions', filters?.airlineId, filters?.status, filters?.search, filters?.dateFrom, filters?.dateTo, page, limit],
+    queryKey: ['all-actions', filters?.airlineId, filters?.status, filters?.search, filters?.fileUploadId, filters?.dateFrom, filters?.dateTo, page, limit],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters?.airlineId) params.append('airlineId', filters.airlineId);
       if (filters?.status) params.append('status', filters.status);
       if (filters?.search) params.append('search', filters.search);
+      if (filters?.fileUploadId) params.append('fileUploadId', filters.fileUploadId);
       if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
       if (filters?.dateTo) params.append('dateTo', filters.dateTo);
       params.append('page', String(page));
@@ -79,6 +81,7 @@ export function useAirlineActions(filters?: {
   airlineId?: string;
   status?: 'pending' | 'in_progress' | 'completed';
   search?: string;
+  fileUploadId?: string;
   dateFrom?: string;
   dateTo?: string;
   page?: number;
@@ -89,7 +92,7 @@ export function useAirlineActions(filters?: {
   const limit = filters?.limit || 20;
 
   return useQuery({
-    queryKey: ['airline-actions', filters?.airlineId, filters?.status, filters?.search, filters?.dateFrom, filters?.dateTo, page, limit],
+    queryKey: ['airline-actions', filters?.airlineId, filters?.status, filters?.search, filters?.fileUploadId, filters?.dateFrom, filters?.dateTo, page, limit],
     queryFn: async () => {
       if (!filters?.airlineId) {
         throw new Error('항공사 ID가 필요합니다.');
@@ -98,6 +101,7 @@ export function useAirlineActions(filters?: {
       const params = new URLSearchParams();
       if (filters?.status) params.append('status', filters.status);
       if (filters?.search) params.append('search', filters.search);
+      if (filters?.fileUploadId) params.append('fileUploadId', filters.fileUploadId);
       if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
       if (filters?.dateTo) params.append('dateTo', filters.dateTo);
       params.append('page', String(page));

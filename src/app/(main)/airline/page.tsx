@@ -123,6 +123,7 @@ export default function AirlinePage() {
     airlineId,
     status: actionStatusFilter === 'all' ? undefined : actionStatusFilter,
     search: actionSearch || undefined,
+    fileUploadId: selectedFileUploadId || undefined,
     page: actionPage,
     limit: actionLimit,
   }, {

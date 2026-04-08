@@ -62,12 +62,13 @@ export default function AdminActionsPage() {
     { enabled: !showAllHistory && !!selectedFileUploadId }
   );
 
-  // 전체 조치 목록 조회
+  // 전체 조치 목록 조회 (업로드 배치 선택 시 해당 배치 조치만 표시)
   const actionsQuery = useAllActions({
     airlineId: selectedAirlineId || undefined,
     status: selectedStatus as any,
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
+    fileUploadId: (!showAllHistory && selectedFileUploadId) ? selectedFileUploadId : undefined,
+    dateFrom: (!showAllHistory && selectedFileUploadId) ? undefined : (dateFrom || undefined),
+    dateTo: (!showAllHistory && selectedFileUploadId) ? undefined : (dateTo || undefined),
     page,
     limit,
   });
