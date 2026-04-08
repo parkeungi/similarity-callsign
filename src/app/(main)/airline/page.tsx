@@ -3,7 +3,7 @@
 
 import { useRouter } from 'next/navigation';
 import { AppFooter } from '@/components/layout/AppFooter';
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import * as XLSX from 'xlsx';
@@ -77,19 +77,8 @@ export default function AirlinePage() {
   // 업로드 배치 선택 상태
   const [selectedFileUploadId, setSelectedFileUploadId] = useState<string>('');
 
-  // 업로드 목록 조회 (완료된 것만)
-  const fileUploadsQuery = useFileUploads({ status: 'completed', limit: 20 });
-
-  // 최신 업로드 자동 선택 (최초 1회만)
-  const uploadAutoSelectedRef = useRef(false);
-  useEffect(() => {
-    if (uploadAutoSelectedRef.current) return;
-    const uploads = fileUploadsQuery.data?.data;
-    if (uploads && uploads.length > 0) {
-      setSelectedFileUploadId(uploads[0].id);
-      uploadAutoSelectedRef.current = true;
-    }
-  }, [fileUploadsQuery.data]);
+  // 업로드 목록 조회 (완료된 것만, 년월 필터용으로 전체 로드)
+  const fileUploadsQuery = useFileUploads({ status: 'completed', limit: 200 });
 
 
   // 초기 로드 - authStore에서 사용자 정보 사용
