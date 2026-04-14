@@ -220,9 +220,11 @@ export function AirlineOccurrenceTab({
       const isOverflow = el.scrollHeight > el.clientHeight + 2;
       newOverflow[id] = isOverflow;
       if (isOverflow) {
+        const containerRect = el.getBoundingClientRect();
+        const visibleBottom = containerRect.top + el.clientHeight + 2;
         const children = Array.from(el.children) as HTMLElement[];
         newVisible[id] = children.filter(
-          c => c.offsetTop + c.offsetHeight <= el.clientHeight + 2
+          c => c.getBoundingClientRect().bottom <= visibleBottom
         ).length;
       }
     }
