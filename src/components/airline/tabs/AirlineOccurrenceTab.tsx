@@ -71,6 +71,7 @@ export function AirlineOccurrenceTab({
   const [reasonTypeFilter, setReasonTypeFilter] = useState<string>('all');
   const [expandedOccurrences, setExpandedOccurrences] = useState<Set<string>>(new Set());
   const [overflowMap, setOverflowMap] = useState<Record<string, boolean>>({});
+  const [visibleCountMap, setVisibleCountMap] = useState<Record<string, number>>({});
   const occurrenceRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // 날짜 필터링된 incidents (업로드 배치 기준이면 날짜 필터 스킵)
@@ -210,13 +211,23 @@ export function AirlineOccurrenceTab({
     return allFilteredIncidents.slice(start, start + incidentsLimit);
   }, [allFilteredIncidents, incidentsPage, incidentsLimit]);
 
-  // 발생이력 컨테이너 overflow 감지 (2줄 초과 여부)
+  // 발생이력 컨테이너 overflow 감지 + 2줄 내 visible 배지 수 측정
   useEffect(() => {
-    const newMap: Record<string, boolean> = {};
+    const newOverflow: Record<string, boolean> = {};
+    const newVisible: Record<string, number> = {};
     for (const [id, el] of Object.entries(occurrenceRefs.current)) {
-      if (el) newMap[id] = el.scrollHeight > el.clientHeight + 2;
+      if (!el) continue;
+      const isOverflow = el.scrollHeight > el.clientHeight + 2;
+      newOverflow[id] = isOverflow;
+      if (isOverflow) {
+        const children = Array.from(el.children) as HTMLElement[];
+        newVisible[id] = children.filter(
+          c => c.offsetTop + c.offsetHeight <= el.clientHeight + 2
+        ).length;
+      }
     }
-    setOverflowMap(newMap);
+    setOverflowMap(newOverflow);
+    setVisibleCountMap(newVisible);
   }, [pagedIncidents]);
 
   const getRiskBadgeColor = (risk: string): string => {
@@ -635,7 +646,7 @@ export function AirlineOccurrenceTab({
                           })}
                           className="mt-1 text-[11px] text-blue-500 hover:text-blue-700 font-semibold"
                         >
-                          {isExpanded ? '접기 ▲' : `더보기 +${incident.occurrences.length}건 ▼`}
+                          {isExpanded ? '접기 ▲' : `더보기 +${incident.occurrences.length - (visibleCountMap[incident.id] ?? 0)}건 ▼`}
                         </button>
                       )}
                     </div>
