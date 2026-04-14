@@ -159,6 +159,7 @@ export function useAirlineCallsigns(
   filters?: {
     riskLevel?: string;
     fileUploadId?: string;
+    fileUploadYM?: string;
     page?: number;
     limit?: number;
   },
@@ -169,7 +170,7 @@ export function useAirlineCallsigns(
   const limit = filters?.limit || 20;
 
   return useQuery({
-    queryKey: ['airline-callsigns', airlineId, filters?.riskLevel, filters?.fileUploadId, page, limit],
+    queryKey: ['airline-callsigns', airlineId, filters?.riskLevel, filters?.fileUploadId, filters?.fileUploadYM, page, limit],
     queryFn: async () => {
       if (!airlineId) {
         throw new Error('항공사 ID가 필요합니다.');
@@ -177,7 +178,8 @@ export function useAirlineCallsigns(
 
       const params = new URLSearchParams();
       if (filters?.riskLevel) params.append('riskLevel', filters.riskLevel);
-      if (filters?.fileUploadId) params.append('fileUploadId', filters.fileUploadId);
+      if (filters?.fileUploadYM) params.append('fileUploadYM', filters.fileUploadYM);
+      else if (filters?.fileUploadId) params.append('fileUploadId', filters.fileUploadId);
       params.append('page', String(page));
       params.append('limit', String(limit));
 

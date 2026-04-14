@@ -16,6 +16,8 @@ interface UploadBatchProps {
   uploads: { id: string; uploaded_at: string; file_name: string; success_count: number }[];
   selectedId: string;
   onChange: (id: string) => void;
+  selectedYM: string;
+  onYMChange: (ym: string) => void;
   repeatedCount: number;
   newCount: number;
 }
@@ -72,9 +74,6 @@ export function IncidentFilters({
   const isLoadingBatch = hasBatch && uploadBatch!.uploads.length === 0;
   const [viewMode, setViewMode] = useState<'batch' | 'date'>('batch');
 
-  // 년월 합산 필터 상태 ("YYYY-MM")
-  const [selectedYM, setSelectedYM] = useState<string>('');
-
   const availableYMs = useMemo(() => {
     const uploads = uploadBatch?.uploads ?? [];
     return [...new Set(uploads.map(u => u.uploaded_at.slice(0, 7)))]
@@ -83,15 +82,16 @@ export function IncidentFilters({
 
   const filteredUploads = useMemo(() => {
     const uploads = uploadBatch?.uploads ?? [];
-    if (!selectedYM) return uploads;
-    return uploads.filter(u => u.uploaded_at.startsWith(selectedYM));
-  }, [uploadBatch?.uploads, selectedYM]);
+    const ym = uploadBatch?.selectedYM ?? '';
+    if (!ym) return uploads;
+    return uploads.filter(u => u.uploaded_at.startsWith(ym));
+  }, [uploadBatch?.uploads, uploadBatch?.selectedYM]);
 
   // 최초 진입 시 최신 년월 자동 초기화
   useEffect(() => {
     const uploads = uploadBatch?.uploads;
     if (!uploads || uploads.length === 0) return;
-    if (!selectedYM) setSelectedYM(uploads[0].uploaded_at.slice(0, 7));
+    if (!uploadBatch!.selectedYM) uploadBatch!.onYMChange(uploads[0].uploaded_at.slice(0, 7));
   }, [uploadBatch?.uploads]);
 
   // 엑셀기준 모드에서 년월 변경 시 최신 업로드 자동 선택
@@ -138,8 +138,8 @@ export function IncidentFilters({
         {viewMode === 'batch' && hasBatch && (
           <>
             <select
-              value={selectedYM}
-              onChange={(e) => setSelectedYM(e.target.value)}
+              value={uploadBatch!.selectedYM}
+              onChange={(e) => uploadBatch!.onYMChange(e.target.value)}
               disabled={isLoadingBatch}
               className="h-9 border border-gray-200 bg-white px-2.5 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-400 rounded shrink-0 disabled:opacity-50"
             >

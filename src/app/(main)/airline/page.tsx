@@ -76,6 +76,7 @@ export default function AirlinePage() {
 
   // 업로드 배치 선택 상태
   const [selectedFileUploadId, setSelectedFileUploadId] = useState<string>('');
+  const [selectedYM, setSelectedYM] = useState<string>('');
 
   // 업로드 목록 조회 (완료된 것만, 년월 필터용으로 전체 로드)
   const fileUploadsQuery = useFileUploads({ status: 'completed', limit: 200 });
@@ -127,7 +128,7 @@ export default function AirlinePage() {
 
   const { data: callsignsData, isLoading: callsignsLoading } = useAirlineCallsigns(airlineId, {
     limit: 1000,
-    fileUploadId: selectedFileUploadId || undefined,
+    fileUploadYM: selectedFileUploadId && selectedYM ? selectedYM : undefined,
   }, {
     enabled: activeTab === 'occurrence' || activeTab === 'action-history' || activeTab === 'statistics'
   });
@@ -409,6 +410,8 @@ export default function AirlinePage() {
                   uploads: fileUploadsQuery.data?.data ?? [],
                   selectedId: selectedFileUploadId,
                   onChange: setSelectedFileUploadId,
+                  selectedYM,
+                  onYMChange: setSelectedYM,
                   repeatedCount: incidents.filter(i => i.isRepeated).length,
                   newCount: incidents.filter(i => !i.isRepeated).length,
                 }}

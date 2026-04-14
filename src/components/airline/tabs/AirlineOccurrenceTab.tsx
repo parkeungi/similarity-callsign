@@ -38,6 +38,8 @@ interface AirlineOccurrenceTabProps {
     uploads: { id: string; uploaded_at: string; file_name: string; success_count: number }[];
     selectedId: string;
     onChange: (id: string) => void;
+    selectedYM: string;
+    onYMChange: (ym: string) => void;
     repeatedCount: number;
     newCount: number;
   };

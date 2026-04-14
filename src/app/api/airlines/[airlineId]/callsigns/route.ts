@@ -79,6 +79,7 @@ export async function GET(
     // 필터 파라미터
     const riskLevel = request.nextUrl.searchParams.get('riskLevel');
     const fileUploadId = request.nextUrl.searchParams.get('fileUploadId');
+    const fileUploadYM = request.nextUrl.searchParams.get('fileUploadYM');
     const page = Math.max(1, parseInt(request.nextUrl.searchParams.get('page') || '1', 10));
     const limit = Math.min(1000, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '20', 10)));
     const offset = (page - 1) * limit;
@@ -86,6 +87,24 @@ export async function GET(
     // fileUploadId UUID 형식 검증
     const hexRegex = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const validFileUploadId = fileUploadId && hexRegex.test(fileUploadId) ? fileUploadId : null;
+
+    // fileUploadYM 형식 검증 (YYYY-MM)
+    const ymRegex = /^\d{4}-\d{2}$/;
+    const validFileUploadYM = fileUploadYM && ymRegex.test(fileUploadYM) ? fileUploadYM : null;
+
+    // YM 모드: 해당 월에 업로드된 모든 배치 ID 조회
+    let ymBatchIds: string[] = [];
+    if (validFileUploadYM) {
+      const ymStart = `${validFileUploadYM}-01`;
+      const ymBatchResult = await query(
+        `SELECT id FROM file_uploads
+         WHERE status = 'completed'
+           AND uploaded_at >= $1::date
+           AND uploaded_at < ($1::date + INTERVAL '1 month')`,
+        [ymStart]
+      );
+      ymBatchIds = ymBatchResult.rows.map((r: any) => r.id);
+    }
 
     // 항공사 코드 조회
     const airlineCodeResult = await query(
@@ -107,18 +126,27 @@ export async function GET(
     const filteredRiskLevel = riskLevel && validRiskLevels.includes(riskLevel) ? riskLevel : null;
 
     // PostgreSQL 파라미터 빌드
-    const queryParams: (string | number)[] = [airlineCode];
+    const queryParams: (string | number | string[])[] = [airlineCode];
     let riskLevelCondition = '';
     let uploadJoinClause = '';
     let uploadWhereClause = '';
     let isRepeatedSelect = 'false AS is_repeated';
+    let ymModeActive = false;
 
     if (filteredRiskLevel) {
       queryParams.push(filteredRiskLevel);
       riskLevelCondition = `AND risk_level = $${queryParams.length}`;
     }
 
-    if (validFileUploadId) {
+    if (validFileUploadYM && ymBatchIds.length > 0) {
+      // YM 모드: 해당 월의 모든 배치를 포함
+      ymModeActive = true;
+      queryParams.push(ymBatchIds);
+      const uploadParamIdx = queryParams.length;
+      uploadJoinClause = `LEFT JOIN callsign_uploads cu_batch ON cu_batch.callsign_id = c.id AND cu_batch.file_upload_id = ANY($${uploadParamIdx}::uuid[])`;
+      uploadWhereClause = `AND (cu_batch.callsign_id IS NOT NULL OR (c.file_upload_id = ANY($${uploadParamIdx}::uuid[]) AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu_chk WHERE cu_chk.callsign_id = c.id)))`;
+      isRepeatedSelect = `EXISTS (SELECT 1 FROM callsign_uploads cu_prev WHERE cu_prev.callsign_id = c.id AND cu_prev.file_upload_id != ALL($${uploadParamIdx}::uuid[])) AS is_repeated`;
+    } else if (validFileUploadId) {
       queryParams.push(validFileUploadId);
       const uploadParamIdx = queryParams.length;
       uploadJoinClause = `LEFT JOIN callsign_uploads cu_batch ON cu_batch.callsign_id = c.id AND cu_batch.file_upload_id = $${uploadParamIdx}`;
@@ -159,6 +187,7 @@ export async function GET(
          ${uploadWhereClause}
        ORDER BY
          CASE WHEN c.status = 'in_progress' THEN 0 ELSE 1 END,
+         ${ymModeActive ? 'c.last_occurred_at DESC NULLS LAST,' : ''}
          CASE
            WHEN c.risk_level = '매우높음' THEN 2
            WHEN c.risk_level = '높음' THEN 1
@@ -217,7 +246,15 @@ export async function GET(
       const occPlaceholders = callsignIds.map((_: any, i: number) => `$${i + 1}`).join(',');
       let occQuery: string;
       let occParams: any[];
-      if (validFileUploadId) {
+      if (ymModeActive && ymBatchIds.length > 0) {
+        // YM 모드: 해당 월의 모든 배치 발생이력 집계
+        occQuery = `SELECT callsign_id, occurred_date, occurred_time, error_type, sub_error
+                    FROM callsign_occurrences
+                    WHERE callsign_id IN (${occPlaceholders})
+                      AND file_upload_id = ANY($${callsignIds.length + 1}::uuid[])
+                    ORDER BY callsign_id, occurred_date DESC, occurred_time DESC NULLS LAST`;
+        occParams = [...callsignIds, ymBatchIds];
+      } else if (validFileUploadId) {
         occQuery = `SELECT callsign_id, occurred_date, occurred_time, error_type, sub_error
                     FROM callsign_occurrences
                     WHERE callsign_id IN (${occPlaceholders})
@@ -262,7 +299,7 @@ export async function GET(
     }
 
     // 전체 개수 조회
-    const countParams: (string | number)[] = [airlineCode];
+    const countParams: (string | number | string[])[] = [airlineCode];
     let countRiskCondition = '';
     let countUploadJoin = '';
     let countUploadWhere = '';
@@ -272,7 +309,12 @@ export async function GET(
       countRiskCondition = `AND c.risk_level = $${countParams.length}`;
     }
 
-    if (validFileUploadId) {
+    if (ymModeActive && ymBatchIds.length > 0) {
+      countParams.push(ymBatchIds);
+      const countUploadIdx = countParams.length;
+      countUploadJoin = `LEFT JOIN callsign_uploads cu_batch ON cu_batch.callsign_id = c.id AND cu_batch.file_upload_id = ANY($${countUploadIdx}::uuid[])`;
+      countUploadWhere = `AND (cu_batch.callsign_id IS NOT NULL OR (c.file_upload_id = ANY($${countUploadIdx}::uuid[]) AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu_chk WHERE cu_chk.callsign_id = c.id)))`;
+    } else if (validFileUploadId) {
       countParams.push(validFileUploadId);
       const countUploadIdx = countParams.length;
       countUploadJoin = `LEFT JOIN callsign_uploads cu_batch ON cu_batch.callsign_id = c.id AND cu_batch.file_upload_id = $${countUploadIdx}`;
@@ -467,6 +509,9 @@ export async function GET(
           reDetectedAcknowledged: reDetectedAcknowledged,
           // 이전 업로드에도 있던 건 여부 (업로드 배치 필터 시에만 의미 있음)
           is_repeated: callsign.is_repeated ?? false,
+          // YM 모드 발생건수 (해당 월 배치 합산)
+          ym_occurrence_count: ymModeActive ? (occurrencesMap[callsign.id]?.length ?? 0) : undefined,
+          ymOccurrenceCount: ymModeActive ? (occurrencesMap[callsign.id]?.length ?? 0) : undefined,
           // AI 분석 데이터
           ai_score: callsign.ai_score ?? null,
           ai_reason: callsign.ai_reason ?? null,
