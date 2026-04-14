@@ -58,7 +58,7 @@ export function useFileUploads(
   const limit = filters?.limit || 20;
 
   return useQuery({
-    queryKey: ['file-uploads', filters?.status, page, limit],
+    queryKey: ['file-uploads', filters?.status, page, limit, isAdmin ? 'admin' : 'user'],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters?.status) params.append('status', filters.status);

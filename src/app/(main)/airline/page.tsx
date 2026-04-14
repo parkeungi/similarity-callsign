@@ -405,13 +405,13 @@ export default function AirlinePage() {
                 onOpenActionModal={handleOpenActionModal}
                 onAcknowledge={handleAcknowledge}
                 uploadBatchActive={!!selectedFileUploadId}
-                uploadBatch={fileUploadsQuery.data?.data?.length ? {
-                  uploads: fileUploadsQuery.data.data,
+                uploadBatch={{
+                  uploads: fileUploadsQuery.data?.data ?? [],
                   selectedId: selectedFileUploadId,
                   onChange: setSelectedFileUploadId,
                   repeatedCount: incidents.filter(i => i.isRepeated).length,
                   newCount: incidents.filter(i => !i.isRepeated).length,
-                } : undefined}
+                }}
               />
             )}
 

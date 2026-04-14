@@ -67,7 +67,9 @@ export function IncidentFilters({
   const showStatusFilter = Boolean(actionStatusFilter && onActionStatusFilterChange);
 
   // 조회 모드: 엑셀기준 / 기간선택
-  const hasBatch = !!(uploadBatch && uploadBatch.uploads.length > 0);
+  // uploadBatch prop이 전달된 경우 항상 토글 표시 (로딩 중 포함)
+  const hasBatch = uploadBatch !== undefined;
+  const isLoadingBatch = hasBatch && uploadBatch!.uploads.length === 0;
   const [viewMode, setViewMode] = useState<'batch' | 'date'>('batch');
 
   // 년월 합산 필터 상태 ("YYYY-MM")
@@ -138,23 +140,30 @@ export function IncidentFilters({
             <select
               value={selectedYM}
               onChange={(e) => setSelectedYM(e.target.value)}
-              className="h-9 border border-gray-200 bg-white px-2.5 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-400 rounded shrink-0"
+              disabled={isLoadingBatch}
+              className="h-9 border border-gray-200 bg-white px-2.5 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-400 rounded shrink-0 disabled:opacity-50"
             >
-              {availableYMs.length === 0 && <option value="">--</option>}
-              {availableYMs.map(ym => (
-                <option key={ym} value={ym}>{`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7))}월`}</option>
-              ))}
+              {isLoadingBatch
+                ? <option value="">로딩 중...</option>
+                : availableYMs.map(ym => (
+                    <option key={ym} value={ym}>{`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7))}월`}</option>
+                  ))
+              }
             </select>
             <select
               value={uploadBatch!.selectedId}
               onChange={(e) => uploadBatch!.onChange(e.target.value)}
-              className="h-9 border border-gray-200 bg-white px-3 text-sm font-medium text-gray-800 outline-none focus:ring-2 focus:ring-indigo-400 rounded shrink-0 min-w-[190px]"
+              disabled={isLoadingBatch}
+              className="h-9 border border-gray-200 bg-white px-3 text-sm font-medium text-gray-800 outline-none focus:ring-2 focus:ring-indigo-400 rounded shrink-0 min-w-[190px] disabled:opacity-50"
             >
-              {filteredUploads.map((u) => (
-                <option key={u.id} value={u.id}>{u.uploaded_at.slice(5, 10)} — {u.file_name} ({u.success_count}건)</option>
-              ))}
+              {isLoadingBatch
+                ? <option value="">로딩 중...</option>
+                : filteredUploads.map((u) => (
+                    <option key={u.id} value={u.id}>{u.uploaded_at.slice(5, 10)} — {u.file_name} ({u.success_count}건)</option>
+                  ))
+              }
             </select>
-            {uploadBatch!.selectedId && (
+            {!isLoadingBatch && uploadBatch!.selectedId && (
               <span className="text-xs text-indigo-500 shrink-0">
                 신규 <strong>{uploadBatch!.newCount}</strong>건 · 이전 <strong>{uploadBatch!.repeatedCount}</strong>건
               </span>
