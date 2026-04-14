@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     // 필터 파라미터
     const status = request.nextUrl.searchParams.get('status');
     const page = Math.max(1, parseInt(request.nextUrl.searchParams.get('page') || '1', 10));
-    const limit = Math.min(100, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '20', 10)));
+    const limit = Math.min(200, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '20', 10)));
     const offset = (page - 1) * limit;
 
     // 기본 쿼리 (사용자 이메일 정보 JOIN)
