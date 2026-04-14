@@ -1,7 +1,7 @@
 // 관리자 발생현황 탭 - GET /api/admin/occurrences 호출, 양쪽 항공사 조치상태 표시, riskLevel·airline 필터, 페이지네이션
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getErrorTypeColor } from '@/lib/error-type-colors';
 import { useAuthStore } from '@/store/authStore';
@@ -252,6 +252,42 @@ export function AdminOccurrenceTab() {
   }, [allFilteredIncidents, page, limit]);
 
   const isLoading = allOccurrencesQuery.isLoading;
+
+  // 발생이력 2줄 더보기 상태
+  const [expandedOccurrences, setExpandedOccurrences] = useState<Set<string>>(new Set());
+  const [overflowMap, setOverflowMap] = useState<Record<string, boolean>>({});
+  const [visibleCountMap, setVisibleCountMap] = useState<Record<string, number>>({});
+  const occurrenceRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const measureOverflow = useCallback(() => {
+    const newOverflow: Record<string, boolean> = {};
+    const newVisible: Record<string, number> = {};
+    for (const [id, el] of Object.entries(occurrenceRefs.current)) {
+      if (!el) continue;
+      const isOverflow = el.scrollHeight > el.clientHeight + 2;
+      newOverflow[id] = isOverflow;
+      if (isOverflow) {
+        const containerRect = el.getBoundingClientRect();
+        const visibleBottom = containerRect.top + el.clientHeight + 2;
+        const children = Array.from(el.children) as HTMLElement[];
+        newVisible[id] = children.filter(
+          c => c.getBoundingClientRect().bottom <= visibleBottom
+        ).length;
+      }
+    }
+    setOverflowMap(newOverflow);
+    setVisibleCountMap(newVisible);
+  }, []);
+
+  useEffect(() => {
+    setExpandedOccurrences(new Set());
+    measureOverflow();
+  }, [pagedIncidents, measureOverflow]);
+
+  useEffect(() => {
+    window.addEventListener('resize', measureOverflow);
+    return () => window.removeEventListener('resize', measureOverflow);
+  }, [measureOverflow]);
 
   const getRiskBorderColor = (risk: string) => {
     switch (risk) {
@@ -599,32 +635,51 @@ export function AdminOccurrenceTab() {
                   )}
 
                   {/* 발생 이력 타임라인 (전체 발생건수, 시간순 오름차순) */}
-                  {incident.occurrences && incident.occurrences.length > 0 && (
-                    <div>
-                      <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (전체 검출, 시간순)</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {[...incident.occurrences].sort((a: any, b: any) => {
-                            const dateA = `${a.occurredDate || ''} ${a.occurredTime || '00:00'}`;
-                            const dateB = `${b.occurredDate || ''} ${b.occurredTime || '00:00'}`;
-                            return dateA.localeCompare(dateB);
-                          })
-                          .map((occurrence: any, i: number) => {
-                          const { monthDay, time } = formatOccurrenceBadge(
-                            occurrence.occurredDate,
-                            occurrence.occurredTime
-                          );
-                          return (
-                            <span
-                              key={i}
-                              className="inline-block text-[11px] bg-blue-50 text-blue-800 px-2.5 py-0.5 rounded font-mono border border-blue-200"
-                            >
-                              {monthDay} <span className="text-blue-500 font-bold">{time}</span>
-                            </span>
-                          );
-                        })}
+                  {incident.occurrences && incident.occurrences.length > 0 && (() => {
+                    const isExpanded = expandedOccurrences.has(incident.id);
+                    const hasOverflow = overflowMap[incident.id];
+                    const sorted = [...incident.occurrences].sort((a: any, b: any) => {
+                      const dateA = `${a.occurredDate || ''} ${a.occurredTime || '00:00'}`;
+                      const dateB = `${b.occurredDate || ''} ${b.occurredTime || '00:00'}`;
+                      return dateA.localeCompare(dateB);
+                    });
+                    return (
+                      <div>
+                        <div className="text-[11px] font-semibold text-gray-500 mb-1">🕐 발생 이력 (전체 검출, 시간순)</div>
+                        <div
+                          ref={(el) => { if (el) occurrenceRefs.current[incident.id] = el; else delete occurrenceRefs.current[incident.id]; }}
+                          className={`flex flex-wrap gap-1.5 overflow-hidden transition-all duration-200 ${isExpanded ? '' : 'max-h-[54px]'}`}
+                        >
+                          {sorted.map((occurrence: any, i: number) => {
+                            const { monthDay, time } = formatOccurrenceBadge(
+                              occurrence.occurredDate,
+                              occurrence.occurredTime
+                            );
+                            return (
+                              <span
+                                key={i}
+                                className="inline-block text-[11px] bg-blue-50 text-blue-800 px-2.5 py-0.5 rounded font-mono border border-blue-200"
+                              >
+                                {monthDay} <span className="text-blue-500 font-bold">{time}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                        {(hasOverflow || isExpanded) && (
+                          <button
+                            onClick={() => setExpandedOccurrences(prev => {
+                              const next = new Set(prev);
+                              if (isExpanded) next.delete(incident.id); else next.add(incident.id);
+                              return next;
+                            })}
+                            className="mt-1 text-[11px] text-blue-500 hover:text-blue-700 font-semibold"
+                          >
+                            {isExpanded ? '접기 ▲' : `더보기 +${incident.occurrences.length - (visibleCountMap[incident.id] ?? 0)}건 ▼`}
+                          </button>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               );
             })}
