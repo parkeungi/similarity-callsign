@@ -92,7 +92,7 @@ export function IncidentFilters({
     const uploads = uploadBatch?.uploads;
     if (!uploads || uploads.length === 0) return;
     if (!uploadBatch!.selectedYM) uploadBatch!.onYMChange(uploads[0].uploaded_at.slice(0, 7));
-  }, [uploadBatch?.uploads]);
+  }, [uploadBatch?.uploads, uploadBatch?.selectedYM]);
 
   // 엑셀기준 모드에서 년월 변경 시 최신 업로드 자동 선택
   const firstFilteredUploadId = filteredUploads[0]?.id ?? '';

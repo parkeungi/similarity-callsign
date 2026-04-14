@@ -128,7 +128,8 @@ export default function AirlinePage() {
 
   const { data: callsignsData, isLoading: callsignsLoading } = useAirlineCallsigns(airlineId, {
     limit: 1000,
-    fileUploadYM: selectedFileUploadId && selectedYM ? selectedYM : undefined,
+    fileUploadYM: selectedYM || undefined,
+    fileUploadId: selectedFileUploadId || undefined,
   }, {
     enabled: activeTab === 'occurrence' || activeTab === 'action-history' || activeTab === 'statistics'
   });
