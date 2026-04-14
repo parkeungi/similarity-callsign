@@ -213,15 +213,25 @@ export async function GET(
         }
       }
 
-      // 발생 이력 상세 조회 (callsign_occurrences 테이블) - 전체 발생건수 (섹터별 모든 검출 포함)
+      // 발생 이력 상세 조회 (callsign_occurrences 테이블) - 배치 선택 시 해당 배치 발생이력만, 미선택 시 전체
       const occPlaceholders = callsignIds.map((_: any, i: number) => `$${i + 1}`).join(',');
-      const occurrencesResult = await query(
-        `SELECT callsign_id, occurred_date, occurred_time, error_type, sub_error
-         FROM callsign_occurrences
-         WHERE callsign_id IN (${occPlaceholders})
-         ORDER BY callsign_id, occurred_date DESC, occurred_time DESC NULLS LAST`,
-        callsignIds
-      );
+      let occQuery: string;
+      let occParams: any[];
+      if (validFileUploadId) {
+        occQuery = `SELECT callsign_id, occurred_date, occurred_time, error_type, sub_error
+                    FROM callsign_occurrences
+                    WHERE callsign_id IN (${occPlaceholders})
+                      AND file_upload_id = $${callsignIds.length + 1}
+                    ORDER BY callsign_id, occurred_date DESC, occurred_time DESC NULLS LAST`;
+        occParams = [...callsignIds, validFileUploadId];
+      } else {
+        occQuery = `SELECT callsign_id, occurred_date, occurred_time, error_type, sub_error
+                    FROM callsign_occurrences
+                    WHERE callsign_id IN (${occPlaceholders})
+                    ORDER BY callsign_id, occurred_date DESC, occurred_time DESC NULLS LAST`;
+        occParams = callsignIds;
+      }
+      const occurrencesResult = await query(occQuery, occParams);
 
       // 호출부호별로 발생 이력 그룹화 (날짜+시간 함께 저장)
       for (const occ of occurrencesResult.rows) {

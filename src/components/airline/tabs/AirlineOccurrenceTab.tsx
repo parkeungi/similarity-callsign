@@ -1,7 +1,7 @@
 // 발생현황 탭 - Incident[] 카드 렌더링, AI분석(점수·유형·사유) 표시, reasonType·riskLevel 필터, ai_score/risk/count/latest 정렬, IncidentFilters 연동
 'use client';
 
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { getErrorTypeColor } from '@/lib/error-type-colors';
 import {
   Incident,
@@ -69,6 +69,9 @@ export function AirlineOccurrenceTab({
   const [actionStatusFilter, setActionStatusFilter] = useState<ActionStatusFilter>('all');
   const [showAiRecommend, setShowAiRecommend] = useState<boolean>(false);
   const [reasonTypeFilter, setReasonTypeFilter] = useState<string>('all');
+  const [expandedOccurrences, setExpandedOccurrences] = useState<Set<string>>(new Set());
+  const [overflowMap, setOverflowMap] = useState<Record<string, boolean>>({});
+  const occurrenceRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // 날짜 필터링된 incidents (업로드 배치 기준이면 날짜 필터 스킵)
   const filteredByDate = useMemo(() => {
@@ -206,6 +209,15 @@ export function AirlineOccurrenceTab({
     const start = (incidentsPage - 1) * incidentsLimit;
     return allFilteredIncidents.slice(start, start + incidentsLimit);
   }, [allFilteredIncidents, incidentsPage, incidentsLimit]);
+
+  // 발생이력 컨테이너 overflow 감지 (2줄 초과 여부)
+  useEffect(() => {
+    const newMap: Record<string, boolean> = {};
+    for (const [id, el] of Object.entries(occurrenceRefs.current)) {
+      if (el) newMap[id] = el.scrollHeight > el.clientHeight + 2;
+    }
+    setOverflowMap(newMap);
+  }, [pagedIncidents]);
 
   const getRiskBadgeColor = (risk: string): string => {
     switch (risk) {
@@ -583,32 +595,52 @@ export function AirlineOccurrenceTab({
                 )}
 
                 {/* 발생 이력 타임라인 (전체 발생건수, 시간순 오름차순) */}
-                {incident.occurrences && incident.occurrences.length > 0 && (
-                  <div>
-                    <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">발생 이력 (전체 검출, 시간순)</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {[...incident.occurrences].sort((a, b) => {
-                          const dateA = `${a.occurredDate || ''} ${a.occurredTime || '00:00'}`;
-                          const dateB = `${b.occurredDate || ''} ${b.occurredTime || '00:00'}`;
-                          return dateA.localeCompare(dateB);
-                        }).map((occurrence, i) => {
-                        const { monthDay, time } = formatOccurrenceBadge(
-                          occurrence.occurredDate,
-                          occurrence.occurredTime
-                        );
-
-                        return (
-                          <span
-                            key={i}
-                            className="inline-block text-[11px] bg-blue-50 text-blue-800 px-2.5 py-0.5 font-mono border border-blue-200"
-                          >
-                            {monthDay} <span className="text-blue-500 font-bold">{time}</span>
-                          </span>
-                        );
-                      })}
+                {incident.occurrences && incident.occurrences.length > 0 && (() => {
+                  const isExpanded = expandedOccurrences.has(incident.id);
+                  const hasOverflow = overflowMap[incident.id];
+                  const sorted = [...incident.occurrences].sort((a, b) => {
+                    const dateA = `${a.occurredDate || ''} ${a.occurredTime || '00:00'}`;
+                    const dateB = `${b.occurredDate || ''} ${b.occurredTime || '00:00'}`;
+                    return dateA.localeCompare(dateB);
+                  });
+                  return (
+                    <div>
+                      <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">발생 이력 (전체 검출, 시간순)</div>
+                      <div
+                        ref={(el) => { occurrenceRefs.current[incident.id] = el; }}
+                        className={`flex flex-wrap gap-1.5 overflow-hidden transition-all duration-200 ${isExpanded ? '' : 'max-h-[54px]'}`}
+                      >
+                        {sorted.map((occurrence, i) => {
+                          const { monthDay, time } = formatOccurrenceBadge(
+                            occurrence.occurredDate,
+                            occurrence.occurredTime
+                          );
+                          return (
+                            <span
+                              key={i}
+                              className="inline-block text-[11px] bg-blue-50 text-blue-800 px-2.5 py-0.5 font-mono border border-blue-200"
+                            >
+                              {monthDay} <span className="text-blue-500 font-bold">{time}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                      {(hasOverflow || isExpanded) && (
+                        <button
+                          onClick={() => setExpandedOccurrences(prev => {
+                            const next = new Set(prev);
+                            if (isExpanded) next.delete(incident.id);
+                            else next.add(incident.id);
+                            return next;
+                          })}
+                          className="mt-1 text-[11px] text-blue-500 hover:text-blue-700 font-semibold"
+                        >
+                          {isExpanded ? '접기 ▲' : `더보기 +${incident.occurrences.length}건 ▼`}
+                        </button>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             ))}
           </div>
