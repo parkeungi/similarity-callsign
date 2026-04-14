@@ -127,7 +127,7 @@ export function AdminActionsFilters({
               className="h-9 px-2.5 border border-gray-200 bg-white text-sm font-semibold text-gray-700 rounded outline-none focus:ring-2 focus:ring-indigo-400 shrink-0 disabled:bg-gray-100">
               {availableYMs.length === 0 && <option value="">--</option>}
               {availableYMs.map(ym => (
-                <option key={ym} value={ym}>{`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7))}월`}</option>
+                <option key={ym} value={ym}>{`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7), 10)}월`}</option>
               ))}
             </select>
             <select value={selectedFileUploadId || ''} onChange={(e) => onFileUploadChange?.(e.target.value)}

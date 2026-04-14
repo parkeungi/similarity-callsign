@@ -16,6 +16,8 @@ import {
 } from 'recharts';
 import { TimePatternChart } from '@/components/admin/charts/TimePatternChart';
 import { SearchStatsSubTab } from './SearchStatsSubTab';
+import { AirlineStatusOverviewTab } from '@/components/airline/AirlineStatusOverviewTab';
+import { apiFetch } from '@/lib/api/client';
 
 interface CallsignStatsResponse {
   total: number;
@@ -77,7 +79,7 @@ function getPeriodLabel(period: PeriodType, offset: number, customFrom?: string,
   return '';
 }
 
-type StatsSubTab = 'overview' | 'timePattern' | 'searchStats';
+type StatsSubTab = 'airlineStatus' | 'overview' | 'timePattern' | 'searchStats';
 
 export function StatisticsTab() {
   const [statsSubTab, setStatsSubTab] = useState<StatsSubTab>('overview');
@@ -113,10 +115,15 @@ export function StatisticsTab() {
   }, [period, fileUploadsQuery.data]);
 
   // 년월 변경 시 해당 기간 최신 업로드 자동 선택
+  // HIGH-3 수정: filteredUploads 배열 참조 대신 string primitive(id)를 dep으로 사용
+  // → 배열 참조 재생성 시 사용자 선택이 강제 리셋되는 버그 방지 (CLAUDE.md §6 패턴)
+  const firstFilteredUploadId = filteredUploads[0]?.id ?? '';
   useEffect(() => {
-    if (period !== 'batch' || filteredUploads.length === 0) return;
-    setSelectedFileUploadId(filteredUploads[0].id);
-  }, [filteredUploads]);
+    if (period !== 'batch') return;
+    if (!firstFilteredUploadId) return;
+    setSelectedFileUploadId(firstFilteredUploadId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstFilteredUploadId, period]);
 
   // batch 모드 해제 시 년월 리셋
   useEffect(() => {
@@ -140,8 +147,9 @@ export function StatisticsTab() {
         if (dateRange.dateFrom) params.append('dateFrom', dateRange.dateFrom);
         if (dateRange.dateTo) params.append('dateTo', dateRange.dateTo);
       }
-      const res = await fetch(`/api/callsigns/stats?${params.toString()}`, { headers: { Authorization: `Bearer ${accessToken}` } });
-      if (!res.ok) throw new Error('통계 조회 실패');
+      // HIGH-4 수정: apiFetch 사용 → 401 자동 토큰 갱신 인터셉터 적용
+      const res = await apiFetch(`/api/callsigns/stats?${params.toString()}`);
+      if (!res.ok) throw new Error(`통계 조회 실패 (${res.status})`);
       return res.json();
     },
     enabled: !!accessToken && statsSubTab === 'overview',
@@ -202,6 +210,16 @@ export function StatisticsTab() {
       {/* 서브탭 선택 */}
       <div className="flex gap-1 border-b border-gray-200">
         <button
+          onClick={() => setStatsSubTab('airlineStatus')}
+          className={`px-5 py-2.5 text-sm font-bold transition-colors -mb-px ${
+            statsSubTab === 'airlineStatus'
+              ? 'text-indigo-600 border-b-2 border-indigo-600'
+              : 'text-gray-500 hover:text-gray-800'
+          }`}
+        >
+          항공사별 조치현황
+        </button>
+        <button
           onClick={() => setStatsSubTab('overview')}
           className={`px-5 py-2.5 text-sm font-bold transition-colors -mb-px ${
             statsSubTab === 'overview'
@@ -232,6 +250,9 @@ export function StatisticsTab() {
           사전조회 통계
         </button>
       </div>
+
+      {/* 항공사별 조치현황 탭 */}
+      {statsSubTab === 'airlineStatus' && <AirlineStatusOverviewTab />}
 
       {/* 시간대 패턴 분석 탭 */}
       {statsSubTab === 'timePattern' && <TimePatternChart />}
@@ -277,7 +298,7 @@ export function StatisticsTab() {
               >
                 {availableYMs.length === 0 && <option value="">--</option>}
                 {availableYMs.map(ym => (
-                  <option key={ym} value={ym}>{`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7))}월`}</option>
+                  <option key={ym} value={ym}>{`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7), 10)}월`}</option>
                 ))}
               </select>
 

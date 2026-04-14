@@ -19,6 +19,7 @@ import {
 import { Incident, DateRangeType, RISK_LEVEL_ORDER } from '@/types/airline';
 import { ActionStatisticsResponse } from '@/types/action';
 import { AirlineTimePatternTab } from './AirlineTimePatternTab';
+import { AirlineStatusOverviewTab } from './AirlineStatusOverviewTab';
 
 interface AirlineStatisticsTabProps {
     statsStartDate: string;
@@ -33,14 +34,16 @@ interface AirlineStatisticsTabProps {
     airlineId: string | undefined;
     airlineCode: string;
     uploadBatch?: {
-        uploads: { id: string; uploaded_at: string; file_name: string; success_count: number }[];
-        selectedId: string;
-        onChange: (id: string) => void;
+        availableYMs: string[];
+        selectedYM: string;
+        onYMChange: (ym: string) => void;
     };
     uploadBatchActive?: boolean;
+    viewMode?: 'batch' | 'date';
+    onViewModeChange?: (mode: 'batch' | 'date') => void;
 }
 
-type StatsSubTab = 'overview' | 'timePattern';
+type StatsSubTab = 'airlineStatus' | 'overview' | 'timePattern';
 
 const COLORS = {
     blue: '#2563eb',    // blue-600
@@ -68,42 +71,24 @@ export function AirlineStatisticsTab({
     airlineCode,
     uploadBatch,
     uploadBatchActive = false,
+    viewMode = 'batch',
+    onViewModeChange,
 }: AirlineStatisticsTabProps) {
-    const [statsSubTab, setStatsSubTab] = useState<StatsSubTab>('overview');
+    const [statsSubTab, setStatsSubTab] = useState<StatsSubTab>('airlineStatus');
 
-    // 조회 모드: 엑셀기준 / 기간선택
-    const hasBatch = !!(uploadBatch && uploadBatch.uploads.length > 0);
-    const [viewMode, setViewMode] = useState<'batch' | 'date'>('batch');
-    const [selectedYM, setSelectedYM] = useState<string>('');
+    // 조회 모드: 월별 / 기간선택
+    const hasBatch = uploadBatch !== undefined;
+    const isLoadingBatch = hasBatch && uploadBatch!.availableYMs.length === 0;
 
-    const availableYMs = useMemo(() => {
-        const uploads = uploadBatch?.uploads ?? [];
-        return [...new Set(uploads.map(u => u.uploaded_at.slice(0, 7)))]
-            .sort((a, b) => b.localeCompare(a));
-    }, [uploadBatch?.uploads]);
-
-    const filteredUploads = useMemo(() => {
-        const uploads = uploadBatch?.uploads ?? [];
-        if (!selectedYM) return uploads;
-        return uploads.filter(u => u.uploaded_at.startsWith(selectedYM));
-    }, [uploadBatch?.uploads, selectedYM]);
-
+    // 최초 진입 시 최신 년월 자동 초기화
     useEffect(() => {
-        const uploads = uploadBatch?.uploads;
-        if (!uploads || uploads.length === 0) return;
-        if (!selectedYM) setSelectedYM(uploads[0].uploaded_at.slice(0, 7));
-    }, [uploadBatch?.uploads]);
-
-    const firstFilteredUploadId = filteredUploads[0]?.id ?? '';
-    useEffect(() => {
-        if (viewMode !== 'batch') return;
-        if (!uploadBatch || !firstFilteredUploadId) return;
-        uploadBatch.onChange(firstFilteredUploadId);
-    }, [firstFilteredUploadId, viewMode]);
+        const yms = uploadBatch?.availableYMs;
+        if (!yms || yms.length === 0) return;
+        if (!uploadBatch!.selectedYM) uploadBatch!.onYMChange(yms[0]);
+    }, [uploadBatch?.availableYMs, uploadBatch?.selectedYM, uploadBatch?.onYMChange]);
 
     const handleViewModeChange = (mode: 'batch' | 'date') => {
-        setViewMode(mode);
-        if (mode === 'date' && uploadBatch) uploadBatch.onChange('');
+        onViewModeChange?.(mode);
     };
 
     // ==========================================
@@ -282,6 +267,16 @@ export function AirlineStatisticsTab({
             {/* 서브탭 선택 */}
             <div className="flex gap-1 border-b border-gray-200">
                 <button
+                    onClick={() => setStatsSubTab('airlineStatus')}
+                    className={`px-5 py-2.5 text-sm font-bold transition-colors -mb-px ${
+                        statsSubTab === 'airlineStatus'
+                            ? 'text-indigo-600 border-b-2 border-indigo-600'
+                            : 'text-gray-500 hover:text-gray-800'
+                    }`}
+                >
+                    항공사별 조치현황
+                </button>
+                <button
                     onClick={() => setStatsSubTab('overview')}
                     className={`px-5 py-2.5 text-sm font-bold transition-colors -mb-px ${
                         statsSubTab === 'overview'
@@ -303,6 +298,11 @@ export function AirlineStatisticsTab({
                 </button>
             </div>
 
+            {/* 항공사별 조치현황 탭 */}
+            {statsSubTab === 'airlineStatus' && (
+                <AirlineStatusOverviewTab />
+            )}
+
             {/* 시간대별 패턴 탭 */}
             {statsSubTab === 'timePattern' && (
                 <AirlineTimePatternTab
@@ -317,7 +317,7 @@ export function AirlineStatisticsTab({
             {/* Date Filter Bar */}
             <div className="bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/60 p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 transition-all">
                 <div className="flex flex-wrap items-center gap-4 w-full">
-                    {/* 엑셀기준 / 기간선택 토글 */}
+                    {/* 월별 / 기간선택 토글 */}
                     {hasBatch && (
                         <div className="flex h-9 rounded border border-slate-200 overflow-hidden shrink-0">
                             <button
@@ -325,7 +325,7 @@ export function AirlineStatisticsTab({
                                 onClick={() => handleViewModeChange('batch')}
                                 className={`px-3 text-xs font-semibold transition-colors ${viewMode === 'batch' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
                             >
-                                엑셀기준
+                                월별
                             </button>
                             <button
                                 type="button"
@@ -337,29 +337,24 @@ export function AirlineStatisticsTab({
                         </div>
                     )}
 
-                    {/* 엑셀기준 모드: 년월 + 업로드 선택 */}
+                    {/* 월별 모드: 년월 선택 */}
                     {viewMode === 'batch' && hasBatch && (
                         <div className="flex items-center gap-2 shrink-0">
                             <select
-                                value={selectedYM}
-                                onChange={(e) => setSelectedYM(e.target.value)}
-                                className="h-9 border border-slate-200 bg-white px-2.5 text-sm font-semibold text-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 shrink-0"
+                                value={uploadBatch!.selectedYM}
+                                onChange={(e) => uploadBatch!.onYMChange(e.target.value)}
+                                disabled={isLoadingBatch}
+                                className="h-9 border border-slate-200 bg-white px-2.5 text-sm font-semibold text-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 shrink-0 disabled:opacity-50"
                             >
-                                {availableYMs.length === 0 && <option value="">--</option>}
-                                {availableYMs.map(ym => (
-                                    <option key={ym} value={ym}>{`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7))}월`}</option>
-                                ))}
-                            </select>
-                            <select
-                                value={uploadBatch!.selectedId}
-                                onChange={(e) => uploadBatch!.onChange(e.target.value)}
-                                className="h-9 border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 min-w-[190px]"
-                            >
-                                {filteredUploads.map((u) => (
-                                    <option key={u.id} value={u.id}>
-                                        {u.uploaded_at.slice(5, 10)} — {u.file_name} ({u.success_count}건)
-                                    </option>
-                                ))}
+                                {isLoadingBatch
+                                    ? <option value="">로딩 중...</option>
+                                    : <>
+                                        {!uploadBatch!.selectedYM && <option value="" disabled>년월 선택</option>}
+                                        {uploadBatch!.availableYMs.map((ym) => (
+                                            <option key={ym} value={ym}>{`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7), 10)}월`}</option>
+                                        ))}
+                                      </>
+                                }
                             </select>
                         </div>
                     )}

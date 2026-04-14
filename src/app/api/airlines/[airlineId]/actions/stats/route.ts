@@ -46,16 +46,48 @@ export async function GET(
     const dateFromParam = request.nextUrl.searchParams.get('dateFrom');
     const dateToParam = request.nextUrl.searchParams.get('dateTo');
     const fileUploadIdParam = request.nextUrl.searchParams.get('fileUploadId');
+    const fileUploadYMParam = request.nextUrl.searchParams.get('fileUploadYM');
     const hexRegex = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const ymRegex = /^\d{4}-\d{2}$/;
     const validFileUploadId = fileUploadIdParam && hexRegex.test(fileUploadIdParam) ? fileUploadIdParam : null;
+    const validFileUploadYM = fileUploadYMParam && ymRegex.test(fileUploadYMParam) ? fileUploadYMParam : null;
 
-    // fileUploadId 있을 때: 업로드 배치 기준 필터 (날짜 필터 무시)
-    // fileUploadId 없을 때: 날짜 범위 필터
+    // 우선순위: fileUploadYM > fileUploadId > 날짜 범위
     let filterJoin = '';
     let filterWhere = '';
     let baseParams: any[];
+    let fromDateString = '';
+    let toDateString = '';
 
-    if (validFileUploadId) {
+    if (validFileUploadYM) {
+      // 해당 월에 업로드된 배치 ID 목록 조회
+      const ymStart = `${validFileUploadYM}-01`;
+      const ymBatchResult = await query(
+        `SELECT id FROM file_uploads
+         WHERE status = 'completed'
+           AND uploaded_at >= $1::date
+           AND uploaded_at < ($1::date + INTERVAL '1 month')`,
+        [ymStart]
+      );
+      const ymBatchIds: string[] = ymBatchResult.rows.map((r: any) => r.id);
+
+      if (ymBatchIds.length === 0) {
+        // 해당 월 배치 없음 → 빈 통계 반환
+        return NextResponse.json({
+          total: 0, completionRate: 0, averageCompletionDays: 0,
+          statusCounts: { waiting: 0, in_progress: 0, completed: 0 },
+          typeDistribution: [], monthlyTrend: [],
+          filters: { fileUploadYM: validFileUploadYM },
+        });
+      }
+
+      filterJoin = 'LEFT JOIN callsigns cs ON a.callsign_id = cs.id';
+      filterWhere = `AND (
+        EXISTS (SELECT 1 FROM callsign_uploads cu WHERE cu.callsign_id = a.callsign_id AND cu.file_upload_id = ANY($2::uuid[]))
+        OR (cs.file_upload_id = ANY($2::uuid[]) AND NOT EXISTS (SELECT 1 FROM callsign_uploads cu2 WHERE cu2.callsign_id = a.callsign_id))
+      )`;
+      baseParams = [airlineId, ymBatchIds];
+    } else if (validFileUploadId) {
       filterJoin = 'LEFT JOIN callsigns cs ON a.callsign_id = cs.id';
       filterWhere = `AND (
         EXISTS (SELECT 1 FROM callsign_uploads cu WHERE cu.callsign_id = a.callsign_id AND cu.file_upload_id = $2)
@@ -80,10 +112,10 @@ export async function GET(
 
       filterWhere = `AND DATE(a.registered_at) BETWEEN DATE($2) AND DATE($3)`;
       baseParams = [airlineId, toDateOnlyString(dateFrom), toDateOnlyString(dateTo)];
+      fromDateString = toDateOnlyString(dateFrom);
+      toDateString = toDateOnlyString(dateTo);
     }
 
-    const fromDateString = validFileUploadId ? '' : (baseParams[1] as string);
-    const toDateString = validFileUploadId ? '' : (baseParams[2] as string);
 
     const summaryResult = await query(
       `SELECT
@@ -175,9 +207,10 @@ export async function GET(
       typeDistribution,
       monthlyTrend,
       filters: {
-        dateFrom: fromDateString,
-        dateTo: toDateString,
+        dateFrom: fromDateString || undefined,
+        dateTo: toDateString || undefined,
         fileUploadId: validFileUploadId ?? undefined,
+        fileUploadYM: validFileUploadYM ?? undefined,
       },
     });
   } catch (error) {

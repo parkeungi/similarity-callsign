@@ -34,10 +34,10 @@ interface AirlineOccurrenceTabProps {
   onOpenActionModal: (incident: Incident) => void;
   onAcknowledge?: (incident: Incident) => void;
   uploadBatchActive?: boolean;
+  viewMode?: 'batch' | 'date';
+  onViewModeChange?: (mode: 'batch' | 'date') => void;
   uploadBatch?: {
-    uploads: { id: string; uploaded_at: string; file_name: string; success_count: number }[];
-    selectedId: string;
-    onChange: (id: string) => void;
+    availableYMs: string[];
     selectedYM: string;
     onYMChange: (ym: string) => void;
     repeatedCount: number;
@@ -59,6 +59,8 @@ export function AirlineOccurrenceTab({
   onOpenActionModal,
   onAcknowledge,
   uploadBatchActive,
+  viewMode = 'batch',
+  onViewModeChange,
   uploadBatch,
 }: AirlineOccurrenceTabProps) {
   // Props에서 필요한 값들 추출
@@ -337,6 +339,8 @@ export function AirlineOccurrenceTab({
         onSortOrderChange={setSortOrder}
         onActionStatusFilterChange={setActionStatusFilter}
         uploadBatchActive={uploadBatchActive}
+        viewMode={viewMode}
+        onViewModeChange={onViewModeChange}
         uploadBatch={uploadBatch}
         showExcel={false}
       />

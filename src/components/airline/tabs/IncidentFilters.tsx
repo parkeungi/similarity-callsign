@@ -1,7 +1,7 @@
 // 발생현황 필터 UI - 정렬(priority/risk/count/latest/ai_score)·상태·위험도·날짜범위 드롭다운, 부모에 onChange 콜백
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   DateRangeFilterState,
   PaginationState,
@@ -13,9 +13,7 @@ type ActionStatusFilter = 'all' | 'no_action' | 'in_progress' | 'completed' | 'r
 type SortOrder = 'risk' | 'count' | 'latest' | 'priority' | 'ai_score';
 
 interface UploadBatchProps {
-  uploads: { id: string; uploaded_at: string; file_name: string; success_count: number }[];
-  selectedId: string;
-  onChange: (id: string) => void;
+  availableYMs: string[];
   selectedYM: string;
   onYMChange: (ym: string) => void;
   repeatedCount: number;
@@ -39,6 +37,8 @@ interface IncidentFiltersProps {
   showAiRecommend?: boolean;
   onAiRecommendToggle?: () => void;
   uploadBatchActive?: boolean;
+  viewMode?: 'batch' | 'date';
+  onViewModeChange?: (mode: 'batch' | 'date') => void;
   uploadBatch?: UploadBatchProps;
   showExcel?: boolean;
 }
@@ -56,6 +56,8 @@ export function IncidentFilters({
   showAiRecommend,
   onAiRecommendToggle,
   uploadBatchActive,
+  viewMode = 'batch',
+  onViewModeChange,
   uploadBatch,
   showExcel = true,
 }: IncidentFiltersProps) {
@@ -68,53 +70,27 @@ export function IncidentFilters({
   const showSort = Boolean(sortOrder && onSortOrderChange);
   const showStatusFilter = Boolean(actionStatusFilter && onActionStatusFilterChange);
 
-  // 조회 모드: 엑셀기준 / 기간선택
+  // 조회 모드: 월별 / 기간선택
   // uploadBatch prop이 전달된 경우 항상 토글 표시 (로딩 중 포함)
   const hasBatch = uploadBatch !== undefined;
-  const isLoadingBatch = hasBatch && uploadBatch!.uploads.length === 0;
-  const [viewMode, setViewMode] = useState<'batch' | 'date'>('batch');
-
-  const availableYMs = useMemo(() => {
-    const uploads = uploadBatch?.uploads ?? [];
-    return [...new Set(uploads.map(u => u.uploaded_at.slice(0, 7)))]
-      .sort((a, b) => b.localeCompare(a));
-  }, [uploadBatch?.uploads]);
-
-  const filteredUploads = useMemo(() => {
-    const uploads = uploadBatch?.uploads ?? [];
-    const ym = uploadBatch?.selectedYM ?? '';
-    if (!ym) return uploads;
-    return uploads.filter(u => u.uploaded_at.startsWith(ym));
-  }, [uploadBatch?.uploads, uploadBatch?.selectedYM]);
+  const isLoadingBatch = hasBatch && uploadBatch!.availableYMs.length === 0;
 
   // 최초 진입 시 최신 년월 자동 초기화
   useEffect(() => {
-    const uploads = uploadBatch?.uploads;
-    if (!uploads || uploads.length === 0) return;
-    if (!uploadBatch!.selectedYM) uploadBatch!.onYMChange(uploads[0].uploaded_at.slice(0, 7));
-  }, [uploadBatch?.uploads, uploadBatch?.selectedYM]);
-
-  // 엑셀기준 모드에서 년월 변경 시 최신 업로드 자동 선택
-  const firstFilteredUploadId = filteredUploads[0]?.id ?? '';
-  useEffect(() => {
-    if (viewMode !== 'batch') return;
-    if (!uploadBatch || !firstFilteredUploadId) return;
-    uploadBatch.onChange(firstFilteredUploadId);
-  }, [firstFilteredUploadId, viewMode]);
+    const yms = uploadBatch?.availableYMs;
+    if (!yms || yms.length === 0) return;
+    if (!uploadBatch!.selectedYM) uploadBatch!.onYMChange(yms[0]);
+  }, [uploadBatch?.availableYMs, uploadBatch?.selectedYM, uploadBatch?.onYMChange]);
 
   const handleViewModeChange = (mode: 'batch' | 'date') => {
-    setViewMode(mode);
-    if (mode === 'date' && uploadBatch) {
-      uploadBatch.onChange(''); // 배치 해제 → uploadBatchActive = false
-    }
-    // 'batch'로 전환 시: 위 useEffect가 자동 선택
+    onViewModeChange?.(mode);
   };
 
   return (
     <div className="w-full border border-gray-200 bg-white px-4 py-2.5 shadow-sm">
       <div className="flex w-full items-center gap-2">
 
-        {/* 엑셀기준 / 기간선택 토글 */}
+        {/* 월별 / 기간선택 토글 */}
         {hasBatch && (
           <div className="flex h-9 rounded border border-gray-200 overflow-hidden shrink-0">
             <button
@@ -122,7 +98,7 @@ export function IncidentFilters({
               onClick={() => handleViewModeChange('batch')}
               className={`px-3 text-xs font-semibold transition-colors ${viewMode === 'batch' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
             >
-              엑셀기준
+              월별
             </button>
             <button
               type="button"
@@ -134,7 +110,7 @@ export function IncidentFilters({
           </div>
         )}
 
-        {/* 엑셀기준 모드: 년월 + 업로드 선택 */}
+        {/* 월별 모드: 년월 선택 */}
         {viewMode === 'batch' && hasBatch && (
           <>
             <select
@@ -145,25 +121,15 @@ export function IncidentFilters({
             >
               {isLoadingBatch
                 ? <option value="">로딩 중...</option>
-                : availableYMs.map(ym => (
-                    <option key={ym} value={ym}>{`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7))}월`}</option>
-                  ))
+                : <>
+                    {!uploadBatch!.selectedYM && <option value="" disabled>년월 선택</option>}
+                    {uploadBatch!.availableYMs.map((ym) => (
+                      <option key={ym} value={ym}>{`${ym.slice(0, 4)}년 ${parseInt(ym.slice(5, 7), 10)}월`}</option>
+                    ))}
+                  </>
               }
             </select>
-            <select
-              value={uploadBatch!.selectedId}
-              onChange={(e) => uploadBatch!.onChange(e.target.value)}
-              disabled={isLoadingBatch}
-              className="h-9 border border-gray-200 bg-white px-3 text-sm font-medium text-gray-800 outline-none focus:ring-2 focus:ring-indigo-400 rounded shrink-0 min-w-[190px] disabled:opacity-50"
-            >
-              {isLoadingBatch
-                ? <option value="">로딩 중...</option>
-                : filteredUploads.map((u) => (
-                    <option key={u.id} value={u.id}>{u.uploaded_at.slice(5, 10)} — {u.file_name} ({u.success_count}건)</option>
-                  ))
-              }
-            </select>
-            {!isLoadingBatch && uploadBatch!.selectedId && (
+            {!isLoadingBatch && uploadBatch!.selectedYM && (
               <span className="text-xs text-indigo-500 shrink-0">
                 신규 <strong>{uploadBatch!.newCount}</strong>건 · 이전 <strong>{uploadBatch!.repeatedCount}</strong>건
               </span>

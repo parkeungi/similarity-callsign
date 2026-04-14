@@ -74,13 +74,31 @@ export default function AirlinePage() {
   const incidentsDateFilter = useDateRangeFilter({ defaultRange: '1m' });
   const statsDateFilter = useDateRangeFilter({ defaultRange: '1m' });
 
-  // 업로드 배치 선택 상태
-  const [selectedFileUploadId, setSelectedFileUploadId] = useState<string>('');
+  // 월별 조회 선택 상태
   const [selectedYM, setSelectedYM] = useState<string>('');
+
+  // 조회 모드 (월별/기간선택) - 탭 전환 후 복귀 시 유지
+  const [viewMode, setViewMode] = useState<'batch' | 'date'>('batch');
+
+  const handleViewModeChange = (mode: 'batch' | 'date') => {
+    setViewMode(mode);
+    if (mode === 'date') setSelectedYM(''); // 기간선택 전환 시 YM 클리어
+  };
 
   // 업로드 목록 조회 (완료된 것만, 년월 필터용으로 전체 로드)
   const fileUploadsQuery = useFileUploads({ status: 'completed', limit: 200 });
 
+  // 발생현황 탭 월별 드롭다운용 년월 목록 파생
+  const availableYMs = useMemo(() => {
+    const uploads = fileUploadsQuery.data?.data ?? [];
+    return [...new Set(uploads.map((u) => u.uploaded_at.slice(0, 7)))]
+      .sort((a, b) => b.localeCompare(a));
+  }, [fileUploadsQuery.data]);
+
+  // 업로드가 없고 로딩도 아닌 경우 uploadBatch를 undefined로 전달 (토글 숨김)
+  const uploadBatchProp = (!fileUploadsQuery.isLoading && availableYMs.length === 0)
+    ? undefined
+    : { availableYMs, selectedYM, onYMChange: setSelectedYM };
 
   // 초기 로드 - authStore에서 사용자 정보 사용
   useEffect(() => {
@@ -116,7 +134,6 @@ export default function AirlinePage() {
     airlineId,
     status: actionStatusFilter === 'all' ? undefined : actionStatusFilter,
     search: actionSearch || undefined,
-    fileUploadId: selectedFileUploadId || undefined,
     page: actionPage,
     limit: actionLimit,
   }, {
@@ -129,15 +146,14 @@ export default function AirlinePage() {
   const { data: callsignsData, isLoading: callsignsLoading } = useAirlineCallsigns(airlineId, {
     limit: 1000,
     fileUploadYM: selectedYM || undefined,
-    fileUploadId: selectedFileUploadId || undefined,
   }, {
     enabled: activeTab === 'occurrence' || activeTab === 'action-history' || activeTab === 'statistics'
   });
 
   const { data: actionStats, isLoading: actionStatsLoading } = useAirlineActionStats(airlineId, {
-    fileUploadId: selectedFileUploadId || undefined,
-    dateFrom: selectedFileUploadId ? undefined : statsDateFilter.startDate,
-    dateTo: selectedFileUploadId ? undefined : statsDateFilter.endDate,
+    fileUploadYM: selectedYM || undefined,
+    dateFrom: selectedYM ? undefined : statsDateFilter.startDate,
+    dateTo: selectedYM ? undefined : statsDateFilter.endDate,
   }, {
     enabled: activeTab === 'statistics'
   });
@@ -212,7 +228,7 @@ export default function AirlinePage() {
       // 재검출 (조치완료 후 재발생)
       reDetected: cs.re_detected ?? cs.reDetected ?? false,
       reDetectedAcknowledged: cs.re_detected_acknowledged ?? cs.reDetectedAcknowledged ?? false,
-      // 이전 업로드에도 있던 건
+      // 이전 달에도 있던 건
       isRepeated: (cs as any).is_repeated ?? false,
     }));
   }, [callsignsData]);
@@ -406,16 +422,14 @@ export default function AirlinePage() {
                 }}
                 onOpenActionModal={handleOpenActionModal}
                 onAcknowledge={handleAcknowledge}
-                uploadBatchActive={!!selectedFileUploadId}
-                uploadBatch={{
-                  uploads: fileUploadsQuery.data?.data ?? [],
-                  selectedId: selectedFileUploadId,
-                  onChange: setSelectedFileUploadId,
-                  selectedYM,
-                  onYMChange: setSelectedYM,
+                uploadBatchActive={!!selectedYM}
+                viewMode={viewMode}
+                onViewModeChange={handleViewModeChange}
+                uploadBatch={uploadBatchProp ? {
+                  ...uploadBatchProp,
                   repeatedCount: incidents.filter(i => i.isRepeated).length,
                   newCount: incidents.filter(i => !i.isRepeated).length,
-                }}
+                } : undefined}
               />
             )}
 
@@ -431,11 +445,11 @@ export default function AirlinePage() {
                 onStartDateChange={incidentsDateFilter.handleStartDateChange}
                 onEndDateChange={incidentsDateFilter.handleEndDateChange}
                 onApplyQuickRange={incidentsDateFilter.applyQuickRange}
-                uploadBatchActive={!!selectedFileUploadId}
-                uploadBatch={fileUploadsQuery.data?.data?.length ? {
-                  uploads: fileUploadsQuery.data.data,
-                  selectedId: selectedFileUploadId,
-                  onChange: setSelectedFileUploadId,
+                uploadBatchActive={!!selectedYM}
+                viewMode={viewMode}
+                onViewModeChange={handleViewModeChange}
+                uploadBatch={uploadBatchProp ? {
+                  ...uploadBatchProp,
                   repeatedCount: (callsignsData?.data || []).filter((c: any) => c.is_repeated).length,
                   newCount: (callsignsData?.data || []).filter((c: any) => !c.is_repeated).length,
                 } : undefined}
@@ -455,12 +469,10 @@ export default function AirlinePage() {
                 incidents={incidents}
                 airlineId={airlineId}
                 airlineCode={airlineCode}
-                uploadBatchActive={!!selectedFileUploadId}
-                uploadBatch={fileUploadsQuery.data?.data?.length ? {
-                  uploads: fileUploadsQuery.data.data,
-                  selectedId: selectedFileUploadId,
-                  onChange: setSelectedFileUploadId,
-                } : undefined}
+                uploadBatchActive={!!selectedYM}
+                viewMode={viewMode}
+                onViewModeChange={handleViewModeChange}
+                uploadBatch={uploadBatchProp}
               />
             )}
 
