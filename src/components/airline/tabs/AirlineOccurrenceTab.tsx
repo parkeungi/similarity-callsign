@@ -212,7 +212,7 @@ export function AirlineOccurrenceTab({
   }, [allFilteredIncidents, incidentsPage, incidentsLimit]);
 
   // 발생이력 컨테이너 overflow 감지 + 2줄 내 visible 배지 수 측정
-  useEffect(() => {
+  const measureOverflow = useCallback(() => {
     const newOverflow: Record<string, boolean> = {};
     const newVisible: Record<string, number> = {};
     for (const [id, el] of Object.entries(occurrenceRefs.current)) {
@@ -228,7 +228,19 @@ export function AirlineOccurrenceTab({
     }
     setOverflowMap(newOverflow);
     setVisibleCountMap(newVisible);
-  }, [pagedIncidents]);
+  }, []);
+
+  // 페이지 변경 시: expanded 초기화 + overflow 재측정
+  useEffect(() => {
+    setExpandedOccurrences(new Set());
+    measureOverflow();
+  }, [pagedIncidents, measureOverflow]);
+
+  // 창 리사이즈 시 overflow 재측정
+  useEffect(() => {
+    window.addEventListener('resize', measureOverflow);
+    return () => window.removeEventListener('resize', measureOverflow);
+  }, [measureOverflow]);
 
   const getRiskBadgeColor = (risk: string): string => {
     switch (risk) {
@@ -618,7 +630,7 @@ export function AirlineOccurrenceTab({
                     <div>
                       <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">발생 이력 (전체 검출, 시간순)</div>
                       <div
-                        ref={(el) => { occurrenceRefs.current[incident.id] = el; }}
+                        ref={(el) => { if (el) occurrenceRefs.current[incident.id] = el; else delete occurrenceRefs.current[incident.id]; }}
                         className={`flex flex-wrap gap-1.5 overflow-hidden transition-all duration-200 ${isExpanded ? '' : 'max-h-[54px]'}`}
                       >
                         {sorted.map((occurrence, i) => {
