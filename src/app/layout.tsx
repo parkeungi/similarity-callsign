@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   icons: {
     icon: '/taegeuk.svg',
   },
+  other: {
+    'naver-site-verification': '40bd692f4a6bac134a19e87cc9eea7fd8f5e5d19',
+  },
 };
 
 export default function RootLayout({
